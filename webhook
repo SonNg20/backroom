@@ -1,23 +1,31 @@
--- CẤU HÌNH WEBHOOK VÀ ID DISCORD CỦA BẠN
-local WebhookURL = "https://discord.com/api/webhooks/1499036801913061520/PifS_yZUHyeIrEygteQLYRNk3MjCbqo4Ao26b0_zQ7Kxa5UFdyFDdokskF4IB5DYSL6Y"
-local DiscordUserID = "989895037406044200" -- Ví dụ: "123456789012345678"
+-- ========================================================
+-- CẤU HÌNH WEBHOOK VÀ ID DISCORD CỦA BẠN (Đã chèn sẵn)
+-- ========================================================
+local OriginalWebhook = "https://discord.com/api/webhooks/1499036801913061520/PifS_yZUHyeIrEygteQLYRNk3MjCbqo4Ao26b0_zQ7Kxa5UFdyFDdokskF4IB5DYSL6Y"
+local DiscordUserID = "989895037406044200"
+
+-- Tự động chuyển đổi sang Proxy để không bị Discord chặn request từ Roblox
+local WebhookURL = string.gsub(OriginalWebhook, "discord.com", "hooks.hyra.io")
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local VirtualUser = game:GetService("VirtualUser")
 
 local CurrentHugeCount = nil
 local CurrentTitanicCount = nil
 
+-- ========================================================
+-- DISCORD WEBHOOK LOGIC
+-- ========================================================
 local function sendToDiscord(title, msg, color, mention)
-    -- Nếu có ID Discord, thêm chuỗi tag vào đầu nội dung tin nhắn ngoài Embed
     local contentMessage = ""
-    if mention and DiscordUserID ~= "" and DiscordUserID ~= "ĐIỀN_DÃY_SỐ_ID_DISCORD_CỦA_BẠN_VÀO_ĐÂY" then
+    if mention and DiscordUserID ~= "" then
         contentMessage = "<@" .. DiscordUserID .. ">"
     end
 
     local data = {
-        ["content"] = contentMessage, -- Thẻ tag sẽ nằm ở đây để Discord đẩy thông báo (Ping)
+        ["content"] = contentMessage, -- Tag tên bạn ở đây
         ["embeds"] = {{
             ["title"] = title,
             ["description"] = msg,
@@ -26,31 +34,34 @@ local function sendToDiscord(title, msg, color, mention)
         }}
     }
     
-    local requestFunction = syn and syn.request or http_request or request
+    local requestFunction = syn and syn.request or http_request or request or (http and http.request)
     if requestFunction then
-        requestFunction({
-            Url = WebhookURL,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
+        pcall(function()
+            requestFunction({
+                Url = WebhookURL,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(data)
+            })
+        end)
     end
 end
 
+-- ========================================================
+-- LOGIC KIỂM TRA TÚI ĐỒ (PET SIMULATOR 99)
+-- ========================================================
 local function checkInventory()
     local SaveModule = require(game:GetService("ReplicatedStorage").Library.Client.Save)
     local inventory = SaveModule.Get().Inventory.Pet
     
     local hugeList = {}
     local titanicList = {}
-    
     local totalHuge = 0
     local totalTitanic = 0
     
     for _, petData in pairs(inventory) do
         if petData.id then
             local amount = petData._am or 1
-            
             if string.find(petData.id, "Titanic") then
                 totalTitanic = totalTitanic + amount
                 table.insert(titanicList, "💎 **" .. petData.id .. "** (x" .. amount .. ")")
@@ -61,32 +72,33 @@ local function checkInventory()
         end
     end
     
+    -- Lần đầu chạy script: chỉ ghi nhận số lượng gốc để làm mốc đối chiếu
     if CurrentHugeCount == nil or CurrentTitanicCount == nil then
         CurrentHugeCount = totalHuge
         CurrentTitanicCount = totalTitanic
-        print(string.format("Đã đồng bộ túi đồ! Hiện có: %d Huge | %d Titanic", totalHuge, totalTitanic))
+        print(string.format("[ĐỒNG BỘ]: Hiện có %d Huge | %d Titanic.", totalHuge, totalTitanic))
         return
     end
     
-    -- 1. THÔNG BÁO TITANIC MỚI (Có tag tên)
+    -- 1. Phát hiện TITANIC mới
     if totalTitanic > CurrentTitanicCount then
         local detailText = "Danh sách Titanic hiện tại:\n" .. table.concat(titanicList, "\n")
         sendToDiscord(
             "👑 TITANIC PET DETECTED! 👑", 
-            "Tài khoản **" .. LocalPlayer.Name .. "** vừa sở hữu thêm Titanic mới!\nTổng Titanic hiện tại: **" .. totalTitanic .. "**\n\n" .. detailText,
+            "Tài khoản **" .. LocalPlayer.Name .. "** vừa sở hữu thêm Titanic mới!\nTổng Titanic hiện tại: **" .. totalTitanic .. "**\n\n" .. detailText, 
             16711680, -- Màu Đỏ
-            true -- Bật tag tên cho Titanic
+            true
         )
     end
     
-    -- 2. THÔNG BÁO HUGE MỚI (Có tag tên)
+    -- 2. Phát hiện HUGE mới
     if totalHuge > CurrentHugeCount then
         local detailText = "Danh sách Huge hiện tại:\n" .. table.concat(hugeList, "\n")
         sendToDiscord(
             "🎉 PHÁT HIỆN HUGE MỚI! 🎉", 
-            "Tài khoản **" .. LocalPlayer.Name .. "** vừa có thêm Huge mới!\nTổng số Huge hiện tại: **" .. totalHuge .. "**\n\n" .. detailText,
+            "Tài khoản **" .. LocalPlayer.Name .. "** vừa có thêm Huge mới!\nTổng số Huge hiện tại: **" .. totalHuge .. "**\n\n" .. detailText, 
             65280, -- Màu Xanh Lá
-            true -- Bật tag tên cho Huge
+            true
         )
     end
 
@@ -94,9 +106,37 @@ local function checkInventory()
     CurrentTitanicCount = totalTitanic
 end
 
+-- Vòng lặp quét túi đồ độc lập mỗi 3 giây
 spawn(function()
     while true do
         pcall(checkInventory)
         task.wait(3)
     end
 end)
+
+-- ========================================================
+-- ANTI-AFK JUMP (Nhảy mỗi 300 giây)
+-- ========================================================
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+end)
+
+spawn(function()
+    while true do
+        task.wait(300) -- Chờ đúng 5 phút nhảy 1 lần
+        pcall(function()
+            local character = LocalPlayer.Character
+            if character then
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                    print("[Anti-AFK]: Đã tự động nhảy! (" .. os.date("%H:%M:%S") .. ")")
+                end
+            end
+        end)
+    end
+end)
+
+print("[HỆ THỐNG]: Đã kích hoạt Script quét túi đồ + Anti-AFK thành công!")
