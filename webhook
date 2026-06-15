@@ -113,30 +113,3 @@ spawn(function()
         task.wait(3)
     end
 end)
-
--- ========================================================
--- ANTI-AFK JUMP (Nhảy mỗi 300 giây)
--- ========================================================
-LocalPlayer.Idled:Connect(function()
-    VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-    task.wait(1)
-    VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-end)
-
-spawn(function()
-    while true do
-        task.wait(300) -- Chờ đúng 5 phút nhảy 1 lần
-        pcall(function()
-            local character = LocalPlayer.Character
-            if character then
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if humanoid and humanoid.Health > 0 then
-                    humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                    print("[Anti-AFK]: Đã tự động nhảy! (" .. os.date("%H:%M:%S") .. ")")
-                end
-            end
-        end)
-    end
-end)
-
-print("[HỆ THỐNG]: Đã kích hoạt Script quét túi đồ + Anti-AFK thành công!")
