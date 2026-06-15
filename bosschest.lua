@@ -406,7 +406,7 @@ task.spawn(function()
                             pcall(function()
                                 hrp.CFrame = CFrame.new(spot + Vector3.new(0, 5, 0))
                             end)
-                            task.wait(10)
+                            task.wait(11)
                         end
                     end
                     lastCornerCheck = tick()
