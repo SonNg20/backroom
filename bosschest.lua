@@ -393,7 +393,7 @@ task.spawn(function()
                     label.Text = "Da pha! Cho hoi..."
                     break
                 end
-                if tick() - startTime > 300 then
+                if tick() - startTime > 3000 then
                     label.Text = "Qua lau, thu lai..."
                     break
                 end
