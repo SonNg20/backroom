@@ -20,8 +20,7 @@ if target then
 else
     warn("Không tìm thấy SideJoinEventTarget")
 end
-wait(48)
-
+wait(30)
 local container = workspace.__THINGS.__INSTANCE_CONTAINER.Active.Backrooms.GeneratedBackrooms
 local spawnRoom = container:FindFirstChild("SpawnRoom")
 local player = game:GetService("Players").LocalPlayer
@@ -121,12 +120,12 @@ end
 local autoClickEnabled = true
 
 local toggleBtn = Instance.new("TextButton", sg)
-toggleBtn.Size = UDim2.new(0, 130, 0, 40)
-toggleBtn.Position = UDim2.new(0, 10, 0, 95)
+toggleBtn.Size = UDim2.new(0, 100, 0, 28)
+toggleBtn.Position = UDim2.new(0, 10, 0, 50)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(0,180,80)
 toggleBtn.TextColor3 = Color3.new(1,1,1)
 toggleBtn.Font = Enum.Font.GothamBold
-toggleBtn.TextSize = 14
+toggleBtn.TextSize = 11
 toggleBtn.Text = "AUTO CLICK: ON"
 Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 8)
 
@@ -147,12 +146,12 @@ end)
 local farmEnabled = true
 
 local farmToggleBtn = Instance.new("TextButton", sg)
-farmToggleBtn.Size = UDim2.new(0, 130, 0, 40)
-farmToggleBtn.Position = UDim2.new(0, 150, 0, 95)
+farmToggleBtn.Size = UDim2.new(0, 100, 0, 28)
+farmToggleBtn.Position = UDim2.new(0, 120, 0, 50)
 farmToggleBtn.BackgroundColor3 = Color3.fromRGB(0,180,80)
 farmToggleBtn.TextColor3 = Color3.new(1,1,1)
 farmToggleBtn.Font = Enum.Font.GothamBold
-farmToggleBtn.TextSize = 12
+farmToggleBtn.TextSize = 11
 farmToggleBtn.Text = "FARM: ON"
 Instance.new("UICorner", farmToggleBtn).CornerRadius = UDim.new(0, 8)
 
@@ -324,9 +323,11 @@ task.spawn(function()
     task.wait(2)
 
     -- ============================
-    -- BUOC 2: FARM LOOP
+    -- BUOC 2: FARM LOOP (1 phong duy nhat)
     -- ============================
-    local idx = 1
+    local entry = bossRooms[1]
+    local room = entry.room
+
     while true do
         if not farmEnabled then
             label.Text = "FARM DA TAT\n(Bam FARM: ON de tiep tuc)"
@@ -334,18 +335,15 @@ task.spawn(function()
             continue
         end
 
-        local entry = bossRooms[idx]
-        local room = entry.room
         local onCooldown, bz = isChestOnCooldown(room)
 
         if onCooldown then
-            -- chest dang hoi -> qua room ke tiep
-            label.Text = string.format("Room %d/%d: DANG HOI -> chuyen tiep", idx, #bossRooms)
-            idx = idx % #bossRooms + 1
+            -- chest dang hoi -> doi
+            label.Text = "DANG HOI... cho cooldown"
             task.wait(0.5)
         else
             -- chest san sang -> tele toi va danh
-            label.Text = string.format("Room %d/%d: TELE va DANH chest", idx, #bossRooms)
+            label.Text = "TELE va DANH chest"
             for i = 1, 3 do
                 hrp.CFrame = CFrame.new(entry.pos + Vector3.new(0, 5, 0))
                 task.wait(1)
@@ -359,7 +357,7 @@ task.spawn(function()
             -- PHASE MO KHOA (neu room dang bi khoa)
             -- ============================
             if isLocked(room) then
-                label.Text = string.format("Room %d/%d: DANG MO KHOA...", idx, #bossRooms)
+                label.Text = "DANG MO KHOA..."
                 local unlockStart = tick()
                 while isLocked(room) do
                     if not farmEnabled then
@@ -370,7 +368,7 @@ task.spawn(function()
                     unlockRoom(room)
                     task.wait(1)
                     if tick() - unlockStart > 30 then
-                        label.Text = string.format("Room %d/%d: Mo khoa qua lau, bo qua", idx, #bossRooms)
+                        label.Text = "Mo khoa qua lau, bo qua"
                         break
                     end
                 end
@@ -392,23 +390,23 @@ task.spawn(function()
 
                 local cooldown, _ = isChestOnCooldown(room)
                 if cooldown then
-                    label.Text = string.format("Room %d/%d: Da pha! Chuyen room...", idx, #bossRooms)
+                    label.Text = "Da pha! Cho hoi..."
                     break
                 end
                 if tick() - startTime > 300 then
-                    label.Text = string.format("Room %d/%d: Qua lau, bo qua", idx, #bossRooms)
+                    label.Text = "Qua lau, thu lai..."
                     break
                 end
 
                 if tick() - lastCornerCheck >= 12 then
                     -- Ghe qua 4 goc de vot mini chest
-                    label.Text = string.format("Room %d/%d: Kiem tra mini chest...", idx, #bossRooms)
+                    label.Text = "Kiem tra mini chest..."
                     for _, spot in ipairs(miniSpots) do
                         if spot then
                             pcall(function()
                                 hrp.CFrame = CFrame.new(spot + Vector3.new(0, 5, 0))
                             end)
-                            task.wait()
+                            task.wait(4)
                         end
                     end
                     lastCornerCheck = tick()
@@ -419,12 +417,11 @@ task.spawn(function()
                             hrp.CFrame = CFrame.new(center + Vector3.new(0, 5, 0))
                         end)
                     end
-                    label.Text = string.format("Room %d/%d: Dang danh boss", idx, #bossRooms)
+                    label.Text = "Dang danh boss"
                     task.wait(1)
                 end
             end
 
-            idx = idx % #bossRooms + 1
             task.wait(0.5)
         end
     end
