@@ -1,0 +1,102 @@
+-- CẤU HÌNH WEBHOOK VÀ ID DISCORD CỦA BẠN
+local WebhookURL = "https://discord.com/api/webhooks/1499036801913061520/PifS_yZUHyeIrEygteQLYRNk3MjCbqo4Ao26b0_zQ7Kxa5UFdyFDdokskF4IB5DYSL6Y"
+local DiscordUserID = "989895037406044200" -- Ví dụ: "123456789012345678"
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local CurrentHugeCount = nil
+local CurrentTitanicCount = nil
+
+local function sendToDiscord(title, msg, color, mention)
+    -- Nếu có ID Discord, thêm chuỗi tag vào đầu nội dung tin nhắn ngoài Embed
+    local contentMessage = ""
+    if mention and DiscordUserID ~= "" and DiscordUserID ~= "ĐIỀN_DÃY_SỐ_ID_DISCORD_CỦA_BẠN_VÀO_ĐÂY" then
+        contentMessage = "<@" .. DiscordUserID .. ">"
+    end
+
+    local data = {
+        ["content"] = contentMessage, -- Thẻ tag sẽ nằm ở đây để Discord đẩy thông báo (Ping)
+        ["embeds"] = {{
+            ["title"] = title,
+            ["description"] = msg,
+            ["color"] = color,
+            ["timestamp"] = os.date("!Y-%m-%dT%H:%M:%SZ")
+        }}
+    }
+    
+    local requestFunction = syn and syn.request or http_request or request
+    if requestFunction then
+        requestFunction({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+    end
+end
+
+local function checkInventory()
+    local SaveModule = require(game:GetService("ReplicatedStorage").Library.Client.Save)
+    local inventory = SaveModule.Get().Inventory.Pet
+    
+    local hugeList = {}
+    local titanicList = {}
+    
+    local totalHuge = 0
+    local totalTitanic = 0
+    
+    for _, petData in pairs(inventory) do
+        if petData.id then
+            local amount = petData._am or 1
+            
+            if string.find(petData.id, "Titanic") then
+                totalTitanic = totalTitanic + amount
+                table.insert(titanicList, "💎 **" .. petData.id .. "** (x" .. amount .. ")")
+            elseif string.find(petData.id, "Huge") then
+                totalHuge = totalHuge + amount
+                table.insert(hugeList, "🔥 " .. petData.id .. " (x" .. amount .. ")")
+            end
+        end
+    end
+    
+    if CurrentHugeCount == nil or CurrentTitanicCount == nil then
+        CurrentHugeCount = totalHuge
+        CurrentTitanicCount = totalTitanic
+        print(string.format("Đã đồng bộ túi đồ! Hiện có: %d Huge | %d Titanic", totalHuge, totalTitanic))
+        return
+    end
+    
+    -- 1. THÔNG BÁO TITANIC MỚI (Có tag tên)
+    if totalTitanic > CurrentTitanicCount then
+        local detailText = "Danh sách Titanic hiện tại:\n" .. table.concat(titanicList, "\n")
+        sendToDiscord(
+            "👑 TITANIC PET DETECTED! 👑", 
+            "Tài khoản **" .. LocalPlayer.Name .. "** vừa sở hữu thêm Titanic mới!\nTổng Titanic hiện tại: **" .. totalTitanic .. "**\n\n" .. detailText,
+            16711680, -- Màu Đỏ
+            true -- Bật tag tên cho Titanic
+        )
+    end
+    
+    -- 2. THÔNG BÁO HUGE MỚI (Có tag tên)
+    if totalHuge > CurrentHugeCount then
+        local detailText = "Danh sách Huge hiện tại:\n" .. table.concat(hugeList, "\n")
+        sendToDiscord(
+            "🎉 PHÁT HIỆN HUGE MỚI! 🎉", 
+            "Tài khoản **" .. LocalPlayer.Name .. "** vừa có thêm Huge mới!\nTổng số Huge hiện tại: **" .. totalHuge .. "**\n\n" .. detailText,
+            65280, -- Màu Xanh Lá
+            true -- Bật tag tên cho Huge
+        )
+    end
+
+    CurrentHugeCount = totalHuge
+    CurrentTitanicCount = totalTitanic
+end
+
+spawn(function()
+    while true do
+        pcall(checkInventory)
+        task.wait(3)
+    end
+end)
