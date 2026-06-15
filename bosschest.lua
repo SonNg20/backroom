@@ -168,7 +168,7 @@ task.spawn(function()
             vim:SendMouseButtonEvent(x, y, 0, true, game, 0)
             vim:SendMouseButtonEvent(x, y, 0, false, game, 0)
         end
-        task.wait(0.1)
+        task.wait(1.67)
     end
 end)
 
@@ -384,7 +384,7 @@ task.spawn(function()
                             pcall(function()
                                 hrp.CFrame = CFrame.new(spot + Vector3.new(0, 5, 0))
                             end)
-                            task.wait(1.5)
+                            task.wait()
                         end
                     end
                     lastCornerCheck = tick()
