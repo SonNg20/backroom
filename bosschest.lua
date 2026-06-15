@@ -1,3 +1,27 @@
+repeat task.wait() until game:IsLoaded()
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local InstancingCmds = require(
+    ReplicatedStorage.Library.Client.InstancingCmds
+)
+
+local FFlags = require(
+    ReplicatedStorage.Library.Client.FFlags
+)
+
+repeat task.wait() until ReplicatedStorage:FindFirstChild("Library")
+
+local target = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
+
+if target then
+    print("Joining:", target)
+    InstancingCmds.Enter(target, nil, true, "You are joining the minigame!")
+else
+    warn("Không tìm thấy SideJoinEventTarget")
+end
+wait(12)
+
 local container = workspace.__THINGS.__INSTANCE_CONTAINER.Active.Backrooms.GeneratedBackrooms
 local spawnRoom = container:FindFirstChild("SpawnRoom")
 local player = game:GetService("Players").LocalPlayer
