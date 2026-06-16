@@ -350,7 +350,7 @@ local function getCorners(room, bz, fallbackPos)
     return positions
 end
 local bossRooms = {} -- list cac room { room = Model, pos = Vector3 }
-local TARGET_ROOMS = 2 -- so phong can tim truoc khi dung quet
+local TARGET_ROOMS = 1 -- so phong can tim truoc khi dung quet
 
 task.spawn(function()
     local totalPoints = 0
