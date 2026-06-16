@@ -35,7 +35,7 @@ local originPos = origin.Position
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
-local STEP = 250
+local STEP = 400
 -- Pham vi quet tuyet doi (da xac dinh qua nhieu server, SpawnRoom luon o X-4747 Z-1707)
 local MIN_X, MAX_X = -6000, -2500
 local MIN_Z, MAX_Z = -2500, 800
