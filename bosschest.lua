@@ -35,10 +35,12 @@ local originPos = origin.Position
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
-local STEP = 250
-local MAX_X = 3000
-local MAX_Z = 3000
-local WAIT_TIME = 0.4
+local STEP = 500
+-- Pham vi quet tuyet doi (da xac dinh qua nhieu server, SpawnRoom luon o X-4747 Z-1707)
+local MIN_X, MAX_X = -6000, -2500
+local MIN_Z, MAX_Z = -2500, 800
+local SCAN_Y = originPos.Y -- giu cung do cao voi SpawnRoom
+local WAIT_TIME = 0.8
 
 -- ============================
 -- GUI
@@ -112,6 +114,7 @@ local function addResult(name, pos)
         end)
     end)
     resultFrame.CanvasSize = UDim2.new(0, 0, 0, resultLayout.AbsoluteContentSize.Y + 10)
+    return btn
 end
 
 -- ============================
@@ -256,25 +259,29 @@ local function getCorners(room, bz, fallbackPos)
     return positions
 end
 local bossRooms = {} -- list cac room { room = Model, pos = Vector3 }
+local TARGET_ROOMS = 2 -- so phong can tim truoc khi dung quet
 
 task.spawn(function()
     local totalPoints = 0
-    for x = 0, MAX_X, STEP do
-        for z = 0, MAX_Z, STEP do
+    for x = MIN_X, MAX_X, STEP do
+        for z = MIN_Z, MAX_Z, STEP do
             totalPoints = totalPoints + 1
         end
     end
 
     local count = 0
-    for x = 0, MAX_X, STEP do
-        for z = 0, MAX_Z, STEP do
+    local scanDone = false
+    for x = MIN_X, MAX_X, STEP do
+        if scanDone then break end
+        for z = MIN_Z, MAX_Z, STEP do
+            if scanDone then break end
             count = count + 1
-            local pos = originPos + Vector3.new(x, 0, z)
+            local pos = Vector3.new(x, SCAN_Y, z)
             hrp.CFrame = CFrame.new(pos + Vector3.new(0, 50, 0))
             task.wait(WAIT_TIME)
 
-            label.Text = string.format("Dang quet: %d / %d\nX: %.0f  Z: %.0f\nMiniBoss found: %d",
-                count, totalPoints, pos.X, pos.Z, #bossRooms)
+            label.Text = string.format("Dang quet: %d / %d\nX: %.0f  Z: %.0f\nMiniBoss found: %d/%d",
+                count, totalPoints, pos.X, pos.Z, #bossRooms, TARGET_ROOMS)
 
             for _, room in ipairs(container:GetChildren()) do
                 if room.Name:lower():find("boss") then
@@ -287,12 +294,16 @@ task.spawn(function()
                                 if r.room == room then already = true break end
                             end
                             if not already then
-                                table.insert(bossRooms, {room = room, pos = part.Position})
-                                addResult(room.Name, part.Position)
+                                local btn = addResult(room.Name, part.Position)
+                                table.insert(bossRooms, {room = room, pos = part.Position, btn = btn})
                             end
                         end
                     end
                 end
+            end
+
+            if #bossRooms >= TARGET_ROOMS then
+                scanDone = true
             end
         end
     end
@@ -323,10 +334,9 @@ task.spawn(function()
     task.wait(2)
 
     -- ============================
-    -- BUOC 2: FARM LOOP (1 phong duy nhat)
+    -- BUOC 2: FARM LOOP (xoay vong qua tat ca room tim duoc)
     -- ============================
-    local entry = bossRooms[1]
-    local room = entry.room
+    local idx = 1
 
     while true do
         if not farmEnabled then
@@ -335,15 +345,21 @@ task.spawn(function()
             continue
         end
 
+        local entry = bossRooms[idx]
+        local room = entry.room
         local onCooldown, bz = isChestOnCooldown(room)
 
         if onCooldown then
-            -- chest dang hoi -> doi
-            label.Text = "DANG HOI... cho cooldown"
+            -- chest dang hoi -> chuyen qua room ke tiep
+            label.Text = string.format("Room %d/%d: DANG HOI -> chuyen tiep", idx, #bossRooms)
+            idx = idx % #bossRooms + 1
             task.wait(0.5)
         else
             -- chest san sang -> tele toi va danh
-            label.Text = "TELE va DANH chest"
+            label.Text = string.format("Room %d/%d: TELE va DANH chest", idx, #bossRooms)
+            if entry.btn then
+                entry.btn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+            end
             for i = 1, 3 do
                 hrp.CFrame = CFrame.new(entry.pos + Vector3.new(0, 5, 0))
                 task.wait(1)
@@ -357,7 +373,7 @@ task.spawn(function()
             -- PHASE MO KHOA (neu room dang bi khoa)
             -- ============================
             if isLocked(room) then
-                label.Text = "DANG MO KHOA..."
+                label.Text = string.format("Room %d/%d: DANG MO KHOA...", idx, #bossRooms)
                 local unlockStart = tick()
                 while isLocked(room) do
                     if not farmEnabled then
@@ -368,17 +384,20 @@ task.spawn(function()
                     unlockRoom(room)
                     task.wait(1)
                     if tick() - unlockStart > 30 then
-                        label.Text = "Mo khoa qua lau, bo qua"
+                        label.Text = string.format("Room %d/%d: Mo khoa qua lau, bo qua", idx, #bossRooms)
                         break
                     end
                 end
             end
 
             -- Danh cho den khi ChestTimer bat dau hoi (boss bi danh bay)
+            -- KHONG CO TIMEOUT: chi chuyen room khi chest timer thuc su bat dau dem
+            -- Lay lai bz lan cuoi (dam bao dung room dang xu ly, tranh tele nham)
+            local _, bzFinal = isChestOnCooldown(room)
+            bz = bzFinal or bz
             local corners = getCorners(room, bz, entry.pos)
             local center = corners[1]
             local miniSpots = {corners[2], corners[3], corners[4], corners[5]}
-            local startTime = tick()
             local lastCornerCheck = tick()
 
             while true do
@@ -390,23 +409,22 @@ task.spawn(function()
 
                 local cooldown, _ = isChestOnCooldown(room)
                 if cooldown then
-                    label.Text = "Da pha! Cho hoi..."
-                    break
-                end
-                if tick() - startTime > 3000 then
-                    label.Text = "Qua lau, thu lai..."
+                    label.Text = string.format("Room %d/%d: Da pha! Chuyen room...", idx, #bossRooms)
+                    if entry.btn then
+                        entry.btn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+                    end
                     break
                 end
 
                 if tick() - lastCornerCheck >= 12 then
                     -- Ghe qua 4 goc de vot mini chest
-                    label.Text = "Kiem tra mini chest..."
+                    label.Text = string.format("Room %d/%d: Kiem tra mini chest...", idx, #bossRooms)
                     for _, spot in ipairs(miniSpots) do
                         if spot then
                             pcall(function()
                                 hrp.CFrame = CFrame.new(spot + Vector3.new(0, 5, 0))
                             end)
-                            task.wait(11)
+                            task.wait(8.5)
                         end
                     end
                     lastCornerCheck = tick()
@@ -417,11 +435,12 @@ task.spawn(function()
                             hrp.CFrame = CFrame.new(center + Vector3.new(0, 5, 0))
                         end)
                     end
-                    label.Text = "Dang danh boss"
+                    label.Text = string.format("Room %d/%d: Dang danh boss", idx, #bossRooms)
                     task.wait(1)
                 end
             end
 
+            idx = idx % #bossRooms + 1
             task.wait(0.5)
         end
     end
