@@ -26,6 +26,97 @@ local spawnRoom = container:FindFirstChild("SpawnRoom")
 local player = game:GetService("Players").LocalPlayer
 local vim = game:GetService("VirtualInputManager")
 local camera = workspace.CurrentCamera
+local HttpService = game:GetService("HttpService")
+
+-- ============================
+-- CAU HINH DISCORD WEBHOOK
+-- ============================
+local WebhookURL = "https://discord.com/api/webhooks/1499036801913061520/PifS_yZUHyeIrEygteQLYRNk3MjCbqo4Ao26b0_zQ7Kxa5UFdyFDdokskF4IB5DYSL6Y"
+local DiscordUserID = "989895037406044200"
+
+local function sendToDiscord(title, description, color, mention)
+    local content = ""
+    if mention and DiscordUserID ~= "" then
+        content = "<@" .. DiscordUserID .. ">"
+    end
+    local data = {
+        ["content"] = content,
+        ["embeds"] = {{
+            ["title"] = title,
+            ["description"] = description,
+            ["color"] = color,
+            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        }}
+    }
+    local requestFunction = syn and syn.request or http_request or request
+    if requestFunction then
+        pcall(function()
+            requestFunction({
+                Url = WebhookURL,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(data)
+            })
+        end)
+    end
+end
+
+-- ============================
+-- CHECK INVENTORY HUGE/TITANIC (chay nen, gui webhook khi co pet moi)
+-- ============================
+local previousPetCounts = {}
+local firstInventoryCheck = true
+
+local function checkInventoryForHugeTitanic()
+    local ok, SaveModule = pcall(function()
+        return require(game:GetService("ReplicatedStorage").Library.Client.Save)
+    end)
+    if not ok then return end
+    local ok2, data = pcall(function() return SaveModule.Get() end)
+    if not ok2 or not data or not data.Inventory or not data.Inventory.Pet then return end
+
+    local currentCounts = {}
+    for _, petData in pairs(data.Inventory.Pet) do
+        if petData.id then
+            local name = petData.id
+            local amount = petData._am or 1
+            currentCounts[name] = (currentCounts[name] or 0) + amount
+        end
+    end
+
+    if firstInventoryCheck then
+        previousPetCounts = currentCounts
+        firstInventoryCheck = false
+        return
+    end
+
+    for name, count in pairs(currentCounts) do
+        local isHuge = name:find("Huge") ~= nil
+        local isTitanic = name:find("Titanic") ~= nil
+        if isHuge or isTitanic then
+            local prevCount = previousPetCounts[name] or 0
+            if count > prevCount then
+                local gained = count - prevCount
+                local title = isTitanic and "TITANIC PET MOI!" or "HUGE PET MOI!"
+                local color = isTitanic and 16711680 or 65280
+                sendToDiscord(
+                    title,
+                    string.format("Tai khoan **%s** vua nhan duoc **%s** (x%d)!\nTong hien co: **%d**",
+                        player.Name, name, gained, count),
+                    color, true
+                )
+            end
+        end
+    end
+    previousPetCounts = currentCounts
+end
+
+task.spawn(function()
+    while true do
+        pcall(checkInventoryForHugeTitanic)
+        task.wait(3)
+    end
+end)
 
 if spawnRoom then
 local origin = spawnRoom:FindFirstChildWhichIsA("BasePart", true)
@@ -35,7 +126,7 @@ local originPos = origin.Position
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
-local STEP = 400
+local STEP = 500
 -- Pham vi quet tuyet doi (da xac dinh qua nhieu server, SpawnRoom luon o X-4747 Z-1707)
 local MIN_X, MAX_X = -6000, -2500
 local MIN_Z, MAX_Z = -2500, 800
@@ -194,7 +285,7 @@ task.spawn(function()
             vim:SendMouseButtonEvent(x, y, 0, true, game, 0)
             vim:SendMouseButtonEvent(x, y, 0, false, game, 0)
         end
-        task.wait(1.67)
+        task.wait(0.1)
     end
 end)
 
@@ -357,6 +448,7 @@ task.spawn(function()
         else
             -- chest san sang -> tele toi va danh
             label.Text = string.format("Room %d/%d: TELE va DANH chest", idx, #bossRooms)
+            local combatStartTime = tick()
             if entry.btn then
                 entry.btn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
             end
@@ -413,10 +505,19 @@ task.spawn(function()
                     if entry.btn then
                         entry.btn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
                     end
+                    local elapsed = math.floor(tick() - combatStartTime)
+                    local mins = math.floor(elapsed / 60)
+                    local secs = elapsed % 60
+                    sendToDiscord(
+                        "BOSS CHEST DA PHA!",
+                        string.format("Da danh xong Boss Room (%d/%d)\nThoi gian: **%dm %ds**",
+                            idx, #bossRooms, mins, secs),
+                        3447003, false
+                    )
                     break
                 end
 
-                if tick() - lastCornerCheck >= 12 then
+                if tick() - lastCornerCheck >= 15 then
                     -- Ghe qua 4 goc de vot mini chest
                     label.Text = string.format("Room %d/%d: Kiem tra mini chest...", idx, #bossRooms)
                     for _, spot in ipairs(miniSpots) do
@@ -424,7 +525,7 @@ task.spawn(function()
                             pcall(function()
                                 hrp.CFrame = CFrame.new(spot + Vector3.new(0, 5, 0))
                             end)
-                            task.wait(8.5)
+                            task.wait(10)
                         end
                     end
                     lastCornerCheck = tick()
