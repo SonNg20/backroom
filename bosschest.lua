@@ -20,7 +20,7 @@ if target then
 else
     warn("Không tìm thấy SideJoinEventTarget")
 end
-wait(30)
+wait(20)
 local container = workspace.__THINGS.__INSTANCE_CONTAINER.Active.Backrooms.GeneratedBackrooms
 local spawnRoom = container:FindFirstChild("SpawnRoom")
 local player = game:GetService("Players").LocalPlayer
