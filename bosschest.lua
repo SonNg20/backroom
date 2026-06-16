@@ -508,12 +508,6 @@ task.spawn(function()
                     local elapsed = math.floor(tick() - combatStartTime)
                     local mins = math.floor(elapsed / 60)
                     local secs = elapsed % 60
-                    sendToDiscord(
-                        "BOSS CHEST DA PHA!",
-                        string.format("Da danh xong Boss Room (%d/%d)\nThoi gian: **%dm %ds**",
-                            idx, #bossRooms, mins, secs),
-                        3447003, false
-                    )
                     break
                 end
 
