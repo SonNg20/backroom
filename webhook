@@ -1,40 +1,37 @@
--- ========================================================
--- CẤU HÌNH WEBHOOK VÀ ID DISCORD CỦA BẠN (Đã chèn sẵn)
--- ========================================================
-local OriginalWebhook = "https://discord.com/api/webhooks/1499036801913061520/PifS_yZUHyeIrEygteQLYRNk3MjCbqo4Ao26b0_zQ7Kxa5UFdyFDdokskF4IB5DYSL6Y"
+-- ============================
+-- CAU HINH
+-- ============================
+local WebhookURL = "https://discord.com/api/webhooks/1499036801913061520/PifS_yZUHyeIrEygteQLYRNk3MjCbqo4Ao26b0_zQ7Kxa5UFdyFDdokskF4IB5DYSL6Y"
 local DiscordUserID = "989895037406044200"
-
--- Tự động chuyển đổi sang Proxy để không bị Discord chặn request từ Roblox
-local WebhookURL = string.gsub(OriginalWebhook, "discord.com", "hooks.hyra.io")
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local VirtualUser = game:GetService("VirtualUser")
 
-local CurrentHugeCount = nil
-local CurrentTitanicCount = nil
+-- Luu so luong hien tai cua tung pet (key = id pet, value = so luong)
+local previousCounts = {}
+local firstRun = true
 
--- ========================================================
--- DISCORD WEBHOOK LOGIC
--- ========================================================
-local function sendToDiscord(title, msg, color, mention)
-    local contentMessage = ""
-    if mention and DiscordUserID ~= "" then
-        contentMessage = "<@" .. DiscordUserID .. ">"
+-- ============================
+-- HAM GUI DISCORD
+-- ============================
+local function sendToDiscord(title, description, color)
+    local content = ""
+    if DiscordUserID ~= "" then
+        content = "<@" .. DiscordUserID .. ">"
     end
 
     local data = {
-        ["content"] = contentMessage, -- Tag tên bạn ở đây
+        ["content"] = content,
         ["embeds"] = {{
             ["title"] = title,
-            ["description"] = msg,
+            ["description"] = description,
             ["color"] = color,
-            ["timestamp"] = os.date("!Y-%m-%dT%H:%M:%SZ")
+            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
         }}
     }
-    
-    local requestFunction = syn and syn.request or http_request or request or (http and http.request)
+
+    local requestFunction = syn and syn.request or http_request or request
     if requestFunction then
         pcall(function()
             requestFunction({
@@ -47,67 +44,65 @@ local function sendToDiscord(title, msg, color, mention)
     end
 end
 
--- ========================================================
--- LOGIC KIỂM TRA TÚI ĐỒ (PET SIMULATOR 99)
--- ========================================================
+-- ============================
+-- HAM CHECK INVENTORY
+-- ============================
 local function checkInventory()
-    local SaveModule = require(game:GetService("ReplicatedStorage").Library.Client.Save)
-    local inventory = SaveModule.Get().Inventory.Pet
-    
-    local hugeList = {}
-    local titanicList = {}
-    local totalHuge = 0
-    local totalTitanic = 0
-    
+    local ok, SaveModule = pcall(function()
+        return require(game:GetService("ReplicatedStorage").Library.Client.Save)
+    end)
+    if not ok then return end
+
+    local ok2, data = pcall(function() return SaveModule.Get() end)
+    if not ok2 or not data or not data.Inventory or not data.Inventory.Pet then return end
+
+    local inventory = data.Inventory.Pet
+
+    -- Tong hop so luong theo TEN pet (gop tat ca instance cung ten)
+    local currentCounts = {}
     for _, petData in pairs(inventory) do
         if petData.id then
+            local name = petData.id
             local amount = petData._am or 1
-            if string.find(petData.id, "Titanic") then
-                totalTitanic = totalTitanic + amount
-                table.insert(titanicList, "💎 **" .. petData.id .. "** (x" .. amount .. ")")
-            elseif string.find(petData.id, "Huge") then
-                totalHuge = totalHuge + amount
-                table.insert(hugeList, "🔥 " .. petData.id .. " (x" .. amount .. ")")
+            currentCounts[name] = (currentCounts[name] or 0) + amount
+        end
+    end
+
+    if firstRun then
+        previousCounts = currentCounts
+        firstRun = false
+        return
+    end
+
+    -- So sanh voi lan truoc, tim pet Huge/Titanic moi hoac tang so luong
+    for name, count in pairs(currentCounts) do
+        local isHuge = name:find("Huge") ~= nil
+        local isTitanic = name:find("Titanic") ~= nil
+
+        if isHuge or isTitanic then
+            local prevCount = previousCounts[name] or 0
+            if count > prevCount then
+                local gained = count - prevCount
+                local title = isTitanic and "TITANIC PET MOI!" or "HUGE PET MOI!"
+                local color = isTitanic and 16711680 or 65280 -- do hoac xanh
+
+                sendToDiscord(
+                    title,
+                    string.format("Tai khoan **%s** vua nhan duoc **%s** (x%d)!\nTong hien co: **%d**",
+                        LocalPlayer.Name, name, gained, count),
+                    color
+                )
             end
         end
     end
-    
-    -- Lần đầu chạy script: chỉ ghi nhận số lượng gốc để làm mốc đối chiếu
-    if CurrentHugeCount == nil or CurrentTitanicCount == nil then
-        CurrentHugeCount = totalHuge
-        CurrentTitanicCount = totalTitanic
-        print(string.format("[ĐỒNG BỘ]: Hiện có %d Huge | %d Titanic.", totalHuge, totalTitanic))
-        return
-    end
-    
-    -- 1. Phát hiện TITANIC mới
-    if totalTitanic > CurrentTitanicCount then
-        local detailText = "Danh sách Titanic hiện tại:\n" .. table.concat(titanicList, "\n")
-        sendToDiscord(
-            "👑 TITANIC PET DETECTED! 👑", 
-            "Tài khoản **" .. LocalPlayer.Name .. "** vừa sở hữu thêm Titanic mới!\nTổng Titanic hiện tại: **" .. totalTitanic .. "**\n\n" .. detailText, 
-            16711680, -- Màu Đỏ
-            true
-        )
-    end
-    
-    -- 2. Phát hiện HUGE mới
-    if totalHuge > CurrentHugeCount then
-        local detailText = "Danh sách Huge hiện tại:\n" .. table.concat(hugeList, "\n")
-        sendToDiscord(
-            "🎉 PHÁT HIỆN HUGE MỚI! 🎉", 
-            "Tài khoản **" .. LocalPlayer.Name .. "** vừa có thêm Huge mới!\nTổng số Huge hiện tại: **" .. totalHuge .. "**\n\n" .. detailText, 
-            65280, -- Màu Xanh Lá
-            true
-        )
-    end
 
-    CurrentHugeCount = totalHuge
-    CurrentTitanicCount = totalTitanic
+    previousCounts = currentCounts
 end
 
--- Vòng lặp quét túi đồ độc lập mỗi 3 giây
-spawn(function()
+-- ============================
+-- LOOP CHECK MOI 3 GIAY
+-- ============================
+task.spawn(function()
     while true do
         pcall(checkInventory)
         task.wait(3)
