@@ -517,10 +517,14 @@ task.spawn(function()
                     break
                 end
 
-                if tick() - lastCornerCheck >= 15 then
+                if tick() - lastCornerCheck >= 12 then
                     -- Ghe qua 4 goc de vot mini chest
                     label.Text = string.format("Room %d/%d: Kiem tra mini chest...", idx, #bossRooms)
                     for _, spot in ipairs(miniSpots) do
+                        -- Check lai cooldown truoc moi goc, dung ngay neu boss da bi pha
+                        local midCooldown, _ = isChestOnCooldown(room)
+                        if midCooldown then break end
+
                         if spot then
                             pcall(function()
                                 hrp.CFrame = CFrame.new(spot + Vector3.new(0, 5, 0))
