@@ -447,7 +447,7 @@ task.spawn(function()
             entry.btn.BackgroundColor3 = COLOR_GREEN
         end
 
-        for i = 1, 3 do
+        for i = 1, 4 do
             teleportTo(entry.pos)
             task.wait(1)
         end
@@ -455,7 +455,7 @@ task.spawn(function()
         local _, bzFresh = isChestOnCooldown(room)
         bz = bzFresh or bz
 
-        if isLocked(room) then
+        if not entry.unlocked and isLocked(room) then
             label.Text = string.format("Room %d/%d: DANG MO KHOA...", idx, numRooms)
             local unlockStart = tick()
             while isLocked(room) do
@@ -471,6 +471,10 @@ task.spawn(function()
                     break
                 end
             end
+            entry.unlocked = true
+        elseif not entry.unlocked then
+            -- Room khong bi khoa ngay tu dau -> danh dau luon de khong can check lai
+            entry.unlocked = true
         end
 
         local _, bzFinal = isChestOnCooldown(room)
