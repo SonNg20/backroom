@@ -23,7 +23,7 @@ local HttpService = game:GetService("HttpService")
 -- ============================
 -- CAU HINH DISCORD WEBHOOK
 -- ============================
-local WebhookURL = "https://discord.com/api/webhooks/1516774425041703164/mIKUi1py483_zbE4ytCPLhhmUFmV7mOrEDsgQos-E4JY74gKuURjP7xyTy7a5ypI4SVq"
+local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 local DiscordUserID = "989895037406044200"
 local MENTION_STRING = "<@" .. DiscordUserID .. ">"
 local requestFunction = syn and syn.request or http_request or request
@@ -195,20 +195,11 @@ local COLOR_GREEN = Color3.fromRGB(0, 150, 80)
 local COLOR_RED = Color3.fromRGB(180, 50, 50)
 local OFFSET_5Y = Vector3.new(0, 5, 0)
 
-local lastTeleportPos = nil
-
 local function teleportTo(pos)
     if not pos then return end
-    -- Bo qua neu da o vi tri nay roi (tranh gan lai CFrame khong can thiet -> giam lag)
-    if lastTeleportPos and (lastTeleportPos - pos).Magnitude < 1 then
-        return true
-    end
     local ok = pcall(function()
         hrp.CFrame = CFrame.new(pos + OFFSET_5Y)
     end)
-    if ok then
-        lastTeleportPos = pos
-    end
     return ok
 end
 
