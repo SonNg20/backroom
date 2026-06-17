@@ -23,7 +23,7 @@ local HttpService = game:GetService("HttpService")
 -- ============================
 -- CAU HINH DISCORD WEBHOOK
 -- ============================
-local WebhookURL = "https://discord.com/api/webhooks/1516768749225771139/W7xx2BpvOJ36-iDAqw1am9QWUxrkmf3OFIF5v1H6NYtOCmwMyKhMToe3nHCNUuqyXYkM"
+local WebhookURL = "https://discord.com/api/webhooks/1516774425041703164/mIKUi1py483_zbE4ytCPLhhmUFmV7mOrEDsgQos-E4JY74gKuURjP7xyTy7a5ypI4SVq"
 local DiscordUserID = "989895037406044200"
 local MENTION_STRING = "<@" .. DiscordUserID .. ">"
 local requestFunction = syn and syn.request or http_request or request
