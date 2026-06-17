@@ -23,7 +23,7 @@ local HttpService = game:GetService("HttpService")
 -- ============================
 -- CAU HINH DISCORD WEBHOOK
 -- ============================
-local WebhookURL = "https://discord.com/api/webhooks/1499036801913061520/PifS_yZUHyeIrEygteQLYRNk3MjCbqo4Ao26b0_zQ7Kxa5UFdyFDdokskF4IB5DYSL6Y"
+local WebhookURL = "https://discord.com/api/webhooks/1516768749225771139/W7xx2BpvOJ36-iDAqw1am9QWUxrkmf3OFIF5v1H6NYtOCmwMyKhMToe3nHCNUuqyXYkM"
 local DiscordUserID = "989895037406044200"
 local MENTION_STRING = "<@" .. DiscordUserID .. ">"
 local requestFunction = syn and syn.request or http_request or request
@@ -120,7 +120,7 @@ local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 local humanoid = char:FindFirstChildOfClass("Humanoid")
 
-local STEP = 250
+local STEP = 500
 local MIN_X, MAX_X = -6000, -2500
 local MIN_Z, MAX_Z = -2500, 800
 local SCAN_Y = originPos.Y
@@ -195,11 +195,20 @@ local COLOR_GREEN = Color3.fromRGB(0, 150, 80)
 local COLOR_RED = Color3.fromRGB(180, 50, 50)
 local OFFSET_5Y = Vector3.new(0, 5, 0)
 
+local lastTeleportPos = nil
+
 local function teleportTo(pos)
     if not pos then return end
+    -- Bo qua neu da o vi tri nay roi (tranh gan lai CFrame khong can thiet -> giam lag)
+    if lastTeleportPos and (lastTeleportPos - pos).Magnitude < 1 then
+        return true
+    end
     local ok = pcall(function()
         hrp.CFrame = CFrame.new(pos + OFFSET_5Y)
     end)
+    if ok then
+        lastTeleportPos = pos
+    end
     return ok
 end
 
@@ -447,7 +456,7 @@ task.spawn(function()
             entry.btn.BackgroundColor3 = COLOR_GREEN
         end
 
-        for i = 1, 4 do
+        for i = 1, 3 do
             teleportTo(entry.pos)
             task.wait(1)
         end
