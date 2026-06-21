@@ -5,7 +5,7 @@ repeat task.wait() until game:IsLoaded()
 -- ============================
 getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 getgenv().DiscordUserID ="989895037406044200"
-getgenv().NOTIFY_TARGET_ROOM = true   -- gui webhook khi tele toi GameMastersStage
+getgenv().NOTIFY_TARGET_ROOM = false   -- gui webhook khi tele toi GameMastersStage
 getgenv().NOTIFY_HUGE_TITANIC = true  -- gui webhook khi nhan Huge/Titanic moi
 getgenv().FarmMultiChest = true       -- true: quet du 2 room moi farm | false: quet duoc 1 room la farm luon
 
