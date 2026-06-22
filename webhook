@@ -28,10 +28,6 @@ getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 getgenv().FarmMultiChest = true       
-
--- Cao độ map chuẩn
-local SCAN_Y = 2055
-
 -- Hàm dịch chuyển an toàn (Ép cứng trục Y chuẩn tránh rớt sàn)
 local function safeTeleport(pos)
     local char = player.Character or player.CharacterAdded:Wait()
@@ -228,6 +224,7 @@ end)
 local STEP = 350
 local MIN_X, MAX_X = -7500, -2100
 local MIN_Z, MAX_Z = -3600, 900
+local SCAN_Y = 2055
 local WAIT_TIME = 0.7
 
 local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
