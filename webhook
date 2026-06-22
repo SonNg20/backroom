@@ -280,14 +280,13 @@ task.spawn(function()
                                 end
                             end
                             if not found then
-                                table.insert(bossRooms, {room = room, pos = part.Position})
+                                table.insert(bossRooms, {room = room, pos = part.Position, unlocked = false})
                             end
                         end
                     end
                 end
             end
 
-            -- Đã loại bỏ collectgarbage dòng này, thay bằng kiểm tra nhẹ RAM an toàn
             if count % 10 == 0 then
                 local currentMem = gcinfo()
             end
@@ -297,8 +296,6 @@ task.spawn(function()
             end
         end
     end
-
-    -- Đã loại bỏ collectgarbage("collect") ở dòng 300 cũ tại đây
 
     if #bossRooms == 0 then
         hrp.Anchored = false
@@ -315,10 +312,21 @@ task.spawn(function()
     hrp.Anchored = false
     label.Text = string.format("Tim thay %d room.\nBat dau farm...", #bossRooms)
 
-    local firstRoom = bossRooms[1]
-    for i = 1, 3 do
-        hrp.CFrame = CFrame.new(firstRoom.pos + Vector3.new(0, 5, 0))
-        task.wait(0.5)
+    -- ============================
+    -- HÀM KIỂM TRA COOLDOWN (ĐÃ FIX ĐỒNG BỘ LOGIC)
+    -- ============================
+    local function isChestOnCooldown(r)
+        local breakZone = r:FindFirstChild("BREAK_ZONE", true)
+        if not breakZone then return false, nil end
+        local chestTimer = breakZone:FindFirstChild("ChestTimer", true)
+        if not chestTimer then return false, breakZone end
+        local stroke = chestTimer:FindFirstChildWhichIsA("UIStroke")
+        
+        -- Nếu tìm thấy stroke, trạng thái Enabled = true tức là đang đợi hồi phục (Hồi rương)
+        if stroke then
+            return stroke.Enabled, breakZone
+        end
+        return false, breakZone
     end
 
     local function isLocked(room)
@@ -333,16 +341,6 @@ task.spawn(function()
                 "Backrooms", "AbstractRoom_FireServer", roomUID, "UnlockDoors"
             )
         end)
-    end
-
-    local function isChestOnCooldown(r)
-        local breakZone = r:FindFirstChild("BREAK_ZONE", true)
-        if not breakZone then return false, nil end
-        local chestTimer = breakZone:FindFirstChild("ChestTimer", true)
-        if not chestTimer then return false, breakZone end
-        local stroke = chestTimer:FindFirstChildWhichIsA("UIStroke")
-        if not stroke then return false, breakZone end
-        return stroke.Enabled, breakZone
     end
 
     local function getCorners(r, breakZone)
@@ -387,17 +385,34 @@ task.spawn(function()
         end
     end)
 
+    -- ============================
+    -- HÀM FARM PHÒNG (ĐÃ FIX ĐỒNG BỘ THEO LOGIC MỚI)
+    -- ============================
     local function farmRoom(entry, idx, total)
         local room = entry.room
         local bz = room:FindFirstChild("BREAK_ZONE", true)
         if not bz then return false end
 
-        if isLocked(room) then
-            unlockRoom(room)
+        -- Xử lý mở khóa cửa phòng
+        if not entry.unlocked and isLocked(room) then
+            label.Text = string.format("Room %d/%d: DANG MO KHOA...", idx, total)
+            local unlockStart = tick()
+            while isLocked(room) do
+                unlockRoom(room)
+                task.wait(1)
+                if tick() - unlockStart > 30 then
+                    label.Text = string.format("Room %d/%d: Mo khoa qua lau, bo qua", idx, total)
+                    break
+                end
+            end
+            entry.unlocked = true
+        elseif not entry.unlocked then
+            entry.unlocked = true
         end
 
+        -- Dịch chuyển 3 lần đến phòng cần farm
         for i = 1, 3 do
-            hrp.CFrame = CFrame.new(entry.pos + Vector3.new(0, 5, 0))
+            safeTeleport(entry.pos + Vector3.new(0, 5, 0))
             task.wait(0.5)
         end
 
@@ -483,7 +498,7 @@ task.spawn(function()
                 if #pendingChests > 0 and not processing then
                     processing = true
                     local chestEntry = table.remove(pendingChests, 1)
-                    hrp.CFrame = CFrame.new(chestEntry.pos + Vector3.new(0, 5, 0))
+                    safeTeleport(chestEntry.pos + Vector3.new(0, 5, 0))
                     label.Text = string.format("Room %d/%d: Dang danh mini chest...", idx, total)
 
                     while chestEntry.inst and chestEntry.inst.Parent do
@@ -496,6 +511,7 @@ task.spawn(function()
             end
         end)
 
+        -- Vòng lặp giữ chân nhân vật tại phòng đến khi rương đi vào cooldown (đã bị phá)
         local result = false
         while true do
             local cooldown, _ = isChestOnCooldown(room)
@@ -509,7 +525,7 @@ task.spawn(function()
             end
 
             if #pendingChests == 0 and not processing then
-                hrp.CFrame = CFrame.new(center + Vector3.new(0, 5, 0))
+                safeTeleport(center + Vector3.new(0, 5, 0))
                 label.Text = string.format("Room %d/%d: Dang danh boss", idx, total)
             end
             task.wait(0.5)
@@ -520,16 +536,21 @@ task.spawn(function()
         return result
     end
 
+    -- ============================
+    -- VÒNG LẶP TUẦN HOÀN CHÍNH (FARM LOOP)
+    -- ============================
     local farmIdx = 1
     while true do
         local entry = bossRooms[farmIdx]
         local onCooldown = isChestOnCooldown(entry.room)
 
+        -- Nếu rương đang hồi phục (cooldown == true) -> Chuyển phòng ngay lập tức
         if onCooldown then
             label.Text = string.format("Room %d/%d: DANG HOI -> chuyen tiep", farmIdx, #bossRooms)
             farmIdx = farmIdx % #bossRooms + 1
             task.wait(0.5)
         else
+            -- Nếu rương đã hồi sinh (cooldown == false) -> Vào phòng tiến hành phá rương
             farmRoom(entry, farmIdx, #bossRooms)
             farmIdx = farmIdx % #bossRooms + 1
             task.wait(0.5)
