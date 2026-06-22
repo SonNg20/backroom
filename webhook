@@ -1,11 +1,12 @@
 -- ============================
 -- CONFIG (CẤU HÌNH HỆ THỐNG)
 -- ============================
-getgenv().NoGMS = "Hop"               -- Lựa chọn khi không có phòng: "Rejoin" để vào lại server cũ, hoặc "Hop" để đổi server khác
-getgenv().CpuSaver = false             -- Thiết lập true để bật tối ưu đồ họa ẩn map/UI chống lag, false để tắt
-getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
-getgenv().WebhookURL = ""
-getgenv().DiscordUserID = "989895037406044200"
+getgenv().UnderTargetRoom = "Hop"     -- Lựa chọn khi quét thiếu phòng mong muốn: "Hop" để đổi server, hoặc "Rejoin" để vào lại
+getgenv().NoGMS = "Hop"               -- Lựa chọn khi không có phòng nào: "Rejoin" để vào lại server cũ, hoặc "Hop" để đổi server khác
+getgenv().CpuSaver = true             -- Thiết lập true để bật tối ưu đồ họa ẩn map/UI chống lag, false để tắt
+getgenv().TargetRoomsCount = 3        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
+getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
@@ -76,42 +77,56 @@ local function safeTeleport(pos)
     end
 end
 
--- Hàm xử lý Server Hop hoặc Rejoin an toàn
-local function handleNoRoomsAction()
-    local action = getgenv().NoGMS
-    if action == "Rejoin" then
-        label.Text = "Khong co phong! Dang REJOIN server..."
-        task_wait(1)
-        pcall(function()
+-- Hàm RejoinServer nâng cao mới cập nhật
+local function RejoinServer()
+    local success, err = pcall(function()
+        if #Players:GetPlayers() <= 1 then
             TeleportService:Teleport(game.PlaceId, player)
-        end)
-    elseif action == "Hop" then
-        label.Text = "Khong co phong! Dang HOP server moi..."
-        task_wait(1)
-        pcall(function()
-            local servers = {}
-            local req = http_request or request or syn.request
-            if req then
-                local res = req({Url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"})
-                if res and res.Body then
-                    local data = HttpService:JSONDecode(res.Body)
-                    if data and data.data then
-                        for _, v in ipairs(data.data) do
-                            if v.playing and v.playing < v.maxPlayers and v.id ~= game.JobId then
-                                table_insert(servers, v.id)
-                            end
-                        end
-                    end
-                end
+        else
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
+        end
+    end)
+    
+    if not success then
+        TeleportService:Teleport(game.PlaceId, player)
+    end
+end
+
+-- Hàm Server Hop nâng cao trộn ngẫu nhiên danh sách tránh trùng server cũ
+local function AdvancedHop()
+    local PlaceId = game.PlaceId
+    local Url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+    
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(Url))
+    end)
+    
+    if success and result and result.data then
+        local ServerList = result.data
+        for i = #ServerList, 2, -1 do
+            local j = math.random(i)
+            ServerList[i], ServerList[j] = ServerList[j], ServerList[i]
+        end
+        
+        for _, server in ipairs(ServerList) do
+            if server.playing and server.maxPlayers and server.playing < server.maxPlayers and server.id ~= game.JobId then
+                pcall(function()
+                    TeleportService:TeleportToPlaceInstance(PlaceId, server.id, player)
+                end)
+                task_wait(0.5)
             end
-            if #servers > 0 then
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)], player)
-            else
-                TeleportService:Teleport(game.PlaceId, player)
-            end
-        end)
-    else
-        label.Text = "Khong tim thay GameMastersStage nao!"
+        end
+    end
+    
+    TeleportService:Teleport(PlaceId, player)
+end
+
+-- Hàm điều hướng xử lý Rejoin hoặc Server Hop linh hoạt
+local function executeAction(actionType)
+    if actionType == "Rejoin" then
+        RejoinServer()
+    elseif actionType == "Hop" then
+        AdvancedHop()
     end
 end
 
@@ -313,10 +328,10 @@ if spawnRoomFolder then
         
         for i = 1, 5 do
             safeTeleport(interactPart.Position)
-            task.wait(0.3)
+            task_wait(0.3)
         end
         
-        task.wait(2)
+        task_wait(2)
         
         local prompt = interactPart:FindFirstChildWhichIsA("ProximityPrompt", true)
         if prompt then
@@ -530,10 +545,21 @@ task_spawn(function()
         end
     end
 
-    -- UPDATED LUỒNG XỬ LÝ: Nếu số phòng thực tế tìm được bằng 0 -> Kích hoạt xử lý Rejoin hoặc Server Hop an toàn
+    -- THỨ TỰ ƯU TIÊN 1: Nếu hoàn toàn không quét được phòng nào (0 phòng) -> Rejoin / Server Hop theo getgenv().NoGMS
     if #bossRooms == 0 then
         hrp.Anchored = false
-        handleNoRoomsAction()
+        label.Text = "Khong tim thay phong nao! Dang xu ly..."
+        task_wait(1)
+        executeAction(getgenv().NoGMS)
+        return
+    end
+
+    -- THỨ TỰ ƯU TIÊN 2: Nếu quét được ít hơn số lượng phòng mong muốn -> Rejoin / Server Hop theo getgenv().UnderTargetRoom
+    if #bossRooms < getgenv().TargetRoomsCount then
+        hrp.Anchored = false
+        label.Text = string_format("Quet thieu phong (%d/%d)! Dang xu ly...", #bossRooms, getgenv().TargetRoomsCount)
+        task_wait(1)
+        executeAction(getgenv().UnderTargetRoom)
         return
     end
 
