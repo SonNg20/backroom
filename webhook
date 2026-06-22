@@ -5,8 +5,8 @@ getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: 
 getgenv().CpuSaver = true             -- MẶC ĐỊNH LÀ TRUE: Tự động kích hoạt tối ưu đồ họa ẩn map/UI chống lag ngay từ đầu
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
 getgenv().AutoUpgradeBossDamage = true-- Tự động nâng cấp Boss Damage Event khi đủ coin
-getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID ="989895037406044200"
+getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
@@ -411,6 +411,8 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 -- ============================
 -- GUI HỆ THỐNG MÀN HÌNH
 -- ============================
+local CoreGui = game:GetService("CoreGui")
+
 if CoreGui:FindFirstChild("ScanGUI") then CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", CoreGui)
 sg.Name = "ScanGUI"
@@ -435,7 +437,7 @@ local ctrlGui = Instance.new("ScreenGui", CoreGui)
 ctrlGui.Name = "ControlButtonsGUI"
 ctrlGui.ResetOnSpawn = false
 
--- Nút 1: SCREEN CLICK (Kích thước chuẩn 135x28 cân đối hàng đôi)
+-- Nút 1: SCREEN CLICK
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", ctrlGui)
 toggleClickBtn.Size = UDim2.new(0, 135, 0, 28)        
@@ -458,7 +460,7 @@ toggleClickBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Nút 2: UPDAMEBOSS (Xếp đối xứng ngay cạnh nút Click thành một hàng ngang)
+-- Nút 2: UPDAMEBOSS
 local toggleUpgradeBtn = Instance.new("TextButton", ctrlGui)
 toggleUpgradeBtn.Size = UDim2.new(0, 135, 0, 28)       
 toggleUpgradeBtn.Position = UDim2.new(0, 155, 0, 105)  
@@ -738,34 +740,36 @@ task_spawn(function()
 
     local farmingThisRoom = true
     task_spawn(function()
+        -- FIX NÂNG CAO TRIỆT ĐỂ: Bọc toàn bộ luồng đập Boss và tính CFrame khoảng cách vào pcall 
+        -- Cách này ngăn ngừa 100% việc CpuSaver triệt tiêu Instance ngay giữa chu kỳ quét gây crash luồng FindFirstChild
         local bestInst, bestDist, currentHrpPos, breakables, obj, uid, part, d
         while true do
             if farmingThisRoom then
-                bestInst, bestDist = nil, math_huge
-                currentHrpPos = hrp.Position
-                breakables = breakablesContainer:GetChildren()
-                
-                for i = 1, #breakables do
-                    obj = breakables[i]
-                    if obj and obj.Parent then 
-                        uid = obj:GetAttribute("BreakableUID")
-                        if uid then
-                            part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
-                            if part then
-                                d = (part.Position - currentHrpPos).Magnitude
-                                if d <= 15 and d < bestDist then
-                                    bestDist = d
-                                    bestInst = obj
+                pcall(function()
+                    bestInst, bestDist = nil, math_huge
+                    currentHrpPos = hrp.Position
+                    breakables = breakablesContainer:GetChildren()
+                    
+                    for i = 1, #breakables do
+                        obj = breakables[i]
+                        if obj and obj.Parent then 
+                            uid = obj:GetAttribute("BreakableUID")
+                            if uid then
+                                part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
+                                if part then
+                                    d = (part.Position - currentHrpPos).Magnitude
+                                    if d <= 15 and d < bestDist then
+                                        bestDist = d
+                                        bestInst = obj
+                                    end
                                 end
                             end
                         end
                     end
-                end
-                if bestInst and bestInst.Parent then
-                    pcall(function()
+                    if bestInst and bestInst.Parent then
                         damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID")))
-                    end)
-                end
+                    end
+                end)
             end
             task_wait(0.1)
         end
