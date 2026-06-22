@@ -4,8 +4,8 @@
 getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: "Hop" (đổi server), "Rejoin" (vào lại), hoặc "Off" (ở lại farm số phòng đang có)
 getgenv().CpuSaver = true             -- Thiết lập true để bật tối ưu đồ họa ẩn map/UI chống lag, false để tắt
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
-getgenv().WebhookURL = ""
-getgenv().DiscordUserID = ""
+getgenv().WebhookURL =""
+getgenv().DiscordUserID =""
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
@@ -25,7 +25,6 @@ end
 local ScriptContext = game:GetService("ScriptContext")
 pcall(function()
     ScriptContext.Error:Connect(function(message)
-        -- Chặn đứng từ xa mọi lỗi index nil liên quan đến thuộc tính 'Enabled' của game, giải phóng RAM và FPS lập tức
         if string.find(message, "Enabled") and (string.find(message, "nil") or string.find(message, "index")) then
             return
         end
@@ -192,6 +191,7 @@ if getgenv().CpuSaver then
         end
     end
 
+    -- FIX: Tách biệt logic loại trừ Decal/Texture để tránh lỗi CanCollide không hợp lệ
     local function hideAndDisableCharacter(character)
         if not character or character == player.Character then return end
         
@@ -210,9 +210,11 @@ if getgenv().CpuSaver then
         if animateScript then animateScript.Enabled = false end
         
         for _, obj in ipairs(character:GetDescendants()) do
-            if obj:IsA("BasePart") or obj:IsA("Decal") then
+            if obj:IsA("BasePart") then
                 obj.Transparency = 1
                 obj.CanCollide = false
+            elseif obj:IsA("Decal") then
+                obj.Transparency = 1
             elseif obj:IsA("Attachment") then
                 for _, child in ipairs(obj:GetChildren()) do killEffectInstance(child) end
             end
