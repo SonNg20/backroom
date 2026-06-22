@@ -1,7 +1,7 @@
 -- ============================
 -- CONFIG (CẤU HÌNH SỐ PHÒNG TẠI ĐÂY)
 -- ============================
-getgenv().TargetRoomsCount = 3        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
+getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
 getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = true   
@@ -302,7 +302,6 @@ task.spawn(function()
         return
     end
 
-    -- Sắp xếp phòng theo khoảng cách tăng dần từ điểm xuất phát (Đảm bảo room1 gần nhất, room2, room3 xếp sau)
     table.sort(bossRooms, function(a, b)
         return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
     end)
@@ -419,10 +418,10 @@ task.spawn(function()
     end)
 
     -- ============================
-    -- FARM LOOP CHUẨN ĐÃ TỐI ƯU THEO TRÌNH TỰ 1-2-3
+    -- LOGIC KIỂM TRA SỐ PHÒNG QUÉT ĐƯỢC THỰC TẾ
     -- ============================
     local idx = 1
-    local numRooms = #bossRooms
+    local numRooms = #bossRooms -- Nếu quét được ít hơn TargetRoomsCount, numRooms sẽ bằng chính số phòng tìm được
 
     while true do
         local farmEnabled = true 
@@ -431,10 +430,9 @@ task.spawn(function()
         local room = entry.room
         local onCooldown, bz = isChestOnCooldown(room)
 
-        -- SỬA LOGIC TUẦN HOÀN CHUẨN: Nếu phát hiện phòng hiện tại đang hồi -> Tăng tuần tự lên phòng tiếp theo
         if onCooldown then
             updateStatusUI(string.format("Room %d/%d: DANG HOI -> chuyen tiep", idx, numRooms))
-            idx = idx % numRooms + 1 -- Luôn chạy lũy tiến theo vòng 1 -> 2 -> 3 -> 1
+            idx = idx % numRooms + 1 
             task.wait(0.5)
             continue
         end
@@ -555,7 +553,7 @@ task.spawn(function()
         farmingThisRoom = false
         listenerConn:Disconnect()
 
-        -- Chuyển lũy tiến sang phòng tiếp theo theo đúng thứ tự hàng đợi
+        -- Chuyển lũy tiến sang phòng tiếp theo theo đúng thứ tự hàng đợi thực tế
         idx = idx % numRooms + 1
         task.wait(0.5)
     end
