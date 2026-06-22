@@ -263,6 +263,12 @@ task.spawn(function()
 
     label.Text = string.format("Tim thay %d room. Bat dau farm...", #bossRooms)
 
+    -- ============================
+    -- HUY KHOA PLAYER SAU KHI QUET XONG
+    -- ============================
+    hrp.Anchored = false
+    linearVelocity:Destroy()  -- Xoa LinearVelocity de player di chuyen tu do
+
     -- Platform se theo theo player, khong xoa
     local firstRoom = bossRooms[1]
     for i = 1, 3 do
