@@ -21,7 +21,7 @@ if not libraryFolder then
 end
 
 -- ============================
--- CONFIG (ĐÃ GOM GỌN SCAN_Y VÀO ĐÂY)
+-- CONFIG (chinh o day)
 -- ============================
 getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
@@ -32,7 +32,7 @@ getgenv().FarmMultiChest = true
 local STEP = 350
 local MIN_X, MAX_X = -7500, -2100
 local MIN_Z, MAX_Z = -3600, 900
-local SCAN_Y = 2055 -- Đã đưa biến cao độ quét map về lại cấu hình chung
+local SCAN_Y = 2055 -- Chỉ giữ SCAN_Y cố định phục vụ cho việc quét map từ trên cao
 local WAIT_TIME = 0.7
 
 local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
@@ -40,12 +40,18 @@ local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
 local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
 
--- Hàm dịch chuyển an toàn (Tự động cộng thêm 5 studs cao độ so với SCAN_Y để tránh rớt void)
+-- HÀM DỊCH CHUYỂN MỚI: Bỏ Y=2055 cố định, dùng Y thực tế của room + Đóng băng triệt tiêu lực rơi gây lag
 local function safeTeleport(pos)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
     if hrp and pos then
-        hrp.CFrame = CFrame.new(Vector3.new(pos.X, SCAN_Y + 5, pos.Z))
+        -- Dịch chuyển sát mặt sàn dựa theo tọa độ thực tế của phòng (cộng nhẹ 2.5 studs tránh kẹt chân)
+        hrp.CFrame = CFrame.new(Vector3.new(pos.X, pos.Y + 2.5, pos.Z))
+        
+        -- Khóa trục động lực trong tích tắc để triệt tiêu hoàn toàn hiện tượng rơi tự do gây lag
+        hrp.Anchored = true
+        task.wait(0.15)
+        hrp.Anchored = false
     end
 end
 
@@ -276,8 +282,8 @@ task.spawn(function()
                                 end
                             end
                             if not found then
-                                local fixedPos = Vector3.new(part.Position.X, SCAN_Y, part.Position.Z)
-                                table.insert(bossRooms, {room = room, pos = fixedPos, unlocked = false})
+                                -- Khôi phục: Lưu giữ nguyên tọa độ gốc của phòng từ game trả về
+                                table.insert(bossRooms, {room = room, pos = part.Position, unlocked = false})
                             end
                         end
                     end
@@ -437,7 +443,7 @@ task.spawn(function()
 
         updateStatusUI(string.format("Room %d/%d: TELE va DANH chest", idx, numRooms))
 
-        -- Gửi lệnh nhảy 3 lần đến vị trí phòng chuẩn trục Y an toàn
+        -- Gửi lệnh nhảy 3 lần đến vị trí phòng chuẩn tiếp đất mượt mà sát sàn thực tế
         for i = 1, 3 do
             safeTeleport(entry.pos)
             task.wait(1)
