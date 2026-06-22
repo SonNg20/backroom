@@ -1,12 +1,11 @@
 -- ============================
 -- CONFIG (CẤU HÌNH HỆ THỐNG)
 -- ============================
-getgenv().UnderTargetRoom = "Hop"     -- Lựa chọn khi quét thiếu phòng mong muốn: "Hop" để đổi server, hoặc "Rejoin" để vào lại
-getgenv().NoGMS = "Hop"               -- Lựa chọn khi không có phòng nào: "Rejoin" để vào lại server cũ, hoặc "Hop" để đổi server khác
+getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: "Hop" (đổi server), "Rejoin" (vào lại), hoặc "Off" (ở lại farm số phòng đang có)
 getgenv().CpuSaver = true             -- Thiết lập true để bật tối ưu đồ họa ẩn map/UI chống lag, false để tắt
-getgenv().TargetRoomsCount = 3        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
-getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
+getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
+getgenv().WebhookURL =""
+getgenv().DiscordUserID =""
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
@@ -77,7 +76,7 @@ local function safeTeleport(pos)
     end
 end
 
--- Hàm RejoinServer nâng cao mới cập nhật
+-- Hàm RejoinServer nâng cao
 local function RejoinServer()
     local success, err = pcall(function()
         if #Players:GetPlayers() <= 1 then
@@ -483,7 +482,7 @@ toggleClickBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ============================
--- BUOC 1: QUET MAP + TIM ROOM
+-- BUOC 1: TỐI ƯU HÓA QUÉT BẢN ĐỒ (SCAN ROOMS)
 -- ============================
 local bossRooms = {}
 
@@ -494,6 +493,7 @@ task_spawn(function()
     local count = 0
     local scanDone = false
     local lastLabelUpdate = tick()
+    local targetRooms = getgenv().TargetRoomsCount
 
     for x = MIN_X, MAX_X, STEP do
         if scanDone then break end
@@ -508,7 +508,7 @@ task_spawn(function()
             if now - lastLabelUpdate >= 0.5 then
                 label.Text = string_format(
                     "Dang quet: %d / %d\nX: %.0f  Z: %.0f\nRoom: %d/%d",
-                    count, TOTAL_POINTS, x, z, #bossRooms, getgenv().TargetRoomsCount)
+                    count, TOTAL_POINTS, x, z, #bossRooms, targetRooms)
                 lastLabelUpdate = now
             end
 
@@ -516,9 +516,9 @@ task_spawn(function()
             for i = 1, #children do
                 local room = children[i]
                 if room.Name == "GameMastersStage" then
-                    local bz = room:FindFirstChild("BREAK_ZONE", true)
+                    local bz = room:FindFirstChild("BREAK_ZONE") 
                     if bz then
-                        local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
+                        local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart")
                         if part then
                             local found = false
                             for j = 1, #bossRooms do
@@ -535,32 +535,37 @@ task_spawn(function()
                 end
             end
 
-            if count % 10 == 0 then
-                local currentMem = gcinfo()
+            if count % 15 == 0 then
+                gcinfo()
             end
 
-            if #bossRooms >= getgenv().TargetRoomsCount then
+            if #bossRooms >= targetRooms then
                 scanDone = true
             end
         end
     end
 
-    -- THỨ TỰ ƯU TIÊN 1: Nếu hoàn toàn không quét được phòng nào (0 phòng) -> Rejoin / Server Hop theo getgenv().NoGMS
+    -- THỨ TỰ ƯU TIÊN 1: Không quét được bất kỳ phòng nào (0 phòng) -> Dừng quét tại đây (Đã hủy bỏ NoGMS)
     if #bossRooms == 0 then
         hrp.Anchored = false
-        label.Text = "Khong tim thay phong nao! Dang xu ly..."
-        task_wait(1)
-        executeAction(getgenv().NoGMS)
+        label.Text = "Khong tim thay GameMastersStage nao tren toan map!"
         return
     end
 
-    -- THỨ TỰ ƯU TIÊN 2: Nếu quét được ít hơn số lượng phòng mong muốn -> Rejoin / Server Hop theo getgenv().UnderTargetRoom
-    if #bossRooms < getgenv().TargetRoomsCount then
+    -- THỨ TỰ ƯU TIÊN 2: Quét được ít hơn số lượng phòng mong muốn
+    if #bossRooms < targetRooms then
         hrp.Anchored = false
-        label.Text = string_format("Quet thieu phong (%d/%d)! Dang xu ly...", #bossRooms, getgenv().TargetRoomsCount)
-        task_wait(1)
-        executeAction(getgenv().UnderTargetRoom)
-        return
+        local action = getgenv().UnderTargetRoom
+        if action == "Off" then
+            -- Chế độ Off: Không hop hay rejoin, giữ nguyên số phòng quét được để tiếp tục xuống luồng farm bên dưới
+            print("Quet thieu phong nhung getgenv().UnderTargetRoom = Off -> Bat dau farm so phong hien co.")
+        else
+            -- Kích hoạt Hop server hoặc Rejoin tùy cấu hình
+            label.Text = string_format("Quet thieu phong (%d/%d)! Dang xu ly...", #bossRooms, targetRooms)
+            task_wait(1)
+            executeAction(action)
+            return
+        end
     end
 
     table_sort(bossRooms, function(a, b)
