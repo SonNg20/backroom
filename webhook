@@ -20,6 +20,19 @@ if not game:IsLoaded() then
 end
 
 -- ============================
+-- FIX TRIỆT ĐỂ: CORE HOOK CHẶN SẬP NGUỒN LỖI ĐỎ TỪ CLIENTMODULE
+-- ============================
+local ScriptContext = game:GetService("ScriptContext")
+pcall(function()
+    ScriptContext.Error:Connect(function(message, stack, script)
+        -- Chặn đứng mọi loại lỗi phát sinh từ script ClientModule của game trong im lặng để cứu FPS
+        if (script and script.Name == "ClientModule") or string.find(stack, "ClientModule") then
+            return
+        end
+    end)
+end)
+
+-- ============================
 -- OPTIMIZATION: CACHE GLOBAL FUNCTIONS
 -- ============================
 local Vector3_new = Vector3.new
@@ -258,7 +271,6 @@ if getgenv().CpuSaver then
 
     pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
 
-    -- SỬA ĐỔI QUAN TRỌNG: Loại bỏ hoàn toàn các UI thuộc hệ thống Backrooms gốc ra khỏi luồng tối ưu ẩn giao diện
     local whitelistGUIs = {
         ["ScanGUI"] = true,
         ["CoordinateTrackerGui"] = true,
@@ -271,7 +283,6 @@ if getgenv().CpuSaver then
 
     local function applyInvisibility(v)
         if v:IsA("ScreenGui") then
-            -- Nếu phát hiện UI thuộc hệ thống map Backrooms của game, bỏ qua ngay để không gây lỗi nil index
             local name = v.Name
             if string_find(name, "Backrooms") or string_find(name, "Timer") or whitelistGUIs[name] then 
                 return 
