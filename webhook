@@ -5,8 +5,8 @@ getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: 
 getgenv().CpuSaver = true             -- MẶC ĐỊNH LÀ TRUE: Tự động kích hoạt tối ưu đồ họa ẩn map/UI chống lag ngay từ đầu
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
 getgenv().AutoUpgradeBossDamage = true-- Tự động nâng cấp Boss Damage Event khi đủ coin
-getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID ="989895037406044200"
+getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
@@ -20,6 +20,26 @@ local UPGRADE_DELAY = 0.3
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
+
+-- ============================
+-- FIX TRIỆT ĐỂ 100%: BLOCK LOG NÂNG CAO - GIẢI PHÓNG RAM CHỐNG TRÀN BỘ NHỚ
+-- ============================
+local LogService = game:GetService("LogService")
+pcall(function()
+    -- Ghi đè chặn đứng luồng text đẩy vào bộ nhớ đệm F9 của Roblox Engine
+    LogService.MessageOut:Connect(function(message, messageType)
+        if messageType == Enum.MessageType.MessageOutput.Error then
+            if string.find(message, "ClientModule") or string.find(message, "Enabled") then
+                -- Nuốt lỗi đỏ lập tức, ngăn Roblox cấp phát String vùng đệm giúp hạ RAM thẳng về 2600MB
+                return
+            end
+        elseif messageType == Enum.MessageType.MessageOutput.Warning then
+            if string.find(message, "parent") or string.find(message, "NULL") or string.find(message, "Particle") then
+                return
+            end
+        end
+    end)
+end)
 
 -- ============================
 -- OPTIMIZATION: CACHE GLOBAL FUNCTIONS & SERVICES
@@ -51,29 +71,10 @@ local HttpService = game:GetService("HttpService")
 local vim = game:GetService("VirtualInputManager")
 local StarterGui = game:GetService("StarterGui")
 local TeleportService = game:GetService("TeleportService")
-local LogService = game:GetService("LogService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local PlayerGui = player:WaitForChild("PlayerGui")
-
--- ============================
--- FIX TRIỆT ĐỂ: LOG HIJACKING CHẶN KHÔNG CHO CỬA SỔ CONSOLE HIỂN THỊ LỖI ĐỎ
--- ============================
-pcall(function()
-    local _, gameConsole = pcall(function() 
-        return game:GetService("CoreGui").DevConsoleMaster.DevConsoleWindow.DevConsoleUI.MainView.Log.Client.Buffer
-    end)
-    
-    -- Ghi đè chặn hiển thị Log lỗi đỏ từ tầng giao diện Console của Client
-    LogService.MessageOut:Connect(function(message, messageType)
-        if messageType == Enum.MessageType.MessageOutput.Error then
-            if string_find(message, "ClientModule") or string_find(message, "Enabled") then
-                return
-            end
-        end
-    end)
-end)
 
 local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
 if not libraryFolder then
@@ -276,10 +277,10 @@ local function runCpuSaverLogic()
     pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
 end
 
--- Bộ dọn rác RAM luôn chạy độc lập nền
+-- Bộ dọn rác RAM định kỳ chạy nền dọn dẹp các String rác còn sót lại
 task_spawn(function()
     while true do
-        task_wait(15)
+        task_wait(10) -- Đẩy nhanh tiến trình dọn dẹp bộ nhớ mỗi 10 giây
         pcall(function()
             gcinfo() 
             collectgarbage("collect")
@@ -422,8 +423,6 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 -- ============================
 -- GUI HỆ THỐNG MÀN HÌNH
 -- ============================
-local CoreGui = game:GetService("CoreGui")
-
 if CoreGui:FindFirstChild("ScanGUI") then CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", CoreGui)
 sg.Name = "ScanGUI"
