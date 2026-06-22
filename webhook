@@ -191,7 +191,6 @@ if getgenv().CpuSaver then
         end
     end
 
-    -- FIX: Tách biệt logic loại trừ Decal/Texture để tránh lỗi CanCollide không hợp lệ
     local function hideAndDisableCharacter(character)
         if not character or character == player.Character then return end
         
@@ -271,6 +270,7 @@ if getgenv().CpuSaver then
 
     pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
 
+    -- THÊM WHITELIST: Đã bổ sung "ScanGUI" vào danh sách trắng để không bị ẩn nhầm
     local whitelistGUIs = {
         ["ScanGUI"] = true,
         ["CoordinateTrackerGui"] = true,
