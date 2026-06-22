@@ -2,7 +2,7 @@
 -- CONFIG (CẤU HÌNH HỆ THỐNG)
 -- ============================
 getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: "Hop" (đổi server), "Rejoin" (vào lại), hoặc "Off" (ở lại farm số phòng đang có)
-getgenv().CpuSaver = true             -- Thiết lập true để bật tối ưu đồ họa ẩn map/UI chống lag, false để tắt
+getgenv().CpuSaver = true             -- Thiết lập true để bật tối ưu đồ họa giảm lag, false để tắt
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
 getgenv().AutoUpgradeBossDamage = true-- Tự động nâng cấp Boss Damage Event khi đủ coin
 getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
@@ -263,54 +263,7 @@ if getgenv().CpuSaver then
         pcall(killEffectInstance, v)
     end)
 
-    pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
-
-    local whitelistGUIs = {
-        ["ScanGUI"] = true,
-        ["CoordinateTrackerGui"] = true,
-        ["BackroomsGridTracker"] = true,
-        ["BackroomsUiToggleGui"] = true,
-        ["SimpleAutoClickGui"] = true,
-        ["BackroomsFixUiGui"] = true,
-        ["BackroomsPureUiGui"] = true,
-        ["ControlButtonsGUI"] = true
-    }
-
-    local function applyInvisibility(v)
-        if v:IsA("ScreenGui") then
-            local name = v.Name
-            if string_find(name, "Backrooms") or string_find(name, "Timer") or whitelistGUIs[name] then 
-                return 
-            end
-            v.Enabled = false
-        elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
-            local name = v.Name
-            if string_find(name, "Backrooms") or string_find(name, "Timer") then return end
-            if v:FindFirstAncestor("GeneratedBackrooms") then return end
-            v.Enabled = false
-        elseif v:IsA("GuiObject") then
-            local screenGui = v:FindFirstAncestorOfClass("ScreenGui")
-            if screenGui then
-                local sgName = screenGui.Name
-                if string_find(sgName, "Backrooms") or string_find(sgName, "Timer") or whitelistGUIs[sgName] then 
-                    return 
-                end
-            end
-            if v:FindFirstAncestor("GeneratedBackrooms") then return end
-            v.Visible = false
-        end
-    end
-
-    for _, v in ipairs(PlayerGui:GetDescendants()) do pcall(applyInvisibility, v) end
-
-    task_spawn(function()
-        while true do
-            task_wait(2)
-            for _, v in ipairs(PlayerGui:GetDescendants()) do
-                pcall(applyInvisibility, v)
-            end
-        end
-    end)
+    -- ĐÃ XÓA BỎ HOÀN TOÀN LUỒNG QUÉT ẨN UI (applyInvisibility) Ở ĐÂY ĐỂ GIỮ LẠI UI CỦA GAME
 
     if camera then
         for _, child in ipairs(camera:GetChildren()) do
@@ -459,7 +412,6 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 -- ============================
 local CoreGui = game:GetService("CoreGui")
 
--- Khối bảng thông tin quét chính
 if CoreGui:FindFirstChild("ScanGUI") then CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", CoreGui)
 sg.Name = "ScanGUI"
@@ -479,21 +431,19 @@ label.TextWrapped = true
 label.Text = "Dang khoi tao..."
 Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
 
--- KHỐI GIAO DIỆN NÚT ĐIỀU KHIỂN (THU NHỎ + XẾP CẠNH NHAU TRÊN 1 HÀNG)
 if CoreGui:FindFirstChild("ControlButtonsGUI") then CoreGui.ControlButtonsGUI:Destroy() end
 local ctrlGui = Instance.new("ScreenGui", CoreGui)
 ctrlGui.Name = "ControlButtonsGUI"
 ctrlGui.ResetOnSpawn = false
 
--- Nút 1: SCREEN CLICK
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", ctrlGui)
-toggleClickBtn.Size = UDim2.new(0, 135, 0, 28)        -- Thu nhỏ size ngang và dọc
-toggleClickBtn.Position = UDim2.new(0, 10, 0, 105)     -- Vị trí nút bên trái
+toggleClickBtn.Size = UDim2.new(0, 135, 0, 28)        
+toggleClickBtn.Position = UDim2.new(0, 10, 0, 105)     
 toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleClickBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleClickBtn.Font = Enum.Font.GothamBold
-toggleClickBtn.TextSize = 11                           -- Thu nhỏ size chữ
+toggleClickBtn.TextSize = 11                           
 toggleClickBtn.Text = "SCREEN CLICK: ON"
 Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 5)
 
@@ -508,14 +458,13 @@ toggleClickBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Nút 2: UPDAMEBOSS (Nằm cạnh nút 1)
 local toggleUpgradeBtn = Instance.new("TextButton", ctrlGui)
-toggleUpgradeBtn.Size = UDim2.new(0, 135, 0, 28)       -- Cùng kích thước nút 1
-toggleUpgradeBtn.Position = UDim2.new(0, 155, 0, 105)  -- Dịch ngang sang phải 155 studs để xếp cùng hàng
+toggleUpgradeBtn.Size = UDim2.new(0, 135, 0, 28)       
+toggleUpgradeBtn.Position = UDim2.new(0, 155, 0, 105)  
 toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleUpgradeBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleUpgradeBtn.Font = Enum.Font.GothamBold
-toggleUpgradeBtn.TextSize = 11                          -- Thu nhỏ size chữ
+toggleUpgradeBtn.TextSize = 11                          
 toggleUpgradeBtn.Text = "UPDAMEBOSS: ON"
 Instance.new("UICorner", toggleUpgradeBtn).CornerRadius = UDim.new(0, 5)
 
@@ -765,14 +714,33 @@ task_spawn(function()
     local numRooms = #bossRooms 
 
     while true do
+        local allRoomsOnCooldown = true
+        for i = 1, numRooms do
+            if not isChestOnCooldown(bossRooms[i].room) then
+                allRoomsOnCooldown = false
+                break
+            end
+        end
+
+        if allRoomsOnCooldown then
+            idx = 1 
+            local room1Entry = bossRooms[1]
+            updateStatusUI("Tat ca room dang hoi -> Ve Room 1 cho doi")
+            safeTeleport(room1Entry.pos) 
+            
+            while isChestOnCooldown(room1Entry.room) do
+                updateStatusUI("He thong room dang hoi... Dang dung cho tai Room 1")
+                task_wait(1)
+            end
+        end
+
         local entry = bossRooms[idx]
         local room = entry.room
         local onCooldown, bz = isChestOnCooldown(room)
 
         if onCooldown then
-            updateStatusUI(string_format("Room %d/%d: DANG HOI -> chuyen tiep", idx, numRooms))
             idx = idx % numRooms + 1 
-            task_wait(0.5)
+            task_wait(0.2)
             continue
         end
 
