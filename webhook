@@ -28,6 +28,10 @@ getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 getgenv().FarmMultiChest = true       
+
+-- Cao độ map chuẩn
+local SCAN_Y = 2055
+
 -- Hàm dịch chuyển an toàn (Ép cứng trục Y chuẩn tránh rớt sàn)
 local function safeTeleport(pos)
     local char = player.Character or player.CharacterAdded:Wait()
@@ -224,12 +228,13 @@ end)
 local STEP = 350
 local MIN_X, MAX_X = -7500, -2100
 local MIN_Z, MAX_Z = -3600, 900
-local SCAN_Y = 2055
 local WAIT_TIME = 0.7
 
 local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
+
+local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
 
 -- ============================
 -- BUOC 1: QUET MAP + TIM ROOM
@@ -418,7 +423,7 @@ task.spawn(function()
     end)
 
     -- ============================
-    -- FARM LOOP CHUẨN ĐÃ TỐI ƯU HÓA
+    -- INTEGRATED FARM LOOP (HOÀN CHỈNH)
     -- ============================
     local idx = 1
     local numRooms = #bossRooms
