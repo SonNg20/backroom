@@ -245,7 +245,7 @@ task.spawn(function()
             end
 
             if count % 10 == 0 then
-                collectgarbage("step")
+                collectgarbage("count")
             end
 
             if #bossRooms >= TARGET_ROOMS then
@@ -254,7 +254,7 @@ task.spawn(function()
         end
     end
 
-    collectgarbage("collect")
+    collectgarbage("count")
 
     if #bossRooms == 0 then
         label.Text = "Khong tim thay room nao!"
