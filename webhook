@@ -3,9 +3,9 @@
 -- ============================
 getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: "Hop" (đổi server), "Rejoin" (vào lại), hoặc "Off" (ở lại farm số phòng đang có)
 getgenv().CpuSaver = true             -- Thiết lập true để bật tối ưu đồ họa ẩn map/UI chống lag, false để tắt
-getgenv().TargetRoomsCount = 3        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
-getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID ="989895037406044200"
+getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
+getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
@@ -20,12 +20,11 @@ if not game:IsLoaded() then
 end
 
 -- ============================
--- FIX TRIỆT ĐỂ: CORE HOOK CHẶN SẬP NGUỒN LỖI ĐỎ TỪ CLIENTMODULE
+-- CORE HOOK CHẶN LỖI ĐỎ CLIENTMODULE PHÁT SINH TỪ HỆ THỐNG GAME
 -- ============================
 local ScriptContext = game:GetService("ScriptContext")
 pcall(function()
     ScriptContext.Error:Connect(function(message, stack, script)
-        -- Chặn đứng mọi loại lỗi phát sinh từ script ClientModule của game trong im lặng để cứu FPS
         if (script and script.Name == "ClientModule") or string.find(stack, "ClientModule") then
             return
         end
@@ -281,6 +280,7 @@ if getgenv().CpuSaver then
         ["BackroomsPureUiGui"] = true
     }
 
+    -- FIX TRIỆT ĐỂ: Thêm bộ lọc Parent an toàn chặn việc chạm nhầm vào UI phòng của hệ thống game
     local function applyInvisibility(v)
         if v:IsA("ScreenGui") then
             local name = v.Name
@@ -291,8 +291,12 @@ if getgenv().CpuSaver then
         elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
             local name = v.Name
             if string_find(name, "Backrooms") or string_find(name, "Timer") then return end
+            
+            -- Kiểm tra nếu bảng UI nằm trong thư mục GeneratedBackrooms của map thì bỏ qua luôn
+            if v:FindFirstAncestor("GeneratedBackrooms") then return end
             v.Enabled = false
         elseif v:IsA("GuiObject") then
+            -- Kiểm tra xem đối tượng có nằm trong cụm UI của Backrooms không
             local screenGui = v:FindFirstAncestorOfClass("ScreenGui")
             if screenGui then
                 local sgName = screenGui.Name
@@ -300,6 +304,7 @@ if getgenv().CpuSaver then
                     return 
                 end
             end
+            if v:FindFirstAncestor("GeneratedBackrooms") then return end
             v.Visible = false
         end
     end
