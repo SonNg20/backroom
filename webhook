@@ -287,8 +287,9 @@ task.spawn(function()
                 end
             end
 
+            -- Thay thế collectgarbage bằng giải pháp kiểm tra bộ nhớ an toàn qua gcinfo
             if count % 10 == 0 then
-                collectgarbage("step")
+                local currentMem = gcinfo()
             end
 
             if #bossRooms >= TARGET_ROOMS then
@@ -296,8 +297,6 @@ task.spawn(function()
             end
         end
     end
-
-    collectgarbage("collect")
 
     if #bossRooms == 0 then
         hrp.Anchored = false
