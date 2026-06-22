@@ -241,7 +241,7 @@ task.spawn(function()
             end
 
             if count % 10 == 0 then
-                collectgarbage("count")
+                -- Khong chay GC trong scan, tranh xoa room reference
             end
 
             if #bossRooms >= TARGET_ROOMS then
@@ -250,6 +250,7 @@ task.spawn(function()
         end
     end
 
+    -- Chay GC sau khi scan xong, rooms da luu an toan trong bossRooms table
     collectgarbage("count")
 
     if #bossRooms == 0 then
@@ -262,6 +263,15 @@ task.spawn(function()
     end)
 
     label.Text = string.format("Tim thay %d room. Bat dau farm...", #bossRooms)
+
+    -- DEBUG: Check room references
+    for i = 1, #bossRooms do
+        if bossRooms[i].room and bossRooms[i].room.Parent then
+            print("Room " .. i .. ": OK - " .. bossRooms[i].room.Name)
+        else
+            print("Room " .. i .. ": ERROR - Reference lost!")
+        end
+    end
 
     -- ============================
     -- HUY KHOA PLAYER SAU KHI QUET XONG
