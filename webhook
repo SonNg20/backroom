@@ -4,9 +4,9 @@
 getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: "Hop" (đổi server), "Rejoin" (vào lại), hoặc "Off" (ở lại farm số phòng đang có)
 getgenv().CpuSaver = true             -- Thiết lập true để bật tối ưu đồ họa ẩn map/UI chống lag, false để tắt
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
-getgenv().WebhookURL =""
-getgenv().DiscordUserID =""
-getgenv().NOTIFY_TARGET_ROOM = false   
+getgenv().WebhookURL = ""
+getgenv().DiscordUserID = ""
+getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
 local STEP = 350
@@ -20,13 +20,13 @@ if not game:IsLoaded() then
 end
 
 -- ============================
--- FIX: HOOK CHẶN LỖI SPAM CORE LOG CONSOLE CỦA GAME CÂY LAG
+-- FIX CHỐNG SPAM LỖI ĐỎ TẬN GỐC (DIỆN RỘNG)
 -- ============================
 local ScriptContext = game:GetService("ScriptContext")
 pcall(function()
-    ScriptContext.Error:Connect(function(message, stackTrace, script)
-        if script and script.Name == "ClientModule" and string.find(message, "Enabled") then
-            -- Bắt và dập tắt lỗi đỏ nội bộ từ ClientModule trò chơi khi load chunk thiếu, giải phóng CPU lập tức
+    ScriptContext.Error:Connect(function(message)
+        -- Chặn đứng từ xa mọi lỗi index nil liên quan đến thuộc tính 'Enabled' của game, giải phóng RAM và FPS lập tức
+        if string.find(message, "Enabled") and (string.find(message, "nil") or string.find(message, "index")) then
             return
         end
     end)
@@ -558,7 +558,7 @@ task_spawn(function()
         end
     end
 
-    -- THỨ TỰ ƯU TIÊN 1: Không quét được bất kỳ phòng nào (0 phòng) -> Dừng quét tại đây (Đã hủy bỏ NoGMS)
+    -- THỨ TỰ ƯU TIÊN 1: Không quét được bất kỳ phòng nào (0 phòng) -> Dừng quét tại đây
     if #bossRooms == 0 then
         hrp.Anchored = false
         label.Text = "Khong tim thay GameMastersStage nao tren toan map!"
