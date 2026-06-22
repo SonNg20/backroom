@@ -466,17 +466,32 @@ task.spawn(function()
     -- ============================
     local farmIdx = 1
     while true do
+        if #bossRooms == 0 then
+            label.Text = "Khong co room nao de farm!"
+            break
+        end
+        
+        if farmIdx > #bossRooms then
+            farmIdx = 1
+        end
+        
         local entry = bossRooms[farmIdx]
         local onCooldown, _ = isChestOnCooldown(entry.room)
 
         if onCooldown then
             label.Text = string.format("Room %d/%d: DANG HOI -> chuyen tiep", farmIdx, #bossRooms)
             farmIdx = farmIdx % #bossRooms + 1
-            task.wait(0.5)
+            task.wait(1)
         else
+            label.Text = string.format("Room %d/%d: DANG FARM...", farmIdx, #bossRooms)
             farmRoom(entry, farmIdx, #bossRooms)
+            
+            -- Sau khi farm xong, qua room tiep
             farmIdx = farmIdx % #bossRooms + 1
-            task.wait(0.5)
+            task.wait(2)
+            
+            label.Text = string.format("Chuyen sang room %d/%d", farmIdx, #bossRooms)
+            task.wait(1)
         end
     end
 end)
