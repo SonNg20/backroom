@@ -182,11 +182,11 @@ end
 -- ============================
 -- CAU HINH QUET MAP MỚI
 -- ============================
-local STEP = 300
+local STEP = 350
 local MIN_X, MAX_X = -7500, -2100
 local MIN_Z, MAX_Z = -3600, 900
 local SCAN_Y = 2055
-local WAIT_TIME = 0.8 
+local WAIT_TIME = 0.7
 
 local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
