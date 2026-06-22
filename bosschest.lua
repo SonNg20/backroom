@@ -1,11 +1,11 @@
 -- ============================
--- CONFIG (chinh o day)
+-- CONFIG (CẤU HÌNH SỐ PHÒNG TẠI ĐÂY)
 -- ============================
+getgenv().TargetRoomsCount = 3        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
 getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
-getgenv().FarmMultiChest = true       
 
 local STEP = 350
 local MIN_X, MAX_X = -7500, -2100
@@ -38,7 +38,6 @@ end
 local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
-local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
 
 -- Hàm dịch chuyển an toàn (Tiếp đất sát sàn thực tế + Đóng băng ngắn chống rơi tự do gây lag)
 local function safeTeleport(pos)
@@ -260,7 +259,7 @@ task.spawn(function()
             if now - lastLabelUpdate >= 0.5 then
                 label.Text = string.format(
                     "Dang quet: %d / %d\nX: %.0f  Z: %.0f\nRoom: %d/%d",
-                    count, TOTAL_POINTS, x, z, #bossRooms, TARGET_ROOMS)
+                    count, TOTAL_POINTS, x, z, #bossRooms, getgenv().TargetRoomsCount)
                 lastLabelUpdate = now
             end
 
@@ -291,7 +290,7 @@ task.spawn(function()
                 local currentMem = gcinfo()
             end
 
-            if #bossRooms >= TARGET_ROOMS then
+            if #bossRooms >= getgenv().TargetRoomsCount then
                 scanDone = true
             end
         end
@@ -303,6 +302,7 @@ task.spawn(function()
         return
     end
 
+    -- Sắp xếp phòng theo khoảng cách tăng dần từ điểm xuất phát (Đảm bảo room1 gần nhất, room2, room3 xếp sau)
     table.sort(bossRooms, function(a, b)
         return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
     end)
@@ -419,7 +419,7 @@ task.spawn(function()
     end)
 
     -- ============================
-    -- FARM LOOP CHUẨN ĐÃ TỐI ƯU HÓA
+    -- FARM LOOP CHUẨN ĐÃ TỐI ƯU THEO TRÌNH TỰ 1-2-3
     -- ============================
     local idx = 1
     local numRooms = #bossRooms
@@ -431,9 +431,10 @@ task.spawn(function()
         local room = entry.room
         local onCooldown, bz = isChestOnCooldown(room)
 
+        -- SỬA LOGIC TUẦN HOÀN CHUẨN: Nếu phát hiện phòng hiện tại đang hồi -> Tăng tuần tự lên phòng tiếp theo
         if onCooldown then
             updateStatusUI(string.format("Room %d/%d: DANG HOI -> chuyen tiep", idx, numRooms))
-            idx = idx % numRooms + 1
+            idx = idx % numRooms + 1 -- Luôn chạy lũy tiến theo vòng 1 -> 2 -> 3 -> 1
             task.wait(0.5)
             continue
         end
@@ -540,7 +541,6 @@ task.spawn(function()
             local cooldown = isChestOnCooldown(room)
             if cooldown then
                 updateStatusUI(string.format("Room %d/%d: Da pha! Chuyen room...", idx, numRooms))
-                -- ĐÃ LOẠI BỎ ĐOẠN GỬI DISCORD WEBHOOK THÔNG BÁO BÁO PHÁ BOSS TẠI ĐÂY
                 break
             end
 
@@ -555,6 +555,7 @@ task.spawn(function()
         farmingThisRoom = false
         listenerConn:Disconnect()
 
+        -- Chuyển lũy tiến sang phòng tiếp theo theo đúng thứ tự hàng đợi
         idx = idx % numRooms + 1
         task.wait(0.5)
     end
