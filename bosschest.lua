@@ -1,3 +1,18 @@
+-- ============================
+-- CONFIG (chinh o day)
+-- ============================
+getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
+getgenv().NOTIFY_TARGET_ROOM = true   
+getgenv().NOTIFY_HUGE_TITANIC = true  
+getgenv().FarmMultiChest = true       
+
+local STEP = 350
+local MIN_X, MAX_X = -7500, -2100
+local MIN_Z, MAX_Z = -3600, 900
+local SCAN_Y = 2055 -- Chỉ dùng khi quét map trên cao
+local WAIT_TIME = 0.7
+
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
@@ -20,35 +35,18 @@ if not libraryFolder then
     return
 end
 
--- ============================
--- CONFIG (chinh o day)
--- ============================
-getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID ="989895037406044200"
-getgenv().NOTIFY_TARGET_ROOM = false   
-getgenv().NOTIFY_HUGE_TITANIC = true  
-getgenv().FarmMultiChest = true       
-
-local STEP = 350
-local MIN_X, MAX_X = -7500, -2100
-local MIN_Z, MAX_Z = -3600, 900
-local SCAN_Y = 2055 -- Chỉ giữ SCAN_Y cố định phục vụ cho việc quét map từ trên cao
-local WAIT_TIME = 0.7
-
 local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
 local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
 
--- HÀM DỊCH CHUYỂN MỚI: Bỏ Y=2055 cố định, dùng Y thực tế của room + Đóng băng triệt tiêu lực rơi gây lag
+-- Hàm dịch chuyển an toàn (Tiếp đất sát sàn thực tế + Đóng băng ngắn chống rơi tự do gây lag)
 local function safeTeleport(pos)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
     if hrp and pos then
-        -- Dịch chuyển sát mặt sàn dựa theo tọa độ thực tế của phòng (cộng nhẹ 2.5 studs tránh kẹt chân)
         hrp.CFrame = CFrame.new(Vector3.new(pos.X, pos.Y + 2.5, pos.Z))
         
-        -- Khóa trục động lực trong tích tắc để triệt tiêu hoàn toàn hiện tượng rơi tự do gây lag
         hrp.Anchored = true
         task.wait(0.15)
         hrp.Anchored = false
@@ -282,7 +280,6 @@ task.spawn(function()
                                 end
                             end
                             if not found then
-                                -- Khôi phục: Lưu giữ nguyên tọa độ gốc của phòng từ game trả về
                                 table.insert(bossRooms, {room = room, pos = part.Position, unlocked = false})
                             end
                         end
@@ -543,9 +540,7 @@ task.spawn(function()
             local cooldown = isChestOnCooldown(room)
             if cooldown then
                 updateStatusUI(string.format("Room %d/%d: Da pha! Chuyen room...", idx, numRooms))
-                if getgenv().NOTIFY_TARGET_ROOM then
-                    sendToDiscord("Boss da bi danh bay!", string.format("Room %d/%d dang trong thoi gian hoi.", idx, numRooms), 65280, false)
-                end
+                -- ĐÃ LOẠI BỎ ĐOẠN GỬI DISCORD WEBHOOK THÔNG BÁO BÁO PHÁ BOSS TẠI ĐÂY
                 break
             end
 
