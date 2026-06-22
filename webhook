@@ -76,7 +76,7 @@ local STEPS_X = math_floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math_floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
 
--- Hàm dịch chuyển an toàn (Tiếp đất sát sàn thực tế + Đóng băng ngắn chống rơi tự do gây lag)
+-- Hàm dịch chuyển an toàn
 local function safeTeleport(pos)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
@@ -102,7 +102,7 @@ local function RejoinServer()
     end
 end
 
--- Hàm Server Hop nâng cao trộn ngẫu nhiên danh sách tránh trùng server cũ
+-- Hàm Server Hop nâng cao
 local function AdvancedHop()
     local PlaceId = game.PlaceId
     local Url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
@@ -273,7 +273,7 @@ if getgenv().CpuSaver then
         ["SimpleAutoClickGui"] = true,
         ["BackroomsFixUiGui"] = true,
         ["BackroomsPureUiGui"] = true,
-        ["BossDamageUpgradeGUI"] = true
+        ["ControlButtonsGUI"] = true
     }
 
     local function applyInvisibility(v)
@@ -458,6 +458,8 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 -- GUI HỆ THỐNG MÀN HÌNH
 -- ============================
 local CoreGui = game:GetService("CoreGui")
+
+-- Khối bảng thông tin quét chính
 if CoreGui:FindFirstChild("ScanGUI") then CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", CoreGui)
 sg.Name = "ScanGUI"
@@ -477,16 +479,23 @@ label.TextWrapped = true
 label.Text = "Dang khoi tao..."
 Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
 
+-- KHỐI GIAO DIỆN NÚT ĐIỀU KHIỂN (THU NHỎ + XẾP CẠNH NHAU TRÊN 1 HÀNG)
+if CoreGui:FindFirstChild("ControlButtonsGUI") then CoreGui.ControlButtonsGUI:Destroy() end
+local ctrlGui = Instance.new("ScreenGui", CoreGui)
+ctrlGui.Name = "ControlButtonsGUI"
+ctrlGui.ResetOnSpawn = false
+
+-- Nút 1: SCREEN CLICK
 local screenClickEnabled = true
-local toggleClickBtn = Instance.new("TextButton", sg)
-toggleClickBtn.Size = UDim2.new(0, 160, 0, 30)
-toggleClickBtn.Position = UDim2.new(0, 10, 0, 100)
+local toggleClickBtn = Instance.new("TextButton", ctrlGui)
+toggleClickBtn.Size = UDim2.new(0, 135, 0, 28)        -- Thu nhỏ size ngang và dọc
+toggleClickBtn.Position = UDim2.new(0, 10, 0, 105)     -- Vị trí nút bên trái
 toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleClickBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleClickBtn.Font = Enum.Font.GothamBold
-toggleClickBtn.TextSize = 13
+toggleClickBtn.TextSize = 11                           -- Thu nhỏ size chữ
 toggleClickBtn.Text = "SCREEN CLICK: ON"
-Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 5)
 
 toggleClickBtn.MouseButton1Click:Connect(function()
     screenClickEnabled = not screenClickEnabled
@@ -499,28 +508,23 @@ toggleClickBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- NÚT BẤM ON/OFF AUTO UPGRADE BOSS DAMAGE
-if CoreGui:FindFirstChild("BossDamageUpgradeGUI") then CoreGui.BossDamageUpgradeGUI:Destroy() end
-local upgradeGui = Instance.new("ScreenGui", CoreGui)
-upgradeGui.Name = "BossDamageUpgradeGUI"
-upgradeGui.ResetOnSpawn = false
-
-local toggleUpgradeBtn = Instance.new("TextButton", upgradeGui)
-toggleUpgradeBtn.Size = UDim2.new(0, 160, 0, 30)
-toggleUpgradeBtn.Position = UDim2.new(0, 10, 0, 310) -- Xếp dưới khối UI cũ gọn gàng
+-- Nút 2: UPDAMEBOSS (Nằm cạnh nút 1)
+local toggleUpgradeBtn = Instance.new("TextButton", ctrlGui)
+toggleUpgradeBtn.Size = UDim2.new(0, 135, 0, 28)       -- Cùng kích thước nút 1
+toggleUpgradeBtn.Position = UDim2.new(0, 155, 0, 105)  -- Dịch ngang sang phải 155 studs để xếp cùng hàng
 toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleUpgradeBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleUpgradeBtn.Font = Enum.Font.GothamBold
-toggleUpgradeBtn.TextSize = 13
-toggleUpgradeBtn.Text = "AUTO BOSS DAME: ON"
-Instance.new("UICorner", toggleUpgradeBtn).CornerRadius = UDim.new(0, 6)
+toggleUpgradeBtn.TextSize = 11                          -- Thu nhỏ size chữ
+toggleUpgradeBtn.Text = "UPDAMEBOSS: ON"
+Instance.new("UICorner", toggleUpgradeBtn).CornerRadius = UDim.new(0, 5)
 
 local function updateUpgradeButtonDisplay()
     if getgenv().AutoUpgradeBossDamage then
-        toggleUpgradeBtn.Text = "AUTO BOSS DAME: ON"
+        toggleUpgradeBtn.Text = "UPDAMEBOSS: ON"
         toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
     else
-        toggleUpgradeBtn.Text = "AUTO BOSS DAME: OFF"
+        toggleUpgradeBtn.Text = "UPDAMEBOSS: OFF"
         toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
     end
 end
