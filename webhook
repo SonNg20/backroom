@@ -21,7 +21,7 @@ if not libraryFolder then
 end
 
 -- ============================
--- CONFIG (chinh o day)
+-- CONFIG (ĐÃ GOM GỌN SCAN_Y VÀO ĐÂY)
 -- ============================
 getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
@@ -29,10 +29,18 @@ getgenv().NOTIFY_TARGET_ROOM = true
 getgenv().NOTIFY_HUGE_TITANIC = true  
 getgenv().FarmMultiChest = true       
 
--- Cao độ map chuẩn
-local SCAN_Y = 2055
+local STEP = 350
+local MIN_X, MAX_X = -7500, -2100
+local MIN_Z, MAX_Z = -3600, 900
+local SCAN_Y = 2055 -- Đã đưa biến cao độ quét map về lại cấu hình chung
+local WAIT_TIME = 0.7
 
--- Hàm dịch chuyển an toàn (Ép cứng trục Y chuẩn tránh rớt sàn)
+local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
+local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
+local TOTAL_POINTS = STEPS_X * STEPS_Z
+local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
+
+-- Hàm dịch chuyển an toàn (Tự động cộng thêm 5 studs cao độ so với SCAN_Y để tránh rớt void)
 local function safeTeleport(pos)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
@@ -223,20 +231,6 @@ toggleClickBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ============================
--- CAU HINH QUET MAP
--- ============================
-local STEP = 350
-local MIN_X, MAX_X = -7500, -2100
-local MIN_Z, MAX_Z = -3600, 900
-local WAIT_TIME = 0.7
-
-local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
-local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
-local TOTAL_POINTS = STEPS_X * STEPS_Z
-
-local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
-
--- ============================
 -- BUOC 1: QUET MAP + TIM ROOM
 -- ============================
 local bossRooms = {}
@@ -303,7 +297,6 @@ task.spawn(function()
     if #bossRooms == 0 then
         hrp.Anchored = false
         label.Text = "Khong tim thay GameMastersStage nao!"
-        sendToDiscord("Quet xong", "Khong tim thay GameMastersStage nao!", 16711680, false)
         return
     end
 
@@ -423,7 +416,7 @@ task.spawn(function()
     end)
 
     -- ============================
-    -- INTEGRATED FARM LOOP (HOÀN CHỈNH)
+    -- FARM LOOP CHUẨN ĐÃ TỐI ƯU HÓA
     -- ============================
     local idx = 1
     local numRooms = #bossRooms
