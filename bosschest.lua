@@ -4,8 +4,9 @@
 getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: "Hop" (đổi server), "Rejoin" (vào lại), hoặc "Off" (ở lại farm số phòng đang có)
 getgenv().CpuSaver = true             -- Thiết lập true để bật tối ưu đồ họa ẩn map/UI chống lag, false để tắt
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
-getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
+getgenv().AutoUpgradeBossDamage = true-- Tự động nâng cấp Boss Damage Event khi đủ coin
+getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID ="989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
@@ -14,13 +15,14 @@ local MIN_X, MAX_X = -7500, -2100
 local MIN_Z, MAX_Z = -3600, 900
 local SCAN_Y = 2055 
 local WAIT_TIME = 0.7
+local UPGRADE_DELAY = 0.3
 
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 
 -- ============================
--- CORE HOOK CHẶN LỖI ĐỎ CLIENTMODULE PHÁT SINH TỪ HỆ THỐNG GAME
+-- FIX CHỐNG SPAM LỖI ĐỎ TẬN GỐC (DIỆN RỘNG)
 -- ============================
 local ScriptContext = game:GetService("ScriptContext")
 pcall(function()
@@ -67,7 +69,6 @@ local PlayerGui = player:WaitForChild("PlayerGui")
 
 local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
 if not libraryFolder then
-    print("Khong tim thay thu vien Library trong thoi gian cho!")
     return
 end
 
@@ -75,13 +76,12 @@ local STEPS_X = math_floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math_floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
 
--- Hàm dịch chuyển an toàn (Tiếp đất sát sàn thực tế + Đóng băng ngắn chống rơi tự do gây lag)
+-- Hàm dịch chuyển an toàn
 local function safeTeleport(pos)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
     if hrp and pos then
         hrp.CFrame = CFrame_new(Vector3_new(pos.X, pos.Y + 2.5, pos.Z))
-        
         hrp.Anchored = true
         task_wait(0.15)
         hrp.Anchored = false
@@ -97,13 +97,12 @@ local function RejoinServer()
             TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, player)
         end
     end)
-    
     if not success then
         TeleportService:Teleport(game.PlaceId, player)
     end
 end
 
--- Hàm Server Hop nâng cao trộn ngẫu nhiên danh sách tránh trùng server cũ
+-- Hàm Server Hop nâng cao
 local function AdvancedHop()
     local PlaceId = game.PlaceId
     local Url = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
@@ -128,11 +127,9 @@ local function AdvancedHop()
             end
         end
     end
-    
     TeleportService:Teleport(PlaceId, player)
 end
 
--- Hàm điều hướng xử lý Rejoin hoặc Server Hop linh hoạt
 local function executeAction(actionType)
     if actionType == "Rejoin" then
         RejoinServer()
@@ -181,7 +178,6 @@ if getgenv().CpuSaver then
 
     local function killEffectInstance(obj)
         if isPlayerBody(obj) then return end
-        
         if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
         or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
         or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
@@ -230,7 +226,6 @@ if getgenv().CpuSaver then
 
     local function handleMapPart(v)
         if isPlayerBody(v) then return end
-        
         if isBreakableOrPetMesh(v) then 
             if string_find(v.Name, "Pet") or (v.Parent and string_find(v.Parent.Name, "Pet")) then
                 if v:IsA("BasePart") then
@@ -277,10 +272,10 @@ if getgenv().CpuSaver then
         ["BackroomsUiToggleGui"] = true,
         ["SimpleAutoClickGui"] = true,
         ["BackroomsFixUiGui"] = true,
-        ["BackroomsPureUiGui"] = true
+        ["BackroomsPureUiGui"] = true,
+        ["ControlButtonsGUI"] = true
     }
 
-    -- FIX TRIỆT ĐỂ: Thêm bộ lọc Parent an toàn chặn việc chạm nhầm vào UI phòng của hệ thống game
     local function applyInvisibility(v)
         if v:IsA("ScreenGui") then
             local name = v.Name
@@ -291,12 +286,9 @@ if getgenv().CpuSaver then
         elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
             local name = v.Name
             if string_find(name, "Backrooms") or string_find(name, "Timer") then return end
-            
-            -- Kiểm tra nếu bảng UI nằm trong thư mục GeneratedBackrooms của map thì bỏ qua luôn
             if v:FindFirstAncestor("GeneratedBackrooms") then return end
             v.Enabled = false
         elseif v:IsA("GuiObject") then
-            -- Kiểm tra xem đối tượng có nằm trong cụm UI của Backrooms không
             local screenGui = v:FindFirstAncestorOfClass("ScreenGui")
             if screenGui then
                 local sgName = screenGui.Name
@@ -349,26 +341,20 @@ local activeContainer = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):Wai
 local backroomsFolder = activeContainer:WaitForChild("Backrooms")
 local generatedBackrooms = backroomsFolder:WaitForChild("GeneratedBackrooms")
 
-print("Dang tim kiem cong vao Deep Backrooms...")
 local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
 if spawnRoomFolder then
     local deepDoor = spawnRoomFolder:WaitForChild("DeepDoor", 15)
     if deepDoor and deepDoor:FindFirstChild("Interact") then
         local interactPart = deepDoor.Interact
-        
         for i = 1, 5 do
             safeTeleport(interactPart.Position)
             task_wait(0.3)
         end
-        
         task_wait(2)
-        
         local prompt = interactPart:FindFirstChildWhichIsA("ProximityPrompt", true)
         if prompt then
             fireproximityprompt(prompt)
-            print("Da kich hoat cong vao Deep Backrooms thanh cong!")
         else
-            print("Khong tim thay ProximityPrompt, dang thu va cham truc tiep...")
             safeTeleport(interactPart.Position)
         end
     end
@@ -469,10 +455,12 @@ local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- ============================
--- GUI
+-- GUI HỆ THỐNG MÀN HÌNH
 -- ============================
-if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() end
-local sg = Instance.new("ScreenGui", game.CoreGui)
+local CoreGui = game:GetService("CoreGui")
+
+if CoreGui:FindFirstChild("ScanGUI") then CoreGui.ScanGUI:Destroy() end
+local sg = Instance.new("ScreenGui", CoreGui)
 sg.Name = "ScanGUI"
 sg.ResetOnSpawn = false
 
@@ -490,16 +478,21 @@ label.TextWrapped = true
 label.Text = "Dang khoi tao..."
 Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
 
+if CoreGui:FindFirstChild("ControlButtonsGUI") then CoreGui.ControlButtonsGUI:Destroy() end
+local ctrlGui = Instance.new("ScreenGui", CoreGui)
+ctrlGui.Name = "ControlButtonsGUI"
+ctrlGui.ResetOnSpawn = false
+
 local screenClickEnabled = true
-local toggleClickBtn = Instance.new("TextButton", sg)
-toggleClickBtn.Size = UDim2.new(0, 160, 0, 30)
-toggleClickBtn.Position = UDim2.new(0, 10, 0, 100)
+local toggleClickBtn = Instance.new("TextButton", ctrlGui)
+toggleClickBtn.Size = UDim2.new(0, 135, 0, 28)        
+toggleClickBtn.Position = UDim2.new(0, 10, 0, 105)     
 toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleClickBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleClickBtn.Font = Enum.Font.GothamBold
-toggleClickBtn.TextSize = 13
+toggleClickBtn.TextSize = 11                           
 toggleClickBtn.Text = "SCREEN CLICK: ON"
-Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 6)
+Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 5)
 
 toggleClickBtn.MouseButton1Click:Connect(function()
     screenClickEnabled = not screenClickEnabled
@@ -511,6 +504,58 @@ toggleClickBtn.MouseButton1Click:Connect(function()
         toggleClickBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
     end
 end)
+
+local toggleUpgradeBtn = Instance.new("TextButton", ctrlGui)
+toggleUpgradeBtn.Size = UDim2.new(0, 135, 0, 28)       
+toggleUpgradeBtn.Position = UDim2.new(0, 155, 0, 105)  
+toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+toggleUpgradeBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleUpgradeBtn.Font = Enum.Font.GothamBold
+toggleUpgradeBtn.TextSize = 11                          
+toggleUpgradeBtn.Text = "UPDAMEBOSS: ON"
+Instance.new("UICorner", toggleUpgradeBtn).CornerRadius = UDim.new(0, 5)
+
+local function updateUpgradeButtonDisplay()
+    if getgenv().AutoUpgradeBossDamage then
+        toggleUpgradeBtn.Text = "UPDAMEBOSS: ON"
+        toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+    else
+        toggleUpgradeBtn.Text = "UPDAMEBOSS: OFF"
+        toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+    end
+end
+
+local function startUpgradeLoop()
+    task_spawn(function()
+        local NetworkFolder = ReplicatedStorage:WaitForChild("Network", 15)
+        local UpgradeRemote = NetworkFolder and NetworkFolder:WaitForChild("EventUpgrades: Purchase", 10)
+        local upgradeArgs = { "BackroomsDeepBossDamage" }
+        
+        while getgenv().AutoUpgradeBossDamage and UpgradeRemote do
+            local success, result = pcall(function()
+                return UpgradeRemote:InvokeServer(unpack(upgradeArgs))
+            end)
+            if success and (result == false or result == nil) then
+                getgenv().AutoUpgradeBossDamage = false
+                updateUpgradeButtonDisplay()
+                break
+            end
+            task_wait(UPGRADE_DELAY)
+        end
+    end)
+end
+
+toggleUpgradeBtn.MouseButton1Click:Connect(function()
+    getgenv().AutoUpgradeBossDamage = not getgenv().AutoUpgradeBossDamage
+    updateUpgradeButtonDisplay()
+    if getgenv().AutoUpgradeBossDamage then
+        startUpgradeLoop()
+    end
+end)
+
+if getgenv().AutoUpgradeBossDamage then
+    startUpgradeLoop()
+end
 
 -- ============================
 -- BUOC 1: QUET MAP
@@ -612,7 +657,6 @@ task_spawn(function()
         return timer.Enabled, bz
     end
 
-    -- HÀM CẬP NHẬT TRẠNG THÁI DANH SÁCH PHÒNG LÊN UI
     local function updateStatusUI(currentAction)
         local str = string_format("Status: %s\n", currentAction)
         str = str .. "-----------------------------\n"
@@ -669,7 +713,6 @@ task_spawn(function()
         return false
     end
 
-    -- Vòng lặp Screen Clicker chạy nền
     task_spawn(function()
         while true do
             if screenClickEnabled then
@@ -681,7 +724,6 @@ task_spawn(function()
         end
     end)
 
-    -- Auto Clicker đập các vật thể xung quanh nhân vật trong bán kính 15 studs
     local farmingThisRoom = true
     task_spawn(function()
         while true do
@@ -713,20 +755,44 @@ task_spawn(function()
     end)
 
     -- ============================
-    -- VÒNG LẶP FARM TUẦN HOÀN CHÍNH
+    -- LOGIC FARM: KIỂM TRA ĐIỀU KIỆN COOLDOWN TOÀN BỘ PHÒNG
     -- ============================
     local idx = 1
     local numRooms = #bossRooms 
 
     while true do
+        -- Kiểm tra xem TẤT CẢ các phòng có đang cùng trong thời gian hồi hay không
+        local allRoomsOnCooldown = true
+        for i = 1, numRooms do
+            if not isChestOnCooldown(bossRooms[i].room) then
+                allRoomsOnCooldown = false
+                break
+            end
+        end
+
+        -- SỬA ĐỔI CHÍNH: Nếu toàn bộ phòng đều đang hồi -> về Room 1 đứng đợi Boss Room 1 hồi sinh
+        if allRoomsOnCooldown then
+            idx = 1 -- Đặt con trỏ mục tiêu về lại Room 1
+            local room1Entry = bossRooms[1]
+            updateStatusUI("Tat ca room dang hoi -> Ve Room 1 cho doi")
+            safeTeleport(room1Entry.pos) -- Dịch chuyển thẳng về tâm Room 1
+            
+            -- Vòng lặp đóng băng đứng chờ tại chỗ tại Room 1, check trạng thái mỗi 1 giây chống lag
+            while isChestOnCooldown(room1Entry.room) do
+                updateStatusUI("He thong room dang hoi... Dang dung cho tai Room 1")
+                task_wait(1)
+            end
+        end
+
+        -- Sau khi thoát trạng thái chờ (hoặc nếu có phòng sẵn sàng), chạy tiếp logic farm như bình thường
         local entry = bossRooms[idx]
         local room = entry.room
         local onCooldown, bz = isChestOnCooldown(room)
 
+        -- Dự phòng nếu phòng đơn lẻ này bỗng nhiên bị cooldown khi vừa dịch chuyển đến
         if onCooldown then
-            updateStatusUI(string_format("Room %d/%d: DANG HOI -> chuyen tiep", idx, numRooms))
             idx = idx % numRooms + 1 
-            task_wait(0.5)
+            task_wait(0.2)
             continue
         end
 
