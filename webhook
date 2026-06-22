@@ -1,7 +1,8 @@
-repeat task.wait() until game:IsLoaded()
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
 local InstancingCmds = require(ReplicatedStorage.Library.Client.InstancingCmds)
 local FFlags = require(ReplicatedStorage.Library.Client.FFlags)
 
@@ -306,8 +307,7 @@ local function isChestOnCooldown(room)
     local bz = room:FindFirstChild("BREAK_ZONE", true)
     if not bz then return false, nil end
     local timer = bz:FindFirstChild("ChestTimer")
-    if not timer then return false, bz 】
-    end
+    if not timer then return false, bz end
     return timer.Enabled, bz
 end
 
@@ -354,7 +354,7 @@ local function getCorners(room, bz, fallbackPos)
 end
 
 -- ============================
--- SCAN ROOMS
+-- SCAN ROOM
 -- ============================
 local bossRooms = {}
 
@@ -489,7 +489,7 @@ task.spawn(function()
         local miniSpots = {corners[2], corners[3], corners[4], corners[5]}
 
         -- ============================
-        -- EVENT-BAREN MINI CHEST DETECTION
+        -- EVENT-BASED MINI CHEST DETECTION
         -- ============================
         local breakablesContainer = workspace:WaitForChild("__THINGS"):WaitForChild("Breakables")
         local damageRemote = ReplicatedStorage:WaitForChild("Network"):WaitForChild("Breakables_PlayerDealDamage")
