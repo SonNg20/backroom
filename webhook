@@ -176,7 +176,7 @@ local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- ============================
--- GUI
+-- GUI (Tăng chiều cao bảng để chứa danh sách Room)
 -- ============================
 if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", game.CoreGui)
@@ -184,13 +184,13 @@ sg.Name = "ScanGUI"
 sg.ResetOnSpawn = false
 
 local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 250, 0, 90)
+label.Size = UDim2.new(0, 280, 0, 160) -- Mở rộng bảng UI
 label.Position = UDim2.new(0, 10, 0, 140)
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
 label.TextColor3 = Color3.fromRGB(0, 255, 100)
 label.Font = Enum.Font.Code
-label.TextSize = 13
+label.TextSize = 12
 label.TextXAlignment = Enum.TextXAlignment.Left
 label.TextYAlignment = Enum.TextYAlignment.Top
 label.TextWrapped = true
@@ -310,10 +310,9 @@ task.spawn(function()
     end)
 
     hrp.Anchored = false
-    label.Text = string.format("Tim thay %d room.\nBat dau farm...", #bossRooms)
 
     -- ============================
-    -- HÀM KIỂM TRA COOLDOWN NGUYÊN BẢN CỦA BẠN
+    -- HÀM KIỂM TRA COOLDOWN NGUYÊN BẢN
     -- ============================
     local function isChestOnCooldown(room)
         local bz = room:FindFirstChild("BREAK_ZONE", true)
@@ -321,6 +320,18 @@ task.spawn(function()
         local timer = bz:FindFirstChild("ChestTimer")
         if not timer then return false, bz end
         return timer.Enabled, bz
+    end
+
+    -- HÀM CẬP NHẬT TRẠNG THÁI DANH SÁCH PHÒNG TRÊN BẢNG ĐIỀU KHIỂN
+    local function updateStatusUI(currentAction)
+        local str = string.format("Status: %s\n", currentAction)
+        str = str .. "-----------------------------\n"
+        for i, entry in ipairs(bossRooms) do
+            local cooldown = isChestOnCooldown(entry.room)
+            local statusText = cooldown and "Dang Hoi" or "San Sang"
+            str = str .. string.format("room%d: (%.0f, %.0f, %.0f): %s\n", i, entry.pos.X, entry.pos.Y, entry.pos.Z, statusText)
+        end
+        label.Text = str
     end
 
     local function isLocked(room)
@@ -387,20 +398,18 @@ task.spawn(function()
         local bz = room:FindFirstChild("BREAK_ZONE", true)
         if not bz then return false end
 
-        -- Đồng bộ tối ưu: Teleport trước khi mở khóa cửa để tránh kẹt khoảng cách xa
         for i = 1, 3 do
             safeTeleport(entry.pos + Vector3.new(0, 5, 0))
             task.wait(0.4)
         end
 
         if not entry.unlocked and isLocked(room) then
-            label.Text = string.format("Room %d/%d: DANG MO KHOA...", idx, total)
+            updateStatusUI(string.format("Room %d/%d: DANG MO KHOA...", idx, total))
             local unlockStart = tick()
             while isLocked(room) do
                 unlockRoom(room)
                 task.wait(1)
                 if tick() - unlockStart > 30 then
-                    label.Text = string.format("Room %d/%d: Cua loi, cu tiep tuc farm", idx, total)
                     break
                 end
             end
@@ -408,8 +417,6 @@ task.spawn(function()
         elseif not entry.unlocked then
             entry.unlocked = true
         end
-
-        label.Text = string.format("Room %d/%d: Dang danh...", idx, total)
 
         if getgenv().NOTIFY_TARGET_ROOM then
             sendToDiscord(
@@ -492,7 +499,7 @@ task.spawn(function()
                     processing = true
                     local chestEntry = table.remove(pendingChests, 1)
                     safeTeleport(chestEntry.pos + Vector3.new(0, 5, 0))
-                    label.Text = string.format("Room %d/%d: Dang danh mini chest...", idx, total)
+                    updateStatusUI(string.format("Room %d/%d: Danh Mini Chest", idx, total))
 
                     while chestEntry.inst and chestEntry.inst.Parent do
                         task.wait(0.2)
@@ -506,10 +513,9 @@ task.spawn(function()
 
         -- Đứng tại tâm phòng phá rương chính
         while true do
-            -- FIXED: Truyền chính xác 'room' (Instance) vào hàm check cũ của bạn
             local cooldown, _ = isChestOnCooldown(room)
             if cooldown then
-                label.Text = string.format("Room %d/%d: Da pha!\nChuyen room...", idx, total)
+                updateStatusUI(string.format("Room %d/%d: Da pha!", idx, total))
                 if getgenv().NOTIFY_TARGET_ROOM then
                     sendToDiscord("Boss da bi danh bay!", string.format("Room %d/%d dang trong thoi gian hoi.", idx, total), 65280, false)
                 end
@@ -518,7 +524,7 @@ task.spawn(function()
 
             if #pendingChests == 0 and not processing then
                 safeTeleport(center + Vector3.new(0, 5, 0))
-                label.Text = string.format("Room %d/%d: Dang danh boss", idx, total)
+                updateStatusUI(string.format("Room %d/%d: Dang danh Boss", idx, total))
             end
             task.wait(0.5)
         end
@@ -529,22 +535,23 @@ task.spawn(function()
     end
 
     -- ============================
-    -- VÒNG LẶP TUẦN HOÀN CHÍNH (FARM LOOP)
+    -- VÒNG LẶP TUẦN HOÀN CHÍNH (ĐÃ THÊM LỆNH CONTINUE FIX BUG SẬP MẠNG)
     -- ============================
     local farmIdx = 1
     while true do
         local entry = bossRooms[farmIdx]
-        -- FIXED: Truyền chính xác 'entry.room' vào hàm kiểm tra cũ để tránh lỗi dữ liệu Table
         local onCooldown = isChestOnCooldown(entry.room)
 
         if onCooldown then
-            label.Text = string.format("Room %d/%d: DANG HOI -> chuyen tiep", farmIdx, #bossRooms)
+            updateStatusUI(string.format("Room %d/%d: DANG HOI -> chuyen tiep", farmIdx, #bossRooms))
             farmIdx = farmIdx % #bossRooms + 1
             task.wait(0.5)
-        else
-            farmRoom(entry, farmIdx, #bossRooms)
-            farmIdx = farmIdx % #bossRooms + 1
-            task.wait(0.5)
+            -- THÊM LỆNH TIẾP TỤC KHÔNG CHẠY XUỐNG DƯỚI
+            continue 
         end
+
+        farmRoom(entry, farmIdx, #bossRooms)
+        farmIdx = farmIdx % #bossRooms + 1
+        task.wait(0.5)
     end
 end)
