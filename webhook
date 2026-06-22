@@ -290,14 +290,12 @@ task.spawn(function()
         end)
     end
 
-    local function isChestOnCooldown(r)
-        local breakZone = r:FindFirstChild("BREAK_ZONE", true)
-        if not breakZone then return false, nil end
-        local chestTimer = breakZone:FindFirstChild("ChestTimer", true)
-        if not chestTimer then return false, breakZone end
-        local stroke = chestTimer:FindFirstChildWhichIsA("UIStroke")
-        if not stroke then return false, breakZone end
-        return stroke.Enabled, breakZone
+    local function isChestOnCooldown(room)
+        local bz = room:FindFirstChild("BREAK_ZONE", true)
+        if not bz then return false, nil end
+        local timer = bz:FindFirstChild("ChestTimer")
+        if not timer then return false, bz end
+        return timer.Enabled, bz
     end
 
     local function getCorners(r, breakZone)
@@ -465,7 +463,11 @@ task.spawn(function()
     -- MULTI FARM LOOP (FIXED)
     -- ============================
     local farmIdx = 1
+    local cycleCount = 0
+    
     while true do
+        cycleCount = cycleCount + 1
+        
         if #bossRooms == 0 then
             label.Text = "Khong co room nao de farm!"
             break
@@ -476,19 +478,23 @@ task.spawn(function()
         end
         
         local entry = bossRooms[farmIdx]
-        local onCooldown, _ = isChestOnCooldown(entry.room)
+        local onCooldown, bz = isChestOnCooldown(entry.room)
+        
+        print(string.format("[Cycle %d] Room %d - Cooldown: %s", cycleCount, farmIdx, tostring(onCooldown)))
 
         if onCooldown then
+            -- timer.Enabled = true = dang hoi, bo qua
             label.Text = string.format("Room %d/%d: DANG HOI -> chuyen tiep", farmIdx, #bossRooms)
             farmIdx = farmIdx % #bossRooms + 1
-            task.wait(1)
+            task.wait(2)  -- Quet lai sau 2s
         else
+            -- timer.Enabled = false = san sang farm
             label.Text = string.format("Room %d/%d: DANG FARM...", farmIdx, #bossRooms)
             farmRoom(entry, farmIdx, #bossRooms)
             
             -- Sau khi farm xong, qua room tiep
             farmIdx = farmIdx % #bossRooms + 1
-            task.wait(2)
+            task.wait(3)  -- Cho room sau load + cooldown settle
             
             label.Text = string.format("Chuyen sang room %d/%d", farmIdx, #bossRooms)
             task.wait(1)
