@@ -1,4 +1,20 @@
-repeat task.wait() until game:IsLoaded()
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+-- ============================
+-- KHAI BÁO BIẾN HỆ THỐNG CƠ BẢN
+-- ============================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local vim = game:GetService("VirtualInputManager")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- Chờ thư viện Library của game tải xong hoàn toàn
+repeat task.wait() until ReplicatedStorage:FindFirstChild("Library")
 
 -- ============================
 -- CONFIG (chinh o day)
@@ -9,12 +25,21 @@ getgenv().NOTIFY_TARGET_ROOM = true   -- gui webhook khi tele toi GameMastersSta
 getgenv().NOTIFY_HUGE_TITANIC = true  -- gui webhook khi nhan Huge/Titanic moi
 getgenv().FarmMultiChest = true       -- true: quet du 2 room moi farm | false: quet duoc 1 room la farm luon
 
+-- Hàm dịch chuyển an toàn được định nghĩa lại để tránh lỗi nil
+local function safeTeleport(pos)
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart", 5)
+    if hrp and pos then
+        hrp.CFrame = CFrame.new(pos)
+    end
+end
+
 -- ============================
 -- AUTO JOIN MINIGAME EVENT
 -- ============================
 local InstancingCmds = require(ReplicatedStorage.Library.Client.InstancingCmds)
 local FFlags = require(ReplicatedStorage.Library.Client.FFlags)
-repeat task.wait() until ReplicatedStorage:FindFirstChild("Library")
+
 local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
 if joinTarget then
     InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
@@ -38,7 +63,6 @@ if spawnRoomFolder then
             task.wait(0.3)
         end
         
-        -- Chờ 2 giây rồi bấm cổng (Không nhảy Spacebar)
         task.wait(2)
         
         local prompt = interactPart:FindFirstChildWhichIsA("ProximityPrompt", true)
@@ -51,6 +75,7 @@ if spawnRoomFolder then
         end
     end
 end
+
 -- ============================
 -- HAM GUI DISCORD WEBHOOK
 -- ============================
@@ -79,7 +104,7 @@ local function sendToDiscord(title, description, color, mention)
 end
 
 -- ============================
--- CHECK INVENTORY HUGE/TITANIC (chay nen, gui webhook khi co pet moi)
+-- CHECK INVENTORY HUGE/TITANIC
 -- ============================
 local SaveModule
 do
@@ -137,15 +162,13 @@ if getgenv().NOTIFY_HUGE_TITANIC then
     end)
 end
 
-if not spawnRoom then return end
-local origin = spawnRoom:FindFirstChildWhichIsA("BasePart", true)
+if not spawnRoomFolder then return end
+local origin = spawnRoomFolder:FindFirstChildWhichIsA("BasePart", true)
 if not origin then return end
 
 local originPos = origin.Position
 local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
-local camera = workspace.CurrentCamera
-local vim = game:GetService("VirtualInputManager")
 
 -- ============================
 -- GUI
@@ -169,7 +192,6 @@ label.TextWrapped = true
 label.Text = "Dang khoi tao..."
 Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
 
--- Nut ON/OFF cho auto click man hinh thuc te
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", sg)
 toggleClickBtn.Size = UDim2.new(0, 160, 0, 30)
@@ -205,7 +227,7 @@ local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
 
-local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1 -- so GameMastersStage can tim truoc khi dung quet
+local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
 
 -- ============================
 -- BUOC 1: QUET MAP + TIM ROOM
@@ -213,7 +235,6 @@ local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1 -- so GameMastersStage 
 local bossRooms = {}
 
 hrp.Anchored = true
-
 label.Text = "Dang quet map..."
 
 task.spawn(function()
@@ -230,7 +251,6 @@ task.spawn(function()
             hrp.CFrame = CFrame.new(x, SCAN_Y + 30, z)
             task.wait(WAIT_TIME)
 
-            -- Cap nhat label moi 2 lan/giay (thay vi moi lan quet)
             local now = tick()
             if now - lastLabelUpdate >= 0.5 then
                 label.Text = string.format(
@@ -239,8 +259,7 @@ task.spawn(function()
                 lastLabelUpdate = now
             end
 
-            -- Cache children list thay vi goi GetChildren() moi lan (lau hon)
-            local children = container:GetChildren()
+            local children = generatedBackrooms:GetChildren()
             for i = 1, #children do
                 local room = children[i]
                 if room.Name == "GameMastersStage" then
@@ -248,7 +267,6 @@ task.spawn(function()
                     if bz then
                         local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
                         if part then
-                            -- Kiem tra room da co trong list chua (don gian hon)
                             local found = false
                             for j = 1, #bossRooms do
                                 if bossRooms[j].room == room then
@@ -264,7 +282,6 @@ task.spawn(function()
                 end
             end
 
-            -- Garbage collect moi 10 lan quet de tranh RAM cao
             if count % 10 == 0 then
                 collectgarbage("step")
             end
@@ -275,7 +292,6 @@ task.spawn(function()
         end
     end
 
-    -- Garbage collect sau khi quet xong
     collectgarbage("collect")
 
     if #bossRooms == 0 then
@@ -291,21 +307,14 @@ task.spawn(function()
     end)
 
     hrp.Anchored = false
+    label.Text = string.format("Tim thay %d room.\nBat dau farm...", #bossRooms)
 
-    label.Text = string.format("Tim thay %d room. Bat dau farm...", #bossRooms)
-
-    -- ============================
-    -- TELE 3 LAN DEN ROOM 1 (sau khi quet xong)
-    -- ============================
     local firstRoom = bossRooms[1]
     for i = 1, 3 do
         hrp.CFrame = CFrame.new(firstRoom.pos + Vector3.new(0, 5, 0))
         task.wait(0.5)
     end
 
-    -- ============================
-    -- HAM CHECK + UNLOCK ROOM GAMEMASTERSTAGE
-    -- ============================
     local function isLocked(room)
         return room:GetAttribute("LockedRoom") == true
     end
@@ -320,9 +329,6 @@ task.spawn(function()
         end)
     end
 
-    -- ============================
-    -- HAM CHECK CHEST TIMER (dung de multi farm: bo qua room dang hoi)
-    -- ============================
     local function isChestOnCooldown(r)
         local breakZone = r:FindFirstChild("BREAK_ZONE", true)
         if not breakZone then return false, nil end
@@ -330,7 +336,6 @@ task.spawn(function()
         if not chestTimer then return false, breakZone end
         local stroke = chestTimer:FindFirstChildWhichIsA("UIStroke")
         if not stroke then return false, breakZone end
-        -- UIStroke.Enabled = true = boss da chet = dang hoi
         return stroke.Enabled, breakZone
     end
 
@@ -353,7 +358,6 @@ task.spawn(function()
     end
 
     local breakablesContainer = workspace:WaitForChild("__THINGS"):WaitForChild("Breakables")
-
     repeat task.wait() until ReplicatedStorage:FindFirstChild("Network")
     local damageRemote = ReplicatedStorage.Network:WaitForChild("Breakables_PlayerDealDamage")
 
@@ -364,9 +368,6 @@ task.spawn(function()
         return false
     end
 
-    -- Auto click MAN HINH THUC TE (gia lap chuot tai giua man hinh)
-    -- Chay 1 lan duy nhat, dung chung cho toan bo qua trinh multi farm
-    -- Bat/tat bang nut SCREEN CLICK tren GUI
     task.spawn(function()
         while true do
             if screenClickEnabled then
@@ -380,23 +381,15 @@ task.spawn(function()
         end
     end)
 
-    -- ============================
-    -- HAM FARM 1 ROOM (giu nguyen logic check 4 goc cua ban hien tai)
-    -- Tra ve true neu da pha xong (chest vao cooldown), false neu bi gian doan
-    -- ============================
     local function farmRoom(entry, idx, total)
         local room = entry.room
         local bz = room:FindFirstChild("BREAK_ZONE", true)
         if not bz then return false end
 
-        -- Mo khoa room neu can
         if isLocked(room) then
             unlockRoom(room)
         end
 
-        -- ============================
-        -- TELE 3 LAN DEN ROOM NAY (moi lan cach 0.5s)
-        -- ============================
         for i = 1, 3 do
             hrp.CFrame = CFrame.new(entry.pos + Vector3.new(0, 5, 0))
             task.wait(0.5)
@@ -417,8 +410,7 @@ task.spawn(function()
         local center = corners[1]
         local miniSpots = {corners[2], corners[3], corners[4], corners[5]}
 
-        -- Hang doi luu CA vi tri VA instance breakable de biet khi nao no bi pha
-        local pendingChests = {} -- { {pos = Vector3, inst = Instance}, ... }
+        local pendingChests = {}
         local processing = false
 
         local function nearestSpotIndex(pos)
@@ -447,7 +439,6 @@ task.spawn(function()
             end)
         end)
 
-        -- Tim breakable gan player nhat trong ban kinh CLICK_RADIUS
         local CLICK_RADIUS = 15
         local function getNearestBreakable()
             local bestInst, bestDist = nil, math.huge
@@ -467,7 +458,6 @@ task.spawn(function()
             return bestInst
         end
 
-        -- Auto click: lien tuc fire damage vao breakable gan nhat
         local farmingThisRoom = true
         task.spawn(function()
             while farmingThisRoom do
@@ -482,21 +472,17 @@ task.spawn(function()
             end
         end)
 
-        -- Xu ly hang doi: tele toi, danh den khi chest (inst) bi xoa khoi container
-        -- KHONG co timeout, cho den khi chest thuc su bien mat
         task.spawn(function()
             while farmingThisRoom do
                 if #pendingChests > 0 and not processing then
                     processing = true
                     local chestEntry = table.remove(pendingChests, 1)
-
                     hrp.CFrame = CFrame.new(chestEntry.pos + Vector3.new(0, 5, 0))
                     label.Text = string.format("Room %d/%d: Dang danh mini chest...", idx, total)
 
                     while chestEntry.inst and chestEntry.inst.Parent do
                         task.wait(0.2)
                     end
-
                     processing = false
                 else
                     task.wait(0.1)
@@ -508,7 +494,7 @@ task.spawn(function()
         while true do
             local cooldown, _ = isChestOnCooldown(room)
             if cooldown then
-                label.Text = string.format("Room %d/%d: Da pha! Chuyen room...", idx, total)
+                label.Text = string.format("Room %d/%d: Da pha!\nChuyen room...", idx, total)
                 if getgenv().NOTIFY_TARGET_ROOM then
                     sendToDiscord("Boss da bi danh bay!", string.format("Room %d/%d dang trong thoi gian hoi.", idx, total), 65280, false)
                 end
@@ -516,12 +502,10 @@ task.spawn(function()
                 break
             end
 
-            -- Chi dung giua danh boss khi KHONG co chest nao dang xu ly / cho xu ly
             if #pendingChests == 0 and not processing then
                 hrp.CFrame = CFrame.new(center + Vector3.new(0, 5, 0))
                 label.Text = string.format("Room %d/%d: Dang danh boss", idx, total)
             end
-
             task.wait(0.5)
         end
 
@@ -530,10 +514,6 @@ task.spawn(function()
         return result
     end
 
-    -- ============================
-    -- MULTI FARM LOOP: xoay qua tat ca room tim duoc,
-    -- bo qua room dang hoi (ChestTimer cooldown)
-    -- ============================
     local farmIdx = 1
     while true do
         local entry = bossRooms[farmIdx]
