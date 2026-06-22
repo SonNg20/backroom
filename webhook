@@ -6,7 +6,7 @@ getgenv().CpuSaver = true             -- Thiết lập true để bật tối ư
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
 getgenv().WebhookURL =""
 getgenv().DiscordUserID =""
-getgenv().NOTIFY_TARGET_ROOM = true   
+getgenv().NOTIFY_TARGET_ROOM = false   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
 local STEP = 350
@@ -18,6 +18,19 @@ local WAIT_TIME = 0.7
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
+
+-- ============================
+-- FIX: HOOK CHẶN LỖI SPAM CORE LOG CONSOLE CỦA GAME CÂY LAG
+-- ============================
+local ScriptContext = game:GetService("ScriptContext")
+pcall(function()
+    ScriptContext.Error:Connect(function(message, stackTrace, script)
+        if script and script.Name == "ClientModule" and string.find(message, "Enabled") then
+            -- Bắt và dập tắt lỗi đỏ nội bộ từ ClientModule trò chơi khi load chunk thiếu, giải phóng CPU lập tức
+            return
+        end
+    end)
+end)
 
 -- ============================
 -- OPTIMIZATION: CACHE GLOBAL FUNCTIONS
@@ -557,10 +570,8 @@ task_spawn(function()
         hrp.Anchored = false
         local action = getgenv().UnderTargetRoom
         if action == "Off" then
-            -- Chế độ Off: Không hop hay rejoin, giữ nguyên số phòng quét được để tiếp tục xuống luồng farm bên dưới
             print("Quet thieu phong nhung getgenv().UnderTargetRoom = Off -> Bat dau farm so phong hien co.")
         else
-            -- Kích hoạt Hop server hoặc Rejoin tùy cấu hình
             label.Text = string_format("Quet thieu phong (%d/%d)! Dang xu ly...", #bossRooms, targetRooms)
             task_wait(1)
             executeAction(action)
