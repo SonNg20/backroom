@@ -2,8 +2,8 @@
 -- CONFIG (CẤU HÌNH SỐ PHÒNG TẠI ĐÂY)
 -- ============================
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
-getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID ="989895037406044200"
+getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false
 getgenv().NOTIFY_HUGE_TITANIC = true  
 getgenv().CpuSaver = true             -- Bật (true) hoặc Tắt (false) chế độ tiết kiệm CPU/RAM tại đây
@@ -90,9 +90,21 @@ local function safeTeleport(pos)
     if hrp and pos then
         hrp.CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)
         hrp.Anchored = true
-        task_wait(0.12) -- Tối ưu thời gian đóng băng nhẹ vừa đủ tiếp đất
+        task_wait(0.12)
         hrp.Anchored = false
     end
+end
+
+-- HÀM XÓA CONSOLE ĐA NỀN TẢNG (SUPPORT CHO CẢ F9 LẪN DEVELOPER CONSOLE NGOÀI)
+local function clearConsoleLog()
+    pcall(function()
+        if rconsoleclear then
+            rconsoleclear()
+        elseif clearconsole then
+            clearconsole()
+        end
+        print("--- CONSOLE CLEARED: MAP SCAN COMPLETED ---")
+    end)
 end
 
 -- ============================
@@ -459,6 +471,9 @@ task_spawn(function()
 
     hrp.Anchored = false
 
+    -- KÍCH HOẠT DỌN SẠCH CONSOLE NGAY KHI QUÉT XONG
+    clearConsoleLog()
+
     -- ============================
     -- HAM KIỂM TRA COOLDOWN NGUYÊN BẢN
     -- ============================
@@ -539,7 +554,7 @@ task_spawn(function()
     task_spawn(function()
         while true do
             if farmingThisRoom then
-                local bestInst, bestDistSq = nil, 225 -- 15^2 = 225 studs vuông (nhanh hơn so sánh Magnitude thông thường)
+                local bestInst, bestDistSq = nil, 225 -- 15^2 = 225 studs vuông
                 local currentHrpPos = hrp.Position
                 local breakables = breakablesContainer:GetChildren()
                 
@@ -549,7 +564,6 @@ task_spawn(function()
                     if uid then
                         local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
                         if part then
-                            -- Thuật toán tính khoảng cách bình phương (Không dùng .Magnitude giúp tối ưu CPU cực tốt)
                             local pPos = part.Position
                             local dx = pPos.X - currentHrpPos.X
                             local dy = pPos.Y - currentHrpPos.Y
@@ -653,14 +667,13 @@ task_spawn(function()
             return bestIdx, bestDistSq
         end
 
-        -- Lắng nghe event tối ưu bằng cấu trúc luồng tuần tự nhẹ thay vì spam kết nối liên tục
         local listenerConn = breakablesContainer.ChildAdded:Connect(function(inst)
             if not isBreakableInstance(inst) then return end
             task_defer(function()
                 local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
                 if not part then return end
                 local idx2, distSq = nearestSpotIndex(part.Position)
-                if idx2 and distSq <= 225 then -- 15^2 = 225 studs vuông
+                if idx2 and distSq <= 225 then
                     table_insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
                 end
             end)
