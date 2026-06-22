@@ -25,9 +25,9 @@ local HttpService = game:GetService("HttpService")
 -- ============================
 getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
-getgenv().NOTIFY_TARGET_ROOM = true   
-getgenv().NOTIFY_HUGE_TITANIC = true  
-getgenv().FarmMultiChest = true       
+getgenv().NOTIFY_TARGET_ROOM = true  
+getgenv().NOTIFY_HUGE_TITANIC = true 
+getgenv().FarmMultiChest = true      
 
 local MENTION_STRING = "<@" .. getgenv().DiscordUserID .. ">"
 local requestFunction = syn and syn.request or http_request or request
@@ -124,15 +124,20 @@ local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 local humanoid = char:FindFirstChildOfClass("Humanoid")
 
-local STEP = 500
-local MIN_X, MAX_X = -6000, -2500
-local MIN_Z, MAX_Z = -2500, 800
-local SCAN_Y = originPos.Y
-local WAIT_TIME = 0.8
+-- ============================
+-- SCAN CONFIG
+-- ============================
+local STEP = 350
+local MIN_X, MAX_X = -7500, -2100
+local MIN_Z, MAX_Z = -3600, 900
+local SCAN_Y = 2055
+local WAIT_TIME = 0.7
 
 local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
+
+local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
 
 -- ============================
 -- GUI
@@ -301,7 +306,8 @@ local function isChestOnCooldown(room)
     local bz = room:FindFirstChild("BREAK_ZONE", true)
     if not bz then return false, nil end
     local timer = bz:FindFirstChild("ChestTimer")
-    if not timer then return false, bz end
+    if not timer then return false, bz 】
+    end
     return timer.Enabled, bz
 end
 
@@ -351,7 +357,6 @@ end
 -- SCAN ROOMS
 -- ============================
 local bossRooms = {}
-local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
 
 task.spawn(function()
     local count = 0
@@ -366,13 +371,13 @@ task.spawn(function()
             hrp.CFrame = CFrame.new(x, SCAN_Y + 30, z)
             task.wait(WAIT_TIME)
 
-            label.Text = string.format("Dang quet: %d / %d\nX: %.0f  Z: %.0f\nMiniBoss found: %d/%d",
+            label.Text = string.format("Dang quet: %d / %d\nX: %.0f  Z: %.0f\nGameMaster found: %d/%d",
                 count, TOTAL_POINTS, x, z, #bossRooms, TARGET_ROOMS)
 
             local children = container:GetChildren()
             for i = 1, #children do
                 local room = children[i]
-                if room.Name:lower():find("boss") then
+                if room.Name:lower():find("GameMastersStage") then
                     local bz = room:FindFirstChild("BREAK_ZONE", true)
                     if bz then
                         local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
@@ -401,7 +406,7 @@ task.spawn(function()
 
     if #bossRooms == 0 then
         hrp.Anchored = false
-        label.Text = "Khong tim thay MiniBossRoom nao!"
+        label.Text = "Khong tim thay GameMastersStage nao!"
         return
     end
 
@@ -409,7 +414,7 @@ task.spawn(function()
         return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
     end)
 
-    label.Text = string.format("Quet xong! Tim thay %d MiniBossRoom\nBat dau farm...", #bossRooms)
+    label.Text = string.format("Quet xong!\nTim thay %d GameMastersStage\nBat dau farm...", #bossRooms)
 
     clickZone.BackgroundTransparency = 1
     clickLabel.TextTransparency = 1
@@ -422,7 +427,7 @@ task.spawn(function()
     task.wait(2)
 
     -- ============================
-    -- MULTI FARM LOOP (HOAT DONG - from old script)
+    -- MULTI FARM LOOP
     -- ============================
     local idx = 1
     local numRooms = #bossRooms
@@ -438,7 +443,6 @@ task.spawn(function()
         local room = entry.room
         local onCooldown, bz = isChestOnCooldown(room)
 
-        -- CHECK COOLDOWN FIRST - skip if busy
         if onCooldown then
             label.Text = string.format("Room %d/%d: DANG HOI -> chuyen tiep", idx, numRooms)
             idx = idx % numRooms + 1
@@ -446,7 +450,6 @@ task.spawn(function()
             continue
         end
 
-        -- CHEST READY - TELE AND FARM
         label.Text = string.format("Room %d/%d: TELE va DANH chest", idx, numRooms)
         if entry.btn then
             entry.btn.BackgroundColor3 = COLOR_GREEN
@@ -486,7 +489,7 @@ task.spawn(function()
         local miniSpots = {corners[2], corners[3], corners[4], corners[5]}
 
         -- ============================
-        -- EVENT-BASED MINI CHEST DETECTION (từ script mới)
+        -- EVENT-BAREN MINI CHEST DETECTION
         -- ============================
         local breakablesContainer = workspace:WaitForChild("__THINGS"):WaitForChild("Breakables")
         local damageRemote = ReplicatedStorage:WaitForChild("Network"):WaitForChild("Breakables_PlayerDealDamage")
@@ -545,10 +548,10 @@ task.spawn(function()
                         end
                     end
                 end
-                if bestInst then 
-                    pcall(function() 
+                if bestInst then
+                    pcall(function()
                         damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID")))
-                    end) 
+                    end)
                 end
                 task.wait(0.1)
             end
@@ -575,7 +578,7 @@ task.spawn(function()
             end
         end)
 
-        -- Main loop - xen kẽ giữa 4 góc + boss
+        -- Main loop
         while true do
             if not farmEnabled then
                 label.Text = "FARM DA TAT"
@@ -585,7 +588,7 @@ task.spawn(function()
 
             local cooldown = isChestOnCooldown(room)
             if cooldown then
-                label.Text = string.format("Room %d/%d: Da pha! Chuyen room...", idx, numRooms)
+                label.Text = string.format("Room %d/%d: Da pha!\nChuyen room...", idx, numRooms)
                 if entry.btn then
                     entry.btn.BackgroundColor3 = COLOR_RED
                 end
