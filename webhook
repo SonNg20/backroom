@@ -20,18 +20,6 @@ if not game:IsLoaded() then
 end
 
 -- ============================
--- FIX CHỐNG SPAM LỖI ĐỎ TẬN GỐC (DIỆN RỘNG)
--- ============================
-local ScriptContext = game:GetService("ScriptContext")
-pcall(function()
-    ScriptContext.Error:Connect(function(message)
-        if string.find(message, "Enabled") and (string.find(message, "nil") or string.find(message, "index")) then
-            return
-        end
-    end)
-end)
-
--- ============================
 -- OPTIMIZATION: CACHE GLOBAL FUNCTIONS
 -- ============================
 local Vector3_new = Vector3.new
@@ -270,7 +258,7 @@ if getgenv().CpuSaver then
 
     pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
 
-    -- THÊM WHITELIST: Đã bổ sung "ScanGUI" vào danh sách trắng để không bị ẩn nhầm
+    -- SỬA ĐỔI QUAN TRỌNG: Loại bỏ hoàn toàn các UI thuộc hệ thống Backrooms gốc ra khỏi luồng tối ưu ẩn giao diện
     local whitelistGUIs = {
         ["ScanGUI"] = true,
         ["CoordinateTrackerGui"] = true,
@@ -282,13 +270,25 @@ if getgenv().CpuSaver then
     }
 
     local function applyInvisibility(v)
-        if v:IsA("ScreenGui") and not whitelistGUIs[v.Name] then
+        if v:IsA("ScreenGui") then
+            -- Nếu phát hiện UI thuộc hệ thống map Backrooms của game, bỏ qua ngay để không gây lỗi nil index
+            local name = v.Name
+            if string_find(name, "Backrooms") or string_find(name, "Timer") or whitelistGUIs[name] then 
+                return 
+            end
             v.Enabled = false
         elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+            local name = v.Name
+            if string_find(name, "Backrooms") or string_find(name, "Timer") then return end
             v.Enabled = false
         elseif v:IsA("GuiObject") then
             local screenGui = v:FindFirstAncestorOfClass("ScreenGui")
-            if screenGui and whitelistGUIs[screenGui.Name] then return end
+            if screenGui then
+                local sgName = screenGui.Name
+                if string_find(sgName, "Backrooms") or string_find(sgName, "Timer") or whitelistGUIs[sgName] then 
+                    return 
+                end
+            end
             v.Visible = false
         end
     end
@@ -497,7 +497,7 @@ toggleClickBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ============================
--- BUOC 1: TỐI ƯU HÓA QUÉT BẢN ĐỒ (SCAN ROOMS)
+-- BUOC 1: QUET MAP
 -- ============================
 local bossRooms = {}
 
@@ -560,14 +560,12 @@ task_spawn(function()
         end
     end
 
-    -- THỨ TỰ ƯU TIÊN 1: Không quét được bất kỳ phòng nào (0 phòng) -> Dừng quét tại đây
     if #bossRooms == 0 then
         hrp.Anchored = false
         label.Text = "Khong tim thay GameMastersStage nao tren toan map!"
         return
     end
 
-    -- THỨ TỰ ƯU TIÊN 2: Quét được ít hơn số lượng phòng mong muốn
     if #bossRooms < targetRooms then
         hrp.Anchored = false
         local action = getgenv().UnderTargetRoom
@@ -699,7 +697,7 @@ task_spawn(function()
     end)
 
     -- ============================
-    -- FARM LOOP CHUẨN ĐÃ TỐI ƯU THEO TRÌNH TỰ 1-2-3
+    -- VÒNG LẶP FARM TUẦN HOÀN CHÍNH
     -- ============================
     local idx = 1
     local numRooms = #bossRooms 
