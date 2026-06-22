@@ -2,12 +2,12 @@
 -- CONFIG (CẤU HÌNH HỆ THỐNG)
 -- ============================
 getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: "Hop" (đổi server), "Rejoin" (vào lại), hoặc "Off" (ở lại farm số phòng đang có)
-getgenv().CpuSaver = true             -- Thiết lập true để bật tối ưu đồ họa giảm lag, false để tắt
+getgenv().CpuSaver = false            -- MẶC ĐỊNH LÀ OFF: Thiết lập false để giao diện tàng hình tắt lúc đầu, bấm nút để bật
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
 getgenv().AutoUpgradeBossDamage = true-- Tự động nâng cấp Boss Damage Event khi đủ coin
-getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
-getgenv().NOTIFY_TARGET_ROOM = true   
+getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID ="989895037406044200"
+getgenv().NOTIFY_TARGET_ROOM = false   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
 local STEP = 350
@@ -22,23 +22,13 @@ if not game:IsLoaded() then
 end
 
 -- ============================
--- FIX CHỐNG SPAM LỖI ĐỎ TẬN GỐC (DIỆN RỘNG)
--- ============================
-local ScriptContext = game:GetService("ScriptContext")
-pcall(function()
-    ScriptContext.Error:Connect(function(message, stack, script)
-        if (script and script.Name == "ClientModule") or string.find(stack, "ClientModule") then
-            return
-        end
-    end)
-end)
-
--- ============================
--- OPTIMIZATION: CACHE GLOBAL FUNCTIONS
+-- OPTIMIZATION: CACHE GLOBAL FUNCTIONS & SERVICES
 -- ============================
 local Vector3_new = Vector3.new
 local CFrame_new = CFrame.new
 local math_floor = math.floor
+local math_random = math.random
+local math_huge = math.huge
 local task_wait = task.wait
 local task_spawn = task.spawn
 local task_defer = task.defer
@@ -52,20 +42,31 @@ local table_sort = table.sort
 local tostring = tostring
 local pcall = pcall
 local tick = tick
+local gcinfo = gcinfo
+local collectgarbage = collectgarbage
 
--- ============================
--- KHAI BÁO BIẾN HỆ THỐNG CƠ BẢN
--- ============================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local vim = game:GetService("VirtualInputManager")
 local StarterGui = game:GetService("StarterGui")
 local TeleportService = game:GetService("TeleportService")
+local ScriptContext = game:GetService("ScriptContext")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local PlayerGui = player:WaitForChild("PlayerGui")
+
+-- ============================
+-- FIX CHỐNG SPAM LỖI ĐỎ TẬN GỐC (DIỆN RỘNG)
+-- ============================
+pcall(function()
+    ScriptContext.Error:Connect(function(message, stack, script)
+        if (script and script.Name == "ClientModule") or string_find(stack, "ClientModule") then
+            return
+        end
+    end)
+end)
 
 local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
 if not libraryFolder then
@@ -114,11 +115,12 @@ local function AdvancedHop()
     if success and result and result.data then
         local ServerList = result.data
         for i = #ServerList, 2, -1 do
-            local j = math.random(i)
+            local j = math_random(i)
             ServerList[i], ServerList[j] = ServerList[j], ServerList[i]
         end
         
-        for _, server in ipairs(ServerList) do
+        for i = 1, #ServerList do
+            local server = ServerList[i]
             if server.playing and server.maxPlayers and server.playing < server.maxPlayers and server.id ~= game.JobId then
                 pcall(function()
                     TeleportService:TeleportToPlaceInstance(PlaceId, server.id, player)
@@ -141,7 +143,7 @@ end
 -- ============================
 -- LUỒNG TỐI ƯU HÓA ĐỒ HỌA ENGINE & GIẢI PHÓNG RAM (CPU SAVER)
 -- ============================
-if getgenv().CpuSaver then
+local function runCpuSaverLogic()
     if setfpscap then
         setfpscap(15)
     end
@@ -153,16 +155,6 @@ if getgenv().CpuSaver then
             settings.Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.DistanceBased
         end)
     end
-
-    task_spawn(function()
-        while true do
-            task_wait(15)
-            pcall(function()
-                gcinfo() 
-                collectgarbage("collect")
-            end)
-        end
-    end)
 
     local function isPlayerBody(v)
         return v:IsDescendantOf(player.Character) or Players:GetPlayerFromCharacter(v:FindFirstAncestorOfClass("Model")) ~= nil
@@ -204,19 +196,24 @@ if getgenv().CpuSaver then
         local animateScript = character:WaitForChild("Animate", 3)
         if animateScript then animateScript.Enabled = false end
         
-        for _, obj in ipairs(character:GetDescendants()) do
+        local descendants = character:GetDescendants()
+        for i = 1, #descendants do
+            local obj = descendants[i]
             if obj:IsA("BasePart") then
                 obj.Transparency = 1
                 obj.CanCollide = false
             elseif obj:IsA("Decal") then
                 obj.Transparency = 1
             elseif obj:IsA("Attachment") then
-                for _, child in ipairs(obj:GetChildren()) do killEffectInstance(child) end
+                local children = obj:GetChildren()
+                for j = 1, #children do killEffectInstance(children[j]) end
             end
         end
     end
 
-    for _, p in ipairs(Players:GetPlayers()) do
+    local currentPlayers = Players:GetPlayers()
+    for i = 1, #currentPlayers do
+        local p = currentPlayers[i]
         if p ~= player and p.Character then hideAndDisableCharacter(p.Character) end
         p.CharacterAdded:Connect(hideAndDisableCharacter)
     end
@@ -254,7 +251,9 @@ if getgenv().CpuSaver then
         end
     end
 
-    for _, v in ipairs(workspace:GetDescendants()) do 
+    local workspaceDescendants = workspace:GetDescendants()
+    for i = 1, #workspaceDescendants do
+        local v = workspaceDescendants[i]
         pcall(handleMapPart, v) 
         pcall(killEffectInstance, v)
     end
@@ -263,17 +262,19 @@ if getgenv().CpuSaver then
         pcall(killEffectInstance, v)
     end)
 
-    -- ĐÃ XÓA BỎ HOÀN TOÀN LUỒNG QUÉT ẨN UI (applyInvisibility) Ở ĐÂY ĐỂ GIỮ LẠI UI CỦA GAME
+    pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
+end
 
-    if camera then
-        for _, child in ipairs(camera:GetChildren()) do
-            if child:IsA("Model") or child:IsA("BasePart") then child:Destroy() end
-        end
-        camera.ChildAdded:Connect(function(child)
-            if child:IsA("Model") or child:IsA("BasePart") then task_wait() child:Destroy() end
+-- Bộ dọn rác RAM luôn chạy độc lập nền
+task_spawn(function()
+    while true do
+        task_wait(15)
+        pcall(function()
+            gcinfo() 
+            collectgarbage("collect")
         end)
     end
-end
+end)
 
 -- ============================
 -- AUTO JOIN MINIGAME EVENT
@@ -436,44 +437,46 @@ local ctrlGui = Instance.new("ScreenGui", CoreGui)
 ctrlGui.Name = "ControlButtonsGUI"
 ctrlGui.ResetOnSpawn = false
 
+-- Nút 1: SCREEN CLICK
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", ctrlGui)
-toggleClickBtn.Size = UDim2.new(0, 135, 0, 28)        
+toggleClickBtn.Size = UDim2.new(0, 88, 0, 28)        
 toggleClickBtn.Position = UDim2.new(0, 10, 0, 105)     
 toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleClickBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleClickBtn.Font = Enum.Font.GothamBold
-toggleClickBtn.TextSize = 11                           
-toggleClickBtn.Text = "SCREEN CLICK: ON"
+toggleClickBtn.TextSize = 10                           
+toggleClickBtn.Text = "CLICK: ON"
 Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 5)
 
 toggleClickBtn.MouseButton1Click:Connect(function()
     screenClickEnabled = not screenClickEnabled
     if screenClickEnabled then
-        toggleClickBtn.Text = "SCREEN CLICK: ON"
+        toggleClickBtn.Text = "CLICK: ON"
         toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
     else
-        toggleClickBtn.Text = "SCREEN CLICK: OFF"
+        toggleClickBtn.Text = "CLICK: OFF"
         toggleClickBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
     end
 end)
 
+-- Nút 2: UPDAMEBOSS
 local toggleUpgradeBtn = Instance.new("TextButton", ctrlGui)
-toggleUpgradeBtn.Size = UDim2.new(0, 135, 0, 28)       
-toggleUpgradeBtn.Position = UDim2.new(0, 155, 0, 105)  
+toggleUpgradeBtn.Size = UDim2.new(0, 88, 0, 28)       
+toggleUpgradeBtn.Position = UDim2.new(0, 106, 0, 105)  
 toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleUpgradeBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleUpgradeBtn.Font = Enum.Font.GothamBold
-toggleUpgradeBtn.TextSize = 11                          
-toggleUpgradeBtn.Text = "UPDAMEBOSS: ON"
+toggleUpgradeBtn.TextSize = 10                          
+toggleUpgradeBtn.Text = "UPBOSS: ON"
 Instance.new("UICorner", toggleUpgradeBtn).CornerRadius = UDim.new(0, 5)
 
 local function updateUpgradeButtonDisplay()
     if getgenv().AutoUpgradeBossDamage then
-        toggleUpgradeBtn.Text = "UPDAMEBOSS: ON"
+        toggleUpgradeBtn.Text = "UPBOSS: ON"
         toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
     else
-        toggleUpgradeBtn.Text = "UPDAMEBOSS: OFF"
+        toggleUpgradeBtn.Text = "UPBOSS: OFF"
         toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
     end
 end
@@ -510,8 +513,87 @@ if getgenv().AutoUpgradeBossDamage then
     startUpgradeLoop()
 end
 
+-- Nút 3: CPUSAVER
+local toggleCpuBtn = Instance.new("TextButton", ctrlGui)
+toggleCpuBtn.Size = UDim2.new(0, 88, 0, 28)       
+toggleCpuBtn.Position = UDim2.new(0, 202, 0, 105)  
+toggleCpuBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30) 
+toggleCpuBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleCpuBtn.Font = Enum.Font.GothamBold
+toggleCpuBtn.TextSize = 10                          
+toggleCpuBtn.Text = "CPU AN: OFF"
+Instance.new("UICorner", toggleCpuBtn).CornerRadius = UDim.new(0, 5)
+
+local whitelistGUIs = {
+    ["ScanGUI"] = true,
+    ["CoordinateTrackerGui"] = true,
+    ["BackroomsGridTracker"] = true,
+    ["BackroomsUiToggleGui"] = true,
+    ["SimpleAutoClickGui"] = true,
+    ["BackroomsFixUiGui"] = true,
+    ["BackroomsPureUiGui"] = true,
+    ["ControlButtonsGUI"] = true
+}
+
+local function applyInvisibility(v)
+    if v:IsA("ScreenGui") then
+        local name = v.Name
+        if string_find(name, "Backrooms") or string_find(name, "Timer") or whitelistGUIs[name] then 
+            return 
+        end
+        v.Enabled = false
+    elseif v:IsA("BillboardGui") or v:IsA("SurfaceGui") then
+        local name = v.Name
+        if string_find(name, "Backrooms") or string_find(name, "Timer") then return end
+        if v:FindFirstAncestor("GeneratedBackrooms") then return end
+        v.Enabled = false
+    elseif v:IsA("GuiObject") then
+        local screenGui = v:FindFirstAncestorOfClass("ScreenGui")
+        if screenGui then
+            local sgName = screenGui.Name
+            if string_find(sgName, "Backrooms") or string_find(sgName, "Timer") or whitelistGUIs[sgName] then 
+                return 
+            end
+        end
+        if v:FindFirstAncestor("GeneratedBackrooms") then return end
+        v.Visible = false
+    end
+end
+
+task_spawn(function()
+    while true do
+        task_wait(2)
+        if getgenv().CpuSaver then
+            local guis = PlayerGui:GetDescendants()
+            for i = 1, #guis do
+                pcall(applyInvisibility, guis[i])
+            end
+        end
+    end
+end)
+
+toggleCpuBtn.MouseButton1Click:Connect(function()
+    getgenv().CpuSaver = not getgenv().CpuSaver
+    if getgenv().CpuSaver then
+        toggleCpuBtn.Text = "CPU AN: ON"
+        toggleCpuBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80) 
+        runCpuSaverLogic() 
+        local guis = PlayerGui:GetDescendants()
+        for i = 1, #guis do pcall(applyInvisibility, guis[i]) end 
+    else
+        toggleCpuBtn.Text = "CPU AN: OFF"
+        toggleCpuBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30) 
+    end
+end)
+
+if getgenv().CpuSaver then
+    toggleCpuBtn.Text = "CPU AN: ON"
+    toggleCpuBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+    runCpuSaverLogic()
+end
+
 -- ============================
--- BUOC 1: QUET MAP
+-- BUOC 1: QUET MAP (GIỮ NGUYÊN LOGIC QUÉT CHUẨN)
 -- ============================
 local bossRooms = {}
 
@@ -679,17 +761,21 @@ task_spawn(function()
 
     local farmingThisRoom = true
     task_spawn(function()
+        -- TỐI ƯU HÓA: Tái sử dụng bộ đếm tĩnh bên ngoài tránh sinh rác bộ nhớ cục bộ
+        local bestInst, bestDist, currentHrpPos, breakables, obj, uid, part, d
         while true do
             if farmingThisRoom then
-                local bestInst, bestDist = nil, math.huge
-                local breakables = breakablesContainer:GetChildren()
+                bestInst, bestDist = nil, math_huge
+                currentHrpPos = hrp.Position
+                breakables = breakablesContainer:GetChildren()
+                
                 for i = 1, #breakables do
-                    local obj = breakables[i]
-                    local uid = obj:GetAttribute("BreakableUID")
+                    obj = breakables[i]
+                    uid = obj:GetAttribute("BreakableUID")
                     if uid then
-                        local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
+                        part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
                         if part then
-                            local d = (part.Position - hrp.Position).Magnitude
+                            d = (part.Position - currentHrpPos).Magnitude
                             if d <= 15 and d < bestDist then
                                 bestDist = d
                                 bestInst = obj
@@ -708,37 +794,18 @@ task_spawn(function()
     end)
 
     -- ============================
-    -- VÒNG LẶP FARM TUẦN HOÀN CHÍNH
+    -- BUOC 2: FARM LOOP (GIỮ NGUYÊN TRÌNH TỰ VÀ LOGIC CHUẨN GIỮA CÁC ROOM)
     -- ============================
     local idx = 1
     local numRooms = #bossRooms 
 
     while true do
-        local allRoomsOnCooldown = true
-        for i = 1, numRooms do
-            if not isChestOnCooldown(bossRooms[i].room) then
-                allRoomsOnCooldown = false
-                break
-            end
-        end
-
-        if allRoomsOnCooldown then
-            idx = 1 
-            local room1Entry = bossRooms[1]
-            updateStatusUI("Tat ca room dang hoi -> Ve Room 1 cho doi")
-            safeTeleport(room1Entry.pos) 
-            
-            while isChestOnCooldown(room1Entry.room) do
-                updateStatusUI("He thong room dang hoi... Dang dung cho tai Room 1")
-                task_wait(1)
-            end
-        end
-
         local entry = bossRooms[idx]
         local room = entry.room
         local onCooldown, bz = isChestOnCooldown(room)
 
         if onCooldown then
+            updateStatusUI(string_format("Room %d/%d: DANG HOI -> chuyen tiep", idx, numRooms))
             idx = idx % numRooms + 1 
             task_wait(0.2)
             continue
@@ -789,7 +856,7 @@ task_spawn(function()
         local processing = false
 
         local function nearestSpotIndex(pos)
-            local bestIdx, bestDist = nil, math.huge
+            local bestIdx, bestDist = nil, math_huge
             for i = 1, 4 do
                 local spot = miniSpots[i]
                 if spot then
