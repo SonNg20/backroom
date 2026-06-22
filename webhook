@@ -1,5 +1,5 @@
-if not game:IsLoaded() then
-    game.Loaded:Wait()
+while not workspace:FindFirstChild("__THINGS") do 
+    task.wait(1) 
 end
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -377,7 +377,7 @@ task.spawn(function()
             local children = container:GetChildren()
             for i = 1, #children do
                 local room = children[i]
-                if room.Name:lower():find("GameMastersStage") then
+                if room.Name:lower():find("GameMasterStage") then
                     local bz = room:FindFirstChild("BREAK_ZONE", true)
                     if bz then
                         local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
