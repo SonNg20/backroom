@@ -208,40 +208,6 @@ if getgenv().CpuSaver then
         pcall(killEffectInstance, v)
     end)
 
-    -- Ẩn CoreGui và các ScreenGui không cần thiết
-    pcall(function() StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false) end)
-
-    local whitelistGUIs = {
-        ["ScanGUI"] = true, -- Giữ lại giao diện quét của script này
-        ["CoordinateTrackerGui"] = true,
-        ["BackroomsGridTracker"] = true,
-        ["BackroomsUiToggleGui"] = true,
-        ["SimpleAutoClickGui"] = true,
-        ["BackroomsFixUiGui"] = true,
-        ["BackroomsPureUiGui"] = true
-    }
-
-    local function applyInvisibility(v)
-        if v:IsA("ScreenGui") and not whitelistGUIs[v.Name] then
-            v.Enabled = false
-        elseif (v:IsA("BillboardGui") or v:IsA("SurfaceGui")) then
-            v.Enabled = false
-        elseif v:IsA("GuiObject") then
-            local screenGui = v:FindFirstAncestorOfClass("ScreenGui")
-            if screenGui and whitelistGUIs[screenGui.Name] then return end 
-            v.Visible = false
-        end
-    end
-
-    for _, v in ipairs(PlayerGui:GetDescendants()) do pcall(applyInvisibility, v) end
-    task_spawn(function()
-        while task_wait(2) do
-            for _, v in ipairs(PlayerGui:GetDescendants()) do
-                pcall(applyInvisibility, v)
-            end
-        end
-    end)
-
     -- Tối ưu Camera
     if camera then
         for _, child in ipairs(camera:GetChildren()) do
