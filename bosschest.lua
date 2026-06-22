@@ -1,64 +1,67 @@
-repeat task.wait() until game:IsLoaded()
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+-- ============================
+-- KHAI BÁO BIẾN HỆ THỐNG CƠ BẢN
+-- ============================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local vim = game:GetService("VirtualInputManager")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- Chờ thư viện Library của game tải xong hoàn toàn
+local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
+if not libraryFolder then
+    print("Khong tim thay thu vien Library trong thoi gian cho!")
+    return
+end
 
 -- ============================
 -- CONFIG (chinh o day)
 -- ============================
-getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
+getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID ="989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 getgenv().FarmMultiChest = true       
 
--- ============================
--- TỐI ƯU HÓA ĐỒ HỌA CHỐNG CAO RAM (ANTI-LAG)
--- ============================
-pcall(function()
-    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-    game:GetService("Lighting").GlobalShadows = false
-    for _, v in ipairs(game:GetService("Lighting"):GetChildren()) do
-        if v:IsA("PostEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("BloomEffect") then
-            v.Enabled = false
-        end
+local STEP = 350
+local MIN_X, MAX_X = -7500, -2100
+local MIN_Z, MAX_Z = -3600, 900
+local SCAN_Y = 2055 -- Chỉ giữ SCAN_Y cố định phục vụ cho việc quét map từ trên cao
+local WAIT_TIME = 0.7
+
+local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
+local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
+local TOTAL_POINTS = STEPS_X * STEPS_Z
+local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
+
+-- HÀM DỊCH CHUYỂN MỚI: Bỏ Y=2055 cố định, dùng Y thực tế của room + Đóng băng triệt tiêu lực rơi gây lag
+local function safeTeleport(pos)
+    local char = player.Character or player.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart", 5)
+    if hrp and pos then
+        -- Dịch chuyển sát mặt sàn dựa theo tọa độ thực tế của phòng (cộng nhẹ 2.5 studs tránh kẹt chân)
+        hrp.CFrame = CFrame.new(Vector3.new(pos.X, pos.Y + 2.5, pos.Z))
+        
+        -- Khóa trục động lực trong tích tắc để triệt tiêu hoàn toàn hiện tượng rơi tự do gây lag
+        hrp.Anchored = true
+        task.wait(0.15)
+        hrp.Anchored = false
     end
-end)
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local HttpService = game:GetService("HttpService")
-local player = game:GetService("Players").LocalPlayer
-local camera = workspace.CurrentCamera
-local vim = game:GetService("VirtualInputManager")
-
--- Đợi nhân vật load hoàn chỉnh
-local char = player.Character or player.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
-
--- ============================
--- KHỞI TẠO HỆ THỐNG CHỐNG RỚT (BỆ ĐỠ + TRIỆT TIÊU TRỌNG LỰC)
--- ============================
-local platform = Instance.new("Part")
-platform.Size = Vector3.new(15, 1, 15)
-platform.Anchored = true
-platform.Transparency = 1 
-platform.CanCollide = true
-platform.Parent = workspace
-
-local attachment = Instance.new("Attachment", hrp)
-local linearVelocity = Instance.new("LinearVelocity", hrp)
-linearVelocity.Attachment0 = attachment
-linearVelocity.MaxForce = math.huge
-linearVelocity.VectorVelocity = Vector3.new(0, 0, 0) -- Triệt tiêu hoàn toàn trọng lực tác động lên player
-
-local function safeTeleport(targetPos)
-    platform.CFrame = CFrame.new(targetPos - Vector3.new(0, 3, 0)) -- Luôn đặt bệ đỡ ngay dưới chân khi tele
-    hrp.CFrame = CFrame.new(targetPos)
 end
 
 -- ============================
--- AUTO JOIN SK CŨ + TELE PORTAL QUA DEEP BACKROOMS
+-- AUTO JOIN MINIGAME EVENT
 -- ============================
-local InstancingCmds = require(ReplicatedStorage.Library.Client.InstancingCmds)
-local FFlags = require(ReplicatedStorage.Library.Client.FFlags)
-repeat task.wait() until ReplicatedStorage:FindFirstChild("Library")
+local ClientFolder = libraryFolder:WaitForChild("Client", 15)
+local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
+local FFlags = require(ClientFolder:WaitForChild("FFlags"))
+
 local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
 if joinTarget then
     InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
@@ -78,11 +81,10 @@ if spawnRoomFolder then
         local interactPart = deepDoor.Interact
         
         for i = 1, 5 do
-            safeTeleport(interactPart.Position + Vector3.new(0, 2, 0))
+            safeTeleport(interactPart.Position)
             task.wait(0.3)
         end
         
-        -- Chờ 2 giây rồi bấm cổng (Không nhảy Spacebar)
         task.wait(2)
         
         local prompt = interactPart:FindFirstChildWhichIsA("ProximityPrompt", true)
@@ -96,17 +98,99 @@ if spawnRoomFolder then
     end
 end
 
-task.wait(12)
+-- ============================
+-- HAM GUI DISCORD WEBHOOK
+-- ============================
+local MENTION_STRING = "<@" .. getgenv().DiscordUserID .. ">"
+local requestFunction = syn and syn.request or http_request or request
 
-local spawnRoom = generatedBackrooms:WaitForChild("DeepSpawnRoom", 35)
-if not spawnRoom then 
-    print("Loi nghiem trong: Khong tim thay DeepSpawnRoom!")
-    return 
+local function sendToDiscord(title, description, color, mention)
+    if not requestFunction then return end
+    local data = {
+        ["content"] = mention and MENTION_STRING or "",
+        ["embeds"] = {{
+            ["title"] = title,
+            ["description"] = description,
+            ["color"] = color,
+            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        }}
+    }
+    pcall(function()
+        requestFunction({
+            Url = getgenv().WebhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+    end)
 end
 
-local origin = spawnRoom:FindFirstChildWhichIsA("BasePart", true)
+-- ============================
+-- CHECK INVENTORY HUGE/TITANIC
+-- ============================
+local SaveModule
+do
+    local ok, mod = pcall(function()
+        return require(ClientFolder:WaitForChild("Save"))
+    end)
+    if ok then SaveModule = mod end
+end
+local previousPetCounts = {}
+local firstInventoryCheck = true
+local function checkInventoryForHugeTitanic()
+    if not SaveModule then return end
+    local ok, data = pcall(function() return SaveModule.Get() end)
+    if not ok or not data or not data.Inventory or not data.Inventory.Pet then return end
+    local currentCounts = {}
+    for _, petData in pairs(data.Inventory.Pet) do
+        if petData.id then
+            local name = petData.id
+            local amount = petData._am or 1
+            currentCounts[name] = (currentCounts[name] or 0) + amount
+        end
+    end
+    if firstInventoryCheck then
+        previousPetCounts = currentCounts
+        firstInventoryCheck = false
+        return
+    end
+    for name, count in pairs(currentCounts) do
+        local isTitanic = name:find("Titanic") ~= nil
+        local isHuge = (not isTitanic) and name:find("Huge") ~= nil
+        if isHuge or isTitanic then
+            local prevCount = previousPetCounts[name] or 0
+            if count > prevCount then
+                local gained = count - prevCount
+                local title = isTitanic and "TITANIC PET MOI!" or "HUGE PET MOI!"
+                local color = isTitanic and 16711680 or 65280
+                sendToDiscord(
+                    title,
+                    string.format("Tai khoan **%s** vua nhan duoc **%s** (x%d)!\nTong hien co: **%d**",
+                        player.Name, name, gained, count),
+                    color, true
+                )
+            end
+        end
+    end
+    previousPetCounts = currentCounts
+end
+
+if getgenv().NOTIFY_HUGE_TITANIC then
+    task.spawn(function()
+        while true do
+            pcall(checkInventoryForHugeTitanic)
+            task.wait(3)
+        end
+    end)
+end
+
+if not spawnRoomFolder then return end
+local origin = spawnRoomFolder:FindFirstChildWhichIsA("BasePart", true)
 if not origin then return end
+
 local originPos = origin.Position
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- ============================
 -- GUI
@@ -117,13 +201,13 @@ sg.Name = "ScanGUI"
 sg.ResetOnSpawn = false
 
 local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 250, 0, 90)
+label.Size = UDim2.new(0, 280, 0, 160) 
 label.Position = UDim2.new(0, 10, 0, 140)
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
 label.TextColor3 = Color3.fromRGB(0, 255, 100)
 label.Font = Enum.Font.Code
-label.TextSize = 13
+label.TextSize = 11
 label.TextXAlignment = Enum.TextXAlignment.Left
 label.TextYAlignment = Enum.TextYAlignment.Top
 label.TextWrapped = true
@@ -153,51 +237,11 @@ toggleClickBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ============================
--- HAM GUI DISCORD WEBHOOK
+-- BUOC 1: QUET MAP + TIM ROOM
 -- ============================
-local MENTION_STRING = "<@" .. getgenv().DiscordUserID .. ">"
-local requestFunction = syn and syn.request or http_request or request
+local bossRooms = {}
 
-local function sendToDiscord(title, description, color, mention)
-    if not requestFunction then return end
-    local data = {
-        ["content"] = mention and MENTION_STRING or "",
-        ["embeds"] = {{
-            ["title"] = title,
-            ["description"] = description,
-            ["color"] = color,
-            ["timestamp"] = os.date("!%Y-%m-%dT%M:%M:%SZ")
-        }}
-    }
-    pcall(function()
-        requestFunction({
-            Url = getgenv().WebhookURL,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
-    end)
-end
-
--- ============================
--- CAU HINH QUET MAP MỚI
--- ============================
-local STEP = 350
-local MIN_X, MAX_X = -7500, -2100
-local MIN_Z, MAX_Z = -3600, 900
-local SCAN_Y = 2055
-local WAIT_TIME = 0.7
-
-local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
-local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
-local TOTAL_POINTS = STEPS_X * STEPS_Z
-
-local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
-
--- ============================
--- BUOC 1: QUET MAP (LƯU LẠI PHÒNG - PHỤC VỤ UNLOCK/COOLDOWN)
--- ============================
-local bossRooms = {} 
+hrp.Anchored = true
 label.Text = "Dang quet map..."
 
 task.spawn(function()
@@ -211,8 +255,7 @@ task.spawn(function()
             if scanDone then break end
             count = count + 1
 
-            -- Teleport an toàn có bệ đỡ và chống trọng lực đi theo ma trận
-            safeTeleport(Vector3.new(x, SCAN_Y + 28, z))
+            hrp.CFrame = CFrame.new(x, SCAN_Y + 30, z)
             task.wait(WAIT_TIME)
 
             local now = tick()
@@ -226,7 +269,7 @@ task.spawn(function()
             local children = generatedBackrooms:GetChildren()
             for i = 1, #children do
                 local room = children[i]
-                if room.Name == "GameMastersStage" and room.Parent == generatedBackrooms then
+                if room.Name == "GameMastersStage" then
                     local bz = room:FindFirstChild("BREAK_ZONE", true)
                     if bz then
                         local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
@@ -234,47 +277,32 @@ task.spawn(function()
                             local found = false
                             for j = 1, #bossRooms do
                                 if bossRooms[j].room == room then
-                                    found = true 
+                                    found = true
                                     break
                                 end
                             end
                             if not found then
-                                table.insert(bossRooms, {room = room, pos = part.Position})
+                                -- Khôi phục: Lưu giữ nguyên tọa độ gốc của phòng từ game trả về
+                                table.insert(bossRooms, {room = room, pos = part.Position, unlocked = false})
                             end
                         end
                     end
                 end
             end
 
+            if count % 10 == 0 then
+                local currentMem = gcinfo()
+            end
+
             if #bossRooms >= TARGET_ROOMS then
                 scanDone = true
-                break
             end
         end
     end
 
-    -- Xóa sạch các phòng thừa lặt vặt xung quanh sau khi quét để tiết kiệm RAM tối đa
-    print("Quet xong! Dang xoa cac object thua de nhe RAM...")
-    pcall(function()
-        for _, v in ipairs(generatedBackrooms:GetChildren()) do
-            local isBossRoom = false
-            for _, bRoom in ipairs(bossRooms) do
-                if bRoom.room == v then isBossRoom = true break end
-            end
-            if not isBossRoom and v.Name ~= "DeepSpawnRoom" then
-                v:Destroy()
-            end
-        end
-    end)
-    task.wait(1)
-
     if #bossRooms == 0 then
-        platform:Destroy()
-        linearVelocity:Destroy()
-        attachment:Destroy()
-        print("Khong tim thay GameMastersStage nao!")
+        hrp.Anchored = false
         label.Text = "Khong tim thay GameMastersStage nao!"
-        sendToDiscord("Quet xong", "Khong tim thay GameMastersStage nao!", 16711680, false)
         return
     end
 
@@ -282,21 +310,35 @@ task.spawn(function()
         return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
     end)
 
-    label.Text = string.format("Tim thay %d room. Bat dau farm...", #bossRooms)
-    
-    local firstRoom = bossRooms[1]
-    for i = 1, 3 do
-        safeTeleport(firstRoom.pos + Vector3.new(0, 5, 0))
-        task.wait(0.5)
-    end
+    hrp.Anchored = false
 
     -- ============================
-    -- LOGIC CÁC HÀM GỐC NGUYÊN BẢN
+    -- HÀM KIỂM TRA COOLDOWN NGUYÊN BẢN
     -- ============================
-    local function isLocked(room) 
+    local function isChestOnCooldown(room)
+        local bz = room:FindFirstChild("BREAK_ZONE", true)
+        if not bz then return false, nil end
+        local timer = bz:FindFirstChild("ChestTimer")
+        if not timer then return false, bz end
+        return timer.Enabled, bz
+    end
+
+    -- HÀM CẬP NHẬT TRẠNG THÁI DANH SÁCH PHÒNG LÊN UI
+    local function updateStatusUI(currentAction)
+        local str = string.format("Status: %s\n", currentAction)
+        str = str .. "-----------------------------\n"
+        for i, entry in ipairs(bossRooms) do
+            local cooldown = isChestOnCooldown(entry.room)
+            local statusText = cooldown and "Dang Hoi" or "San Sang"
+            str = str .. string.format("room%d: (%.0f, %.0f, %.0f): %s\n", i, entry.pos.X, entry.pos.Y, entry.pos.Z, statusText)
+        end
+        label.Text = str
+    end
+
+    local function isLocked(room)
         return room:GetAttribute("LockedRoom") == true
     end
-    
+
     local function unlockRoom(room)
         local roomUID = room:GetAttribute("RoomUID")
         if not roomUID then return end
@@ -307,32 +349,27 @@ task.spawn(function()
         end)
     end
 
-    local function isChestOnCooldown(r)
-        local breakZone = r:FindFirstChild("BREAK_ZONE", true)
-        if not breakZone then return false, nil end
-        local chestTimer = breakZone:FindFirstChild("ChestTimer", true)
-        if not chestTimer then return false, breakZone end
-        local stroke = chestTimer:FindFirstChildWhichIsA("UIStroke")
-        if not stroke then return false, breakZone end
-        return stroke.Enabled, breakZone
-    end
-
     local function getCorners(r, breakZone)
         local positions = {}
         local mainPart = breakZone:IsA("BasePart") and breakZone or breakZone:FindFirstChildWhichIsA("BasePart", true)
-        if mainPart then table.insert(positions, mainPart.Position) end
+        if mainPart then
+            table.insert(positions, mainPart.Position)
+        end
         local spawnPoints = r:FindFirstChild("MiniChestSpawnPoints")
         if spawnPoints then
             for _, v in ipairs(spawnPoints:GetChildren()) do
                 local part = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-                if part then table.insert(positions, part.Position) end
+                if part then
+                    table.insert(positions, part.Position)
+                end
             end
         end
         return positions
     end
 
     local breakablesContainer = workspace:WaitForChild("__THINGS"):WaitForChild("Breakables")
-    local damageRemote = ReplicatedStorage:WaitForChild("Network"):WaitForChild("Breakables_PlayerDealDamage")
+    local networkFolder = ReplicatedStorage:WaitForChild("Network", 15)
+    local damageRemote = networkFolder:WaitForChild("Breakables_PlayerDealDamage")
 
     local function isBreakableInstance(inst)
         if inst:IsA("BasePart") or inst:IsA("Model") then
@@ -341,73 +378,25 @@ task.spawn(function()
         return false
     end
 
+    -- Vòng lặp Screen Clicker chạy nền
     task.spawn(function()
         while true do
             if screenClickEnabled then
                 local vp = camera.ViewportSize
-                vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, true, game, 0)
-                vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, false, game, 0)
+                local x = vp.X / 2
+                local y = vp.Y / 2
+                vim:SendMouseButtonEvent(x, y, 0, true, game, 0)
+                vim:SendMouseButtonEvent(x, y, 0, false, game, 0)
             end
             task.wait(1)
         end
     end)
 
-    -- ============================
-    -- HAM FARM ROOM GỐC KẾT HỢP SAFETELEPORT Chống Rớt
-    -- ============================
-    local function farmRoom(entry, idx, total)
-        local room = entry.room
-        local bz = room:FindFirstChild("BREAK_ZONE", true)
-        if not bz then return false end
-        if isLocked(room) then unlockRoom(room) end
-
-        for i = 1, 3 do safeTeleport(entry.pos + Vector3.new(0, 5, 0)) task.wait(0.5) end
-        
-        label.Text = string.format("Room %d/%d: Dang danh...", idx, total)
-        if getgenv().NOTIFY_TARGET_ROOM then
-            sendToDiscord(
-                "Dang farm GameMastersStage",
-                string.format("Room %d/%d\nVi tri: (%.0f, %.0f, %.0f)", idx, total, entry.pos.X, entry.pos.Y, entry.pos.Z),
-                65280, false
-            )
-        end
-
-        local corners = getCorners(room, bz)
-        local center = corners[1]
-        local miniSpots = {corners[2], corners[3], corners[4], corners[5]}
-        local pendingChests = {}
-        local processing = false
-
-        local function nearestSpotIndex(pos)
-            local bestIdx, bestDist = nil, math.huge
-            for i, spot in ipairs(miniSpots) do
-                if spot then
-                    local d = (spot - pos).Magnitude
-                    if d < bestDist then
-                        bestDist = d
-                        bestIdx = i
-                    end
-                end
-            end
-            return bestIdx, bestDist
-        end
-
-        -- Lắng nghe rương nhỏ spawn dựa theo logic phòng nguyên bản
-        local listenerConn = breakablesContainer.ChildAdded:Connect(function(inst)
-            task.defer(function()
-                if not isBreakableInstance(inst) then return end
-                local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
-                if not part then return end
-                local idx2, dist = nearestSpotIndex(part.Position)
-                if idx2 and dist <= 15 then
-                    table.insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
-                end
-            end)
-        end)
-
-        local farmingThisRoom = true
-        task.spawn(function()
-            while farmingThisRoom do
+    -- Auto Clicker đập các vật thể xung quanh nhân vật trong bán kính 15 studs
+    local farmingThisRoom = true
+    task.spawn(function()
+        while true do
+            if farmingThisRoom then
                 local bestInst, bestDist = nil, math.huge
                 for _, obj in ipairs(breakablesContainer:GetChildren()) do
                     local uid = obj:GetAttribute("BreakableUID")
@@ -422,23 +411,121 @@ task.spawn(function()
                         end
                     end
                 end
-                if bestInst then 
-                    pcall(function() 
+                if bestInst then
+                    pcall(function()
                         damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID")))
-                    end) 
+                    end)
                 end
-                task.wait(0.1)
             end
+            task.wait(0.1)
+        end
+    end)
+
+    -- ============================
+    -- FARM LOOP CHUẨN ĐÃ TỐI ƯU HÓA
+    -- ============================
+    local idx = 1
+    local numRooms = #bossRooms
+
+    while true do
+        local farmEnabled = true 
+
+        local entry = bossRooms[idx]
+        local room = entry.room
+        local onCooldown, bz = isChestOnCooldown(room)
+
+        if onCooldown then
+            updateStatusUI(string.format("Room %d/%d: DANG HOI -> chuyen tiep", idx, numRooms))
+            idx = idx % numRooms + 1
+            task.wait(0.5)
+            continue
+        end
+
+        updateStatusUI(string.format("Room %d/%d: TELE va DANH chest", idx, numRooms))
+
+        -- Gửi lệnh nhảy 3 lần đến vị trí phòng chuẩn tiếp đất mượt mà sát sàn thực tế
+        for i = 1, 3 do
+            safeTeleport(entry.pos)
+            task.wait(1)
+        end
+
+        local _, bzFresh = isChestOnCooldown(room)
+        bz = bzFresh or bz
+
+        -- Check unlock cửa phòng an toàn tránh lặp lệnh
+        if not entry.unlocked and isLocked(room) then
+            updateStatusUI(string.format("Room %d/%d: DANG MO KHOA...", idx, numRooms))
+            local unlockStart = tick()
+            while isLocked(room) do
+                unlockRoom(room)
+                task.wait(1)
+                if tick() - unlockStart > 30 then
+                    updateStatusUI(string.format("Room %d/%d: Mo khoa qua lau, bo qua", idx, numRooms))
+                    break
+                end
+            end
+            entry.unlocked = true
+        elseif not entry.unlocked then
+            entry.unlocked = true
+        end
+
+        if getgenv().NOTIFY_TARGET_ROOM then
+            sendToDiscord(
+                "Dang farm GameMastersStage",
+                string.format("Room %d/%d\nVi tri: (%.0f, %.0f, %.0f)",
+                    idx, numRooms, entry.pos.X, entry.pos.Y, entry.pos.Z),
+                65280, false
+            )
+        end
+
+        local _, bzFinal = isChestOnCooldown(room)
+        bz = bzFinal or bz
+        local corners = getCorners(room, bz, entry.pos)
+        local center = corners[1]
+        local miniSpots = {corners[2], corners[3], corners[4], corners[5]}
+
+        local pendingChests = {}
+        local processing = false
+
+        -- Hàm tìm góc phòng có Mini Chest dựa trên kết quả lắng nghe ChildAdded
+        local function nearestSpotIndex(pos)
+            local bestIdx, bestDist = nil, math.huge
+            for i, spot in ipairs(miniSpots) do
+                if spot then
+                    local d = (spot - pos).Magnitude
+                    if d < bestDist then
+                        bestDist = d
+                        bestIdx = i
+                    end
+                end
+            end
+            return bestIdx, bestDist
+        end
+
+        -- Bộ lắng nghe kết nối sự kiện xuất hiện Mini Chest thời gian thực
+        local listenerConn = breakablesContainer.ChildAdded:Connect(function(inst)
+            task.defer(function()
+                if not isBreakableInstance(inst) then return end
+                local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
+                if not part then return end
+                local idx2, dist = nearestSpotIndex(part.Position)
+                if idx2 and dist <= 15 then
+                    table.insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
+                end
+            end)
         end)
 
+        farmingThisRoom = true
+
+        -- Tiến trình xử lý hàng đợi Mini Chest (Chỉ dịch chuyển khi có hàng đợi phát hiện)
         task.spawn(function()
             while farmingThisRoom do
                 if #pendingChests > 0 and not processing then
                     processing = true
                     local chestEntry = table.remove(pendingChests, 1)
 
-                    safeTeleport(chestEntry.pos + Vector3.new(0, 5, 0))
-                    label.Text = string.format("Room %d/%d: Dang danh mini chest...", idx, total)
+                    safeTeleport(chestEntry.pos)
+                    updateStatusUI(string.format("Room %d/%d: Danh Mini Chest", idx, numRooms))
 
                     while chestEntry.inst and chestEntry.inst.Parent do
                         task.wait(0.2)
@@ -451,44 +538,29 @@ task.spawn(function()
             end
         end)
 
+        -- Vòng lặp đập boss chính (Cố định vị trí tại tâm phòng, tự động đổi phòng khi xong)
         while true do
-            local cooldown, _ = isChestOnCooldown(room)
+            local cooldown = isChestOnCooldown(room)
             if cooldown then
-                label.Text = string.format("Room %d/%d: Da pha! Chuyen room...", idx, total)
+                updateStatusUI(string.format("Room %d/%d: Da pha! Chuyen room...", idx, numRooms))
                 if getgenv().NOTIFY_TARGET_ROOM then
-                    sendToDiscord("Boss da bi danh bay!", string.format("Room %d/%d dang trong thoi gian hoi.", idx, total), 65280, false)
+                    sendToDiscord("Boss da bi danh bay!", string.format("Room %d/%d dang trong thoi gian hoi.", idx, numRooms), 65280, false)
                 end
                 break
             end
 
-            if #pendingChests == 0 and not processing then 
-                safeTeleport(center + Vector3.new(0, 5, 0)) 
-                label.Text = string.format("Room %d/%d: Dang danh boss", idx, total)
+            -- Nếu không bận đi phá Mini Chest, nhân vật sẽ luôn giữ vị trí tại tâm phòng
+            if #pendingChests == 0 and not processing then
+                safeTeleport(center)
+                updateStatusUI(string.format("Room %d/%d: Dang danh Boss", idx, numRooms))
             end
             task.wait(0.5)
         end
-        
+
         farmingThisRoom = false
         listenerConn:Disconnect()
-        return true
-    end
 
-    -- ============================
-    -- MULTI FARM LOOP (VÒNG LẶP XOAY TUA PHÒNG GỐC)
-    -- ============================
-    local farmIdx = 1
-    while true do
-        local entry = bossRooms[farmIdx]
-        local onCooldown = isChestOnCooldown(entry.room)
-
-        if onCooldown then
-            label.Text = string.format("Room %d/%d: DANG HOI -> chuyen tiep", farmIdx, #bossRooms)
-            farmIdx = farmIdx % #bossRooms + 1
-            task.wait(0.5)
-        else
-            farmRoom(entry, farmIdx, #bossRooms)
-            farmIdx = farmIdx % #bossRooms + 1
-            task.wait(0.5)
-        end
+        idx = idx % numRooms + 1
+        task.wait(0.5)
     end
 end)
