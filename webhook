@@ -77,15 +77,21 @@ local STEPS_X = math_floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math_floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
 
--- Hàm dịch chuyển an toàn
-local function safeTeleport(pos)
+-- TỐI ƯU HÓA HÀM TELEPORT: Phân phối lực nhảy thông minh chống giật mạng/lag tụt FPS
+local function safeTeleport(pos, isLongDistance)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
     if hrp and pos then
-        hrp.CFrame = CFrame_new(Vector3_new(pos.X, pos.Y + 2.5, pos.Z))
-        hrp.Anchored = true
-        task_wait(0.15)
-        hrp.Anchored = false
+        if isLongDistance then
+            -- Chỉ đóng băng khi đổi phòng (Cự ly dài) để tránh lỗi chunk hình ảnh
+            hrp.CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)
+            hrp.Anchored = true
+            task_wait(0.08) -- Giảm từ 0.15 xuống mức tối ưu mượt
+            hrp.Anchored = false
+        else
+            -- Di chuyển cự ly ngắn (Mini Chest) mượt tuyệt đối, không delay luồng mạng
+            hrp.CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)
+        end
     end
 end
 
@@ -301,7 +307,7 @@ if spawnRoomFolder then
     if deepDoor and deepDoor:FindFirstChild("Interact") then
         local interactPart = deepDoor.Interact
         for i = 1, 5 do
-            safeTeleport(interactPart.Position)
+            safeTeleport(interactPart.Position, true)
             task_wait(0.3)
         end
         task_wait(2)
@@ -309,7 +315,7 @@ if spawnRoomFolder then
         if prompt then
             fireproximityprompt(prompt)
         else
-            safeTeleport(interactPart.Position)
+            safeTeleport(interactPart.Position, true)
         end
     end
 end
@@ -740,8 +746,6 @@ task_spawn(function()
 
     local farmingThisRoom = true
     task_spawn(function()
-        -- FIX NÂNG CAO TRIỆT ĐỂ: Bọc toàn bộ luồng đập Boss và tính CFrame khoảng cách vào pcall 
-        -- Cách này ngăn ngừa 100% việc CpuSaver triệt tiêu Instance ngay giữa chu kỳ quét gây crash luồng FindFirstChild
         local bestInst, bestDist, currentHrpPos, breakables, obj, uid, part, d
         while true do
             if farmingThisRoom then
@@ -795,8 +799,9 @@ task_spawn(function()
 
         updateStatusUI(string_format("Room %d/%d: TELE va DANH chest", idx, numRooms))
 
+        -- TỐI ƯU HÓA: Sử dụng chế độ LongDistance khi nhảy đổi phòng từ xa để load map chuẩn
         for i = 1, 3 do
-            safeTeleport(entry.pos)
+            safeTeleport(entry.pos, true)
             task_wait(1)
         end
 
@@ -872,7 +877,8 @@ task_spawn(function()
                     processing = true
                     local chestEntry = table_remove(pendingChests, 1)
 
-                    safeTeleport(chestEntry.pos)
+                    -- TỐI ƯU HÓA: Chạy chế độ Fast-Teleport không giam luồng mạng khi dọn rương nhỏ cận kề
+                    safeTeleport(chestEntry.pos, false)
                     updateStatusUI(string_format("Room %d/%d: Danh Mini Chest", idx, numRooms))
 
                     while chestEntry.inst and chestEntry.inst.Parent do
@@ -894,7 +900,8 @@ task_spawn(function()
             end
 
             if #pendingChests == 0 and not processing then
-                safeTeleport(center)
+                -- TỐI ƯU HÓA: Dùng chế độ nhảy nhanh không Anchor để giữ nhân vật bám sát Boss liên tục
+                safeTeleport(center, false)
                 updateStatusUI(string_format("Room %d/%d: Dang danh Boss", idx, numRooms))
             end
             task_wait(0.5)
