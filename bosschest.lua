@@ -25,7 +25,7 @@ end
 -- ============================
 getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 getgenv().DiscordUserID ="989895037406044200"
-getgenv().NOTIFY_TARGET_ROOM = true   
+getgenv().NOTIFY_TARGET_ROOM = false   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 getgenv().FarmMultiChest = true       
 
