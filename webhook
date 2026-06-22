@@ -2,7 +2,7 @@
 -- CONFIG (CẤU HÌNH HỆ THỐNG)
 -- ============================
 getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: "Hop" (đổi server), "Rejoin" (vào lại), hoặc "Off" (ở lại farm số phòng đang có)
-getgenv().CpuSaver = false            -- MẶC ĐỊNH LÀ OFF: Thiết lập false để giao diện tàng hình tắt lúc đầu, bấm nút để bật
+getgenv().CpuSaver = true             -- MẶC ĐỊNH LÀ TRUE: Tự động kích hoạt tối ưu đồ họa ẩn map/UI chống lag ngay từ đầu
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
 getgenv().AutoUpgradeBossDamage = true-- Tự động nâng cấp Boss Damage Event khi đủ coin
 getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
@@ -411,8 +411,6 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 -- ============================
 -- GUI HỆ THỐNG MÀN HÌNH
 -- ============================
-local CoreGui = game:GetService("CoreGui")
-
 if CoreGui:FindFirstChild("ScanGUI") then CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", CoreGui)
 sg.Name = "ScanGUI"
@@ -437,15 +435,15 @@ local ctrlGui = Instance.new("ScreenGui", CoreGui)
 ctrlGui.Name = "ControlButtonsGUI"
 ctrlGui.ResetOnSpawn = false
 
--- Nút 1: SCREEN CLICK
+-- Nút 1: SCREEN CLICK (Căn chỉnh kích thước lớn hơn cho hàng đôi hoàn chỉnh)
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", ctrlGui)
-toggleClickBtn.Size = UDim2.new(0, 88, 0, 28)        
+toggleClickBtn.Size = UDim2.new(0, 135, 0, 28)        
 toggleClickBtn.Position = UDim2.new(0, 10, 0, 105)     
 toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleClickBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleClickBtn.Font = Enum.Font.GothamBold
-toggleClickBtn.TextSize = 10                           
+toggleClickBtn.TextSize = 11                           
 toggleClickBtn.Text = "CLICK: ON"
 Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 5)
 
@@ -460,14 +458,14 @@ toggleClickBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Nút 2: UPDAMEBOSS
+-- Nút 2: UPDAMEBOSS (Xếp ngay cạnh nút Click tạo thành một hàng đôi đối xứng)
 local toggleUpgradeBtn = Instance.new("TextButton", ctrlGui)
-toggleUpgradeBtn.Size = UDim2.new(0, 88, 0, 28)       
-toggleUpgradeBtn.Position = UDim2.new(0, 106, 0, 105)  
+toggleUpgradeBtn.Size = UDim2.new(0, 135, 0, 28)       
+toggleUpgradeBtn.Position = UDim2.new(0, 155, 0, 105)  
 toggleUpgradeBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleUpgradeBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleUpgradeBtn.Font = Enum.Font.GothamBold
-toggleUpgradeBtn.TextSize = 10                          
+toggleUpgradeBtn.TextSize = 11                          
 toggleUpgradeBtn.Text = "UPBOSS: ON"
 Instance.new("UICorner", toggleUpgradeBtn).CornerRadius = UDim.new(0, 5)
 
@@ -513,17 +511,7 @@ if getgenv().AutoUpgradeBossDamage then
     startUpgradeLoop()
 end
 
--- Nút 3: CPUSAVER
-local toggleCpuBtn = Instance.new("TextButton", ctrlGui)
-toggleCpuBtn.Size = UDim2.new(0, 88, 0, 28)       
-toggleCpuBtn.Position = UDim2.new(0, 202, 0, 105)  
-toggleCpuBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30) 
-toggleCpuBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleCpuBtn.Font = Enum.Font.GothamBold
-toggleCpuBtn.TextSize = 10                          
-toggleCpuBtn.Text = "CPU AN: OFF"
-Instance.new("UICorner", toggleCpuBtn).CornerRadius = UDim.new(0, 5)
-
+-- LUỒNG TÀNG HÌNH GIAO DIỆN CHẠY ẨN (Luôn bật do CpuSaver mặc định là true)
 local whitelistGUIs = {
     ["ScanGUI"] = true,
     ["CoordinateTrackerGui"] = true,
@@ -572,28 +560,17 @@ task_spawn(function()
     end
 end)
 
-toggleCpuBtn.MouseButton1Click:Connect(function()
-    getgenv().CpuSaver = not getgenv().CpuSaver
-    if getgenv().CpuSaver then
-        toggleCpuBtn.Text = "CPU AN: ON"
-        toggleCpuBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80) 
-        runCpuSaverLogic() 
-        local guis = PlayerGui:GetDescendants()
-        for i = 1, #guis do pcall(applyInvisibility, guis[i]) end 
-    else
-        toggleCpuBtn.Text = "CPU AN: OFF"
-        toggleCpuBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30) 
-    end
-end)
-
 if getgenv().CpuSaver then
-    toggleCpuBtn.Text = "CPU AN: ON"
-    toggleCpuBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
     runCpuSaverLogic()
+    task_spawn(function()
+        task_wait(2)
+        local guis = PlayerGui:GetDescendants()
+        for i = 1, #guis do pcall(applyInvisibility, guis[i]) end
+    end)
 end
 
 -- ============================
--- BUOC 1: QUET MAP (GIỮ NGUYÊN LOGIC QUÉT CHUẨN)
+-- BUOC 1: QUET MAP
 -- ============================
 local bossRooms = {}
 
@@ -761,7 +738,6 @@ task_spawn(function()
 
     local farmingThisRoom = true
     task_spawn(function()
-        -- TỐI ƯU HÓA: Tái sử dụng bộ đếm tĩnh bên ngoài tránh sinh rác bộ nhớ cục bộ
         local bestInst, bestDist, currentHrpPos, breakables, obj, uid, part, d
         while true do
             if farmingThisRoom then
@@ -794,7 +770,7 @@ task_spawn(function()
     end)
 
     -- ============================
-    -- BUOC 2: FARM LOOP (GIỮ NGUYÊN TRÌNH TỰ VÀ LOGIC CHUẨN GIỮA CÁC ROOM)
+    -- BUOC 2: FARM LOOP
     -- ============================
     local idx = 1
     local numRooms = #bossRooms 
