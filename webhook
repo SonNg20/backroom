@@ -14,7 +14,11 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 -- Chờ thư viện Library của game tải xong hoàn toàn
-repeat task.wait() until ReplicatedStorage:FindFirstChild("Library")
+local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
+if not libraryFolder then
+    print("Khong tim thay thu vien Library trong thoi gian cho!")
+    return
+end
 
 -- ============================
 -- CONFIG (chinh o day)
@@ -25,7 +29,7 @@ getgenv().NOTIFY_TARGET_ROOM = true   -- gui webhook khi tele toi GameMastersSta
 getgenv().NOTIFY_HUGE_TITANIC = true  -- gui webhook khi nhan Huge/Titanic moi
 getgenv().FarmMultiChest = true       -- true: quet du 2 room moi farm | false: quet duoc 1 room la farm luon
 
--- Hàm dịch chuyển an toàn được định nghĩa lại để tránh lỗi nil
+-- Hàm dịch chuyển an toàn
 local function safeTeleport(pos)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
@@ -37,8 +41,9 @@ end
 -- ============================
 -- AUTO JOIN MINIGAME EVENT
 -- ============================
-local InstancingCmds = require(ReplicatedStorage.Library.Client.InstancingCmds)
-local FFlags = require(ReplicatedStorage.Library.Client.FFlags)
+local ClientFolder = libraryFolder:WaitForChild("Client", 15)
+local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
+local FFlags = require(ClientFolder:WaitForChild("FFlags"))
 
 local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
 if joinTarget then
@@ -109,7 +114,7 @@ end
 local SaveModule
 do
     local ok, mod = pcall(function()
-        return require(ReplicatedStorage.Library.Client.Save)
+        return require(ClientFolder:WaitForChild("Save"))
     end)
     if ok then SaveModule = mod end
 end
@@ -358,8 +363,8 @@ task.spawn(function()
     end
 
     local breakablesContainer = workspace:WaitForChild("__THINGS"):WaitForChild("Breakables")
-    repeat task.wait() until ReplicatedStorage:FindFirstChild("Network")
-    local damageRemote = ReplicatedStorage.Network:WaitForChild("Breakables_PlayerDealDamage")
+    local networkFolder = ReplicatedStorage:WaitForChild("Network", 15)
+    local damageRemote = networkFolder:WaitForChild("Breakables_PlayerDealDamage")
 
     local function isBreakableInstance(inst)
         if inst:IsA("BasePart") or inst:IsA("Model") then
