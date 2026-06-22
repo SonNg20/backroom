@@ -70,7 +70,6 @@ local activeContainer = workspace:WaitForChild("__THINGS"):WaitForChild("__INSTA
 local backroomsFolder = activeContainer:WaitForChild("Backrooms")
 local generatedBackrooms = backroomsFolder:WaitForChild("GeneratedBackrooms")
 
-print("Dang tim kiem cong vao Deep Backrooms...")
 local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
 if spawnRoomFolder then
     local deepDoor = spawnRoomFolder:WaitForChild("DeepDoor", 15)
@@ -87,9 +86,7 @@ if spawnRoomFolder then
         local prompt = interactPart:FindFirstChildWhichIsA("ProximityPrompt", true)
         if prompt then
             fireproximityprompt(prompt)
-            print("Da kich hoat cong vao Deep Backrooms thanh cong!")
         else
-            print("Khong tim thay ProximityPrompt, dang thu va cham truc tiep...")
             safeTeleport(interactPart.Position)
         end
     end
@@ -99,7 +96,6 @@ task.wait(12)
 
 local spawnRoom = generatedBackrooms:WaitForChild("DeepSpawnRoom", 35)
 if not spawnRoom then 
-    print("Loi nghiem trong: Khong tim thay DeepSpawnRoom!")
     return 
 end
 
@@ -267,11 +263,7 @@ task.spawn(function()
 
     label.Text = string.format("Tim thay %d room. Bat dau farm...", #bossRooms)
 
-    -- ============================
-    -- XOA BEP DO SAU KHI QUET XONG (TRANH CHAN TELEPORT)
-    -- ============================
-    platform:Destroy()
-    
+    -- Platform se theo theo player, khong xoa
     local firstRoom = bossRooms[1]
     for i = 1, 3 do
         safeTeleport(firstRoom.pos + Vector3.new(0, 5, 0))
@@ -485,7 +477,6 @@ task.spawn(function()
         local entry = bossRooms[farmIdx]
         local onCooldown, bz = isChestOnCooldown(entry.room)
         
-        print(string.format("[Cycle %d] Room %d - Cooldown: %s", cycleCount, farmIdx, tostring(onCooldown)))
 
         if onCooldown then
             -- timer.Enabled = true = dang hoi, bo qua
