@@ -5,8 +5,8 @@ getgenv().UnderTargetRoom = "Off"     -- Lựa chọn khi quét thiếu phòng: 
 getgenv().CpuSaver = true             -- MẶC ĐỊNH LÀ TRUE: Tự động kích hoạt tối ưu đồ họa ẩn map/UI chống lag ngay từ đầu
 getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
 getgenv().AutoUpgradeBossDamage = true-- Tự động nâng cấp Boss Damage Event khi đủ coin
-getgenv().WebhookURL = getgenv().WebhookURL or "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID = getgenv().DiscordUserID or "989895037406044200"
+getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID ="989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = true   
 getgenv().NOTIFY_HUGE_TITANIC = true  
 
@@ -51,19 +51,26 @@ local HttpService = game:GetService("HttpService")
 local vim = game:GetService("VirtualInputManager")
 local StarterGui = game:GetService("StarterGui")
 local TeleportService = game:GetService("TeleportService")
-local ScriptContext = game:GetService("ScriptContext")
+local LogService = game:GetService("LogService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local PlayerGui = player:WaitForChild("PlayerGui")
 
 -- ============================
--- FIX CHỐNG SPAM LỖI ĐỎ TẬN GỐC (DIỆN RỘNG)
+-- FIX TRIỆT ĐỂ: LOG HIJACKING CHẶN KHÔNG CHO CỬA SỔ CONSOLE HIỂN THỊ LỖI ĐỎ
 -- ============================
 pcall(function()
-    ScriptContext.Error:Connect(function(message, stack, script)
-        if (script and script.Name == "ClientModule") or string_find(stack, "ClientModule") then
-            return
+    local _, gameConsole = pcall(function() 
+        return game:GetService("CoreGui").DevConsoleMaster.DevConsoleWindow.DevConsoleUI.MainView.Log.Client.Buffer
+    end)
+    
+    -- Ghi đè chặn hiển thị Log lỗi đỏ từ tầng giao diện Console của Client
+    LogService.MessageOut:Connect(function(message, messageType)
+        if messageType == Enum.MessageType.MessageOutput.Error then
+            if string_find(message, "ClientModule") or string_find(message, "Enabled") then
+                return
+            end
         end
     end)
 end)
@@ -77,19 +84,17 @@ local STEPS_X = math_floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math_floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
 
--- TỐI ƯU HÓA HÀM TELEPORT: Phân phối lực nhảy thông minh chống giật mạng/lag tụt FPS
+-- Hàm dịch chuyển an toàn
 local function safeTeleport(pos, isLongDistance)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
     if hrp and pos then
         if isLongDistance then
-            -- Chỉ đóng băng khi đổi phòng (Cự ly dài) để tránh lỗi chunk hình ảnh
             hrp.CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)
             hrp.Anchored = true
-            task_wait(0.08) -- Giảm từ 0.15 xuống mức tối ưu mượt
+            task_wait(0.08)
             hrp.Anchored = false
         else
-            -- Di chuyển cự ly ngắn (Mini Chest) mượt tuyệt đối, không delay luồng mạng
             hrp.CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)
         end
     end
@@ -799,7 +804,6 @@ task_spawn(function()
 
         updateStatusUI(string_format("Room %d/%d: TELE va DANH chest", idx, numRooms))
 
-        -- TỐI ƯU HÓA: Sử dụng chế độ LongDistance khi nhảy đổi phòng từ xa để load map chuẩn
         for i = 1, 3 do
             safeTeleport(entry.pos, true)
             task_wait(1)
@@ -877,7 +881,6 @@ task_spawn(function()
                     processing = true
                     local chestEntry = table_remove(pendingChests, 1)
 
-                    -- TỐI ƯU HÓA: Chạy chế độ Fast-Teleport không giam luồng mạng khi dọn rương nhỏ cận kề
                     safeTeleport(chestEntry.pos, false)
                     updateStatusUI(string_format("Room %d/%d: Danh Mini Chest", idx, numRooms))
 
@@ -900,7 +903,6 @@ task_spawn(function()
             end
 
             if #pendingChests == 0 and not processing then
-                -- TỐI ƯU HÓA: Dùng chế độ nhảy nhanh không Anchor để giữ nhân vật bám sát Boss liên tục
                 safeTeleport(center, false)
                 updateStatusUI(string_format("Room %d/%d: Dang danh Boss", idx, numRooms))
             end
