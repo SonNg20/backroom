@@ -33,7 +33,7 @@ local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- ============================
--- GUI THIẾT LẬP (ĐÃ ĐƯỢC THÊM VÀO)
+-- GUI THIẾT LẬP
 -- ============================
 if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", game.CoreGui)
@@ -151,13 +151,6 @@ if not spawnRoom then
     return 
 end
 
-local origin = spawnRoom:FindFirstChildWhichIsA("BasePart", true)
-if not origin then return end
-local originPos = origin.Position
-
--- Đặt nhân vật cố định an toàn tại DeepSpawnRoom trước khi quét map bằng mắt thần
-safeTeleport(originPos + Vector3.new(0, 5, 0))
-
 -- ============================
 -- HAM GUI DISCORD WEBHOOK
 -- ============================
@@ -186,89 +179,82 @@ local function sendToDiscord(title, description, color, mention)
 end
 
 -- ============================
--- CAU HINH QUET MAP MỚI
+-- CẤU HÌNH CÁCH 2: QUỆT VẾT DẦU LOANG (LAN TỎA)
 -- ============================
-local STEP = 300
-local MIN_X, MAX_X = -7500, -2100
-local MIN_Z, MAX_Z = -3600, 900
-local SCAN_Y = 2055
-local WAIT_TIME = 0.5 
-
-local STEPS_X = math.floor((MAX_X - MIN_X) / STEP) + 1
-local STEPS_Z = math.floor((MAX_Z - MIN_Z) / STEP) + 1
-local TOTAL_POINTS = STEPS_X * STEPS_Z
-
 local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
+local WAIT_TIME_FOR_SPAWN = 0.8 
 
--- ============================
--- BUOC 1: QUET MAP BẰNG CAMERA ẢO (NHÂN VẬT ĐỨNG YÊN)
--- ============================
-local bossRooms = {} 
-label.Text = "Dang quet map bang Camera..."
+local bossRooms = {}
+local scannedRooms = {} 
+local queue = {}        
 
--- Chuyển camera sang chế độ Scriptable tự quản lý tọa độ
-camera.CameraType = Enum.CameraType.Scriptable
+local function getRoomPosition(room)
+    local part = room:FindFirstChildWhichIsA("BasePart", true)
+    return part and part.Position or nil
+end
 
 task.spawn(function()
-    local count = 0
-    local scanDone = false
-    local lastLabelUpdate = tick()
+    table.clear(queue)
+    table.clear(scannedRooms)
+    
+    local p = getRoomPosition(spawnRoom)
+    if p then table.insert(queue, p) end
 
-    for x = MIN_X, MAX_X, STEP do
-        if scanDone then break end
-        for z = MIN_Z, MAX_Z, STEP do
-            if scanDone then break end
-            count = count + 1
+    label.Text = "Bat dau quet theo luong Sinh Phong..."
 
-            -- Chỉ di chuyển góc Camera đến tọa độ ma trận và gửi yêu cầu nạp map streaming từ xa
-            local targetLook = Vector3.new(x, SCAN_Y, z)
-            camera.CFrame = CFrame.new(targetLook + Vector3.new(0, 100, 0), targetLook)
-            pcall(function()
-                player:RequestStreamAroundAsync(targetLook)
-            end)
-            
-            task.wait(WAIT_TIME)
+    while #queue > 0 and #bossRooms < TARGET_ROOMS do
+        local currentPos = table.remove(queue, 1)
+        local key = string.format("%.0f,%.0f", currentPos.X, currentPos.Z)
+        
+        if not scannedRooms[key] then
+            scannedRooms[key] = true
 
-            local now = tick()
-            if now - lastLabelUpdate >= 0.5 then
-                label.Text = string.format(
-                    "Mat than quet: %d / %d\nX: %.0f  Z: %.0f\nRoom: %d/%d",
-                    count, TOTAL_POINTS, x, z, #bossRooms, TARGET_ROOMS)
-                lastLabelUpdate = now
-            end
+            -- Di chuyển nhân vật lan tỏa để ép game nạp các phòng kế cạnh
+            safeTeleport(currentPos + Vector3.new(0, 5, 0))
+            task.wait(WAIT_TIME_FOR_SPAWN)
 
             local children = generatedBackrooms:GetChildren()
             for i = 1, #children do
                 local room = children[i]
-                if room.Name == "GameMastersStage" and room.Parent == generatedBackrooms then
-                    local bz = room:FindFirstChild("BREAK_ZONE", true)
-                    if bz then
-                        local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
-                        if part then
-                            local found = false
-                            for j = 1, #bossRooms do
-                                if bossRooms[j].room == room then
-                                    found = true 
-                                    break
+                
+                -- BỘ LỌC CHỈ DUYỆT TRONG DEEP BACKROOMS (Bỏ sảnh chờ cũ)
+                if room.Name ~= "SpawnRoom" and room.Name ~= "DeepDoor" then
+                    local rPos = getRoomPosition(room)
+                    
+                    if rPos then
+                        if room.Name == "GameMastersStage" then
+                            local bz = room:FindFirstChild("BREAK_ZONE", true)
+                            if bz then
+                                local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
+                                if part then
+                                    local found = false
+                                    for j = 1, #bossRooms do
+                                        if bossRooms[j].room == room then found = true break end
+                                    end
+                                    if not found then
+                                        table.insert(bossRooms, {room = room, pos = part.Position})
+                                        label.Text = string.format("Tim thay GameMasterStage! (%d/%d)", #bossRooms, TARGET_ROOMS)
+                                    end
                                 end
                             end
-                            if not found then
-                                table.insert(bossRooms, {room = room, pos = part.Position})
+                        end
+
+                        local rKey = string.format("%.0f,%.0f", rPos.X, rPos.Z)
+                        if not scannedRooms[rKey] and (rPos - currentPos).Magnitude < 700 then
+                            local inQueue = false
+                            for _, qPos in ipairs(queue) do
+                                if (qPos - rPos).Magnitude < 10 then inQueue = true break end
+                            end
+                            if not inQueue then
+                                table.insert(queue, rPos)
                             end
                         end
                     end
                 end
             end
-
-            if #bossRooms >= TARGET_ROOMS then
-                scanDone = true
-                break
-            end
+            label.Text = string.format("Dang quet lan toa... (Con %d diem)\nRoom: %d/%d", #queue, #bossRooms, TARGET_ROOMS)
         end
     end
-
-    -- Trả camera về lại trạng thái đi theo người chơi bình thường
-    camera.CameraType = Enum.CameraType.Custom
 
     if #bossRooms == 0 then
         platform:Destroy()
@@ -280,6 +266,7 @@ task.spawn(function()
         return
     end
 
+    local originPos = p or Vector3.new(0,0,0)
     table.sort(bossRooms, function(a, b)
         return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
     end)
