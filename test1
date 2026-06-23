@@ -15,12 +15,13 @@ if not game:IsLoaded() then
 end
 
 -- ============================
--- FIX CHỐNG SPAM LỖI ĐỎ TẬN GỐC (DIỆN RỘNG)
+-- FIX TRIỆT ĐỂ: CORE HOOK CHẶN TOÀN BỘ LỖI NIL CỦA GAME GÂY LAG
 -- ============================
 local ScriptContext = game:GetService("ScriptContext")
 pcall(function()
     ScriptContext.Error:Connect(function(message, stack, script)
-        if (script and script.Name == "ClientModule") or string.find(stack, "ClientModule") then
+        -- Chặn đứng im lặng mọi lỗi nil values hoặc index nil từ mọi script hệ thống của game
+        if string.find(message, "nil") or string.find(message, "index") or (script and script.Name == "ClientModule") then
             return
         end
     end)
@@ -107,7 +108,7 @@ local function AdvancedHop()
         end
         
         for _, server in ipairs(ServerList) do
-            if server.playing and server.maxPlayers and server.playing < server.maxPlayers and server.id ~= game.JobId then
+            if server.playing and server.maxPlayers and server.playing < server.maxPlayers& server.id ~= game.JobId then
                 pcall(function()
                     TeleportService:TeleportToPlaceInstance(PlaceId, server.id, player)
                 end)
@@ -127,7 +128,7 @@ local function executeAction(actionType)
 end
 
 -- ============================
--- GUI HỆ THỐNG MÀN HÌNH (KHỞI TẠO SỚM)
+-- GUI HỆ THỐNG MÀN HÌNH (THU NHỎ & XẾP CẠNH NHAU)
 -- ============================
 local CoreGui = game:GetService("CoreGui")
 if CoreGui:FindFirstChild("ScanGUI") then CoreGui.ScanGUI:Destroy() end
@@ -379,7 +380,7 @@ end
 
 if #bossRooms < getgenv().TargetBossCount then
     local action = getgenv().UnderTargetBoss
-    if action != "Off" then
+    if action ~= "Off" then
         label.Text = string_format("Quet thieu Boss (%d/%d)! Dang doi server...", #bossRooms, getgenv().TargetBossCount)
         task_wait(1)
         executeAction(action)
@@ -617,7 +618,6 @@ while true do
         end
     end)
 
-    -- SỬA ĐỔI CHÍNH LUỒNG ĐẬP BOSS & QUAY LẠI SAU KHI XỬ LÝ MINI CHEST
     while true do
         local cooldown = isChestOnCooldown(entry)
         if cooldown then
@@ -626,7 +626,6 @@ while true do
         end
 
         if #pendingChests == 0 and not processing then
-            -- Logic mới: Tele liên tục thẳng đến tọa độ thực tế của Boss 3 lần, mỗi lần cách nhau 0.5 giây
             for run = 1, 3 do
                 if isChestOnCooldown(entry) or #pendingChests > 0 or processing then break end
                 safeTeleport(entry.pos)
