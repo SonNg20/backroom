@@ -1,10 +1,10 @@
 -- ============================
 -- CONFIG
 -- ============================
-getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os" [cite: 1]
-getgenv().DiscordUserID ="989895037406044200" [cite: 1]
-getgenv().NOTIFY_TARGET_ROOM = false [cite: 1]
-getgenv().NOTIFY_HUGE_TITANIC = true [cite: 1]
+getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os" -- [cite: 1]
+getgenv().DiscordUserID ="989895037406044200" -- [cite: 1]
+getgenv().NOTIFY_TARGET_ROOM = false -- [cite: 1]
+getgenv().NOTIFY_HUGE_TITANIC = true  -- [cite: 1]
 
 -- Khởi tạo bảng lưu trữ trạng thái mở khóa toàn cục
 if not getgenv().UnlockedRoomsCache then
@@ -12,102 +12,113 @@ if not getgenv().UnlockedRoomsCache then
 end
 
 if not game:IsLoaded() then
-    game.Loaded:Wait() [cite: 1]
+    game.Loaded:Wait() -- [cite: 1]
 end
 
 -- ============================
 -- OPTIMIZATION: CACHE GLOBAL FUNCTIONS
 -- ============================
-local Vector3_new = Vector3.new
-local CFrame_new = CFrame.new
-local math_floor = math.floor
-local task_wait = task.wait
-local task_spawn = task.spawn
-local task_defer = task.defer
-local string_format = string.format
-local pairs = pairs
-local ipairs = ipairs
-local table_insert = table.insert
-local table_remove = table.remove
-local table_sort = table.sort
-local tostring = tostring
-local pcall = pcall
-local tick = tick
+local Vector3_new = Vector3.new -- [cite: 1]
+local CFrame_new = CFrame.new -- [cite: 1]
+local math_floor = math.floor -- [cite: 1]
+local task_wait = task.wait -- [cite: 1]
+local task_spawn = task.spawn -- [cite: 1]
+local task_defer = task.defer -- [cite: 1]
+local string_format = string.format -- [cite: 1]
+local pairs = pairs -- [cite: 1]
+local ipairs = ipairs -- [cite: 1]
+local table_insert = table.insert -- [cite: 2]
+local table_remove = table.remove -- [cite: 2]
+local table_sort = table.sort -- [cite: 2]
+local tostring = tostring -- [cite: 2]
+local pcall = pcall -- [cite: 2]
+local tick = tick -- [cite: 2]
 
 -- ============================
 -- KHAI BÁO BIẾN HỆ THỐNG CƠ BẢN
 -- ============================
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
-local vim = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage") -- [cite: 2]
+local Players = game:GetService("Players") -- [cite: 2]
+local HttpService = game:GetService("HttpService") -- [cite: 2]
+local vim = game:GetService("VirtualInputManager") -- [cite: 2]
 
-local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
+local player = Players.LocalPlayer -- [cite: 2]
+local camera = workspace.CurrentCamera -- [cite: 2]
 
-local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
+local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30) -- [cite: 2]
 if not libraryFolder then
-    print("Khong tim thay thu vien Library trong thoi gian cho!")
+    print("Khong tim thay thu vien Library trong thoi gian cho!") -- [cite: 2]
     return
 end
 
 -- Hàm lấy HumanoidRootPart an toàn động chống lỗi Index Nil
 local function getHRP()
-    local char = player.Character or player.CharacterAdded:Wait()
-    return char:WaitForChild("HumanoidRootPart", 10)
+    local char = player.Character or player.CharacterAdded:Wait() -- [cite: 3]
+    return char:WaitForChild("HumanoidRootPart", 10) -- [cite: 3]
 end
 
 -- Hàm dịch chuyển an toàn
 local function safeTeleport(pos)
     local hrp = getHRP()
     if hrp and pos then
-        hrp.CFrame = CFrame_new(Vector3_new(pos.X, pos.Y + 2.5, pos.Z))
-        hrp.Anchored = true
-        task_wait(0.15)
-        hrp.Anchored = false
+        hrp.CFrame = CFrame_new(Vector3_new(pos.X, pos.Y + 2.5, pos.Z)) -- [cite: 3]
+        hrp.Anchored = true -- [cite: 3]
+        task_wait(0.15) -- [cite: 3]
+        hrp.Anchored = false -- [cite: 3]
     end
 end
 
 -- ============================
 -- AUTO JOIN MINIGAME EVENT (LUÔN CHẠY KHI EXE)
 -- ============================
-local ClientFolder = libraryFolder:WaitForChild("Client", 15)
-local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
-local FFlags = require(ClientFolder:WaitForChild("FFlags"))
+local ClientFolder = libraryFolder:WaitForChild("Client", 15) -- [cite: 4]
+local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds")) -- [cite: 4]
+local FFlags = require(ClientFolder:WaitForChild("FFlags")) -- [cite: 4]
 
-local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
+local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget) -- [cite: 4]
 if joinTarget then
-    InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
+    InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!") -- [cite: 4]
 end
 
-task_wait(10)
+task_wait(10) -- [cite: 4]
 
-local thingsContainer = workspace:WaitForChild("__THINGS")
-local activeContainer = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active")
-local backroomsFolder = activeContainer:WaitForChild("Backrooms")
-local generatedBackrooms = backroomsFolder:WaitForChild("GeneratedBackrooms")
+local thingsContainer = workspace:WaitForChild("__THINGS") -- [cite: 4]
+local activeContainer = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active") -- [cite: 4]
+local backroomsFolder = activeContainer:WaitForChild("Backrooms") -- [cite: 4]
+local generatedBackrooms = backroomsFolder:WaitForChild("GeneratedBackrooms") -- [cite: 4]
 
-print("Dang tim kiem cong vao Deep Backrooms...")
-local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
+print("Dang tim kiem cong vao Deep Backrooms...") -- [cite: 4]
+local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30) -- [cite: 4]
 if spawnRoomFolder then
-    local deepDoor = spawnRoomFolder:WaitForChild("DeepDoor", 15)
-    if deepDoor and deepDoor:FindFirstChild("Interact") then
-        local interactPart = deepDoor.Interact
+    local deepDoor = spawnRoomFolder:WaitForChild("DeepDoor", 15) -- [cite: 4]
+    if deepDoor and deepDoor:FindFirstChild("Interact") then -- [cite: 4]
+        local interactPart = deepDoor.Interact -- [cite: 4]
         
         for i = 1, 5 do
-            safeTeleport(interactPart.Position)
-            task_wait(0.3)
+            safeTeleport(interactPart.Position) -- 
+            task_wait(0.3) -- 
         end
         
-        task_wait(2)
+        task_wait(2) -- 
         
-        local prompt = interactPart:FindFirstChildWhichIsA("ProximityPrompt", true)
+        local prompt = interactPart:FindFirstChildWhichIsA("ProximityPrompt", true) -- 
         if prompt then
-            fireproximityprompt(prompt)
-            print("Da kich hoat cong vao Deep Backrooms thanh cong!")
+            -- Sửa lỗi chặn đứng script do executor thiếu hàm fireproximityprompt
+            if fireproximityprompt then
+                fireproximityprompt(prompt) -- 
+            elseif prompt.SetAttribute then
+                prompt:InputHoldBegin()
+                task_wait(prompt.HoldDuration + 0.1)
+                prompt:InputHoldEnd()
+            else
+                firetouchinterest(getHRP(), interactPart, 0)
+                task_wait(0.1)
+                firetouchinterest(getHRP(), interactPart, 1)
+            end
+            print("Da kich hoat cong vao Deep Backrooms thanh cong!") -- [cite: 6]
         else
-            print("Khong tim thay ProximityPrompt, dang thu va cham truc tiep...")
-            safeTeleport(interactPart.Position)
+            print("Khong tim thay ProximityPrompt, dang thu va cham truc tiep...") -- [cite: 6]
+            safeTeleport(interactPart.Position) -- [cite: 6]
         end
     end
 end
@@ -115,28 +126,28 @@ end
 -- ============================
 -- HAM GUI DISCORD WEBHOOK
 -- ============================
-local MENTION_STRING = "<@" .. getgenv().DiscordUserID .. ">"
-local requestFunction = syn and syn.request or http_request or request
+local MENTION_STRING = "<@" .. getgenv().DiscordUserID .. ">" -- [cite: 6]
+local requestFunction = syn and syn.request or http_request or request -- [cite: 6]
 
 local function sendToDiscord(title, description, color, mention)
-    if not requestFunction then return end
-    local data = {
-        ["content"] = mention and MENTION_STRING or "",
-        ["embeds"] = {{
-            ["title"] = title,
-            ["description"] = description,
-            ["color"] = color,
-            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
-        }}
-    }
-    pcall(function()
-        requestFunction({
-            Url = getgenv().WebhookURL,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(data)
-        })
-    end)
+    if not requestFunction then return end -- [cite: 6]
+    local data = { -- [cite: 7]
+        ["content"] = mention and MENTION_STRING or "", -- [cite: 7]
+        ["embeds"] = {{ -- [cite: 7]
+            ["title"] = title, -- [cite: 7]
+            ["description"] = description, -- [cite: 7]
+            ["color"] = color, -- [cite: 7]
+            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ") -- [cite: 7]
+        }} -- [cite: 7]
+    } -- [cite: 7]
+    pcall(function() -- [cite: 8]
+        requestFunction({ -- [cite: 8]
+            Url = getgenv().WebhookURL, -- [cite: 8]
+            Method = "POST", -- [cite: 8]
+            Headers = {["Content-Type"] = "application/json"}, -- [cite: 8]
+            Body = HttpService:JSONEncode(data) -- [cite: 8]
+        }) -- [cite: 8]
+    end) -- [cite: 8]
 end
 
 -- ============================
@@ -145,91 +156,91 @@ end
 local SaveModule
 do
     local ok, mod = pcall(function()
-        return require(ClientFolder:WaitForChild("Save"))
+        return require(ClientFolder:WaitForChild("Save")) -- [cite: 9]
     end)
-    if ok then SaveModule = mod end
+    if ok then SaveModule = mod end -- [cite: 9]
 end
 local previousPetCounts = {}
 local firstInventoryCheck = true
 local function checkInventoryForHugeTitanic()
-    if not SaveModule then return end
-    local ok, data = pcall(function() return SaveModule.Get() end)
-    if not ok or not data or not data.Inventory or not data.Inventory.Pet then return end
+    if not SaveModule then return end -- [cite: 9]
+    local ok, data = pcall(function() return SaveModule.Get() end) -- [cite: 9]
+    if not ok or not data or not data.Inventory or not data.Inventory.Pet then return end -- [cite: 9]
     local currentCounts = {}
-    for _, petData in pairs(data.Inventory.Pet) do
-        if petData.id then
-            local name = petData.id
-            local amount = petData._am or 1
-            currentCounts[name] = (currentCounts[name] or 0) + amount
+    for _, petData in pairs(data.Inventory.Pet) do -- [cite: 9]
+        if petData.id then -- [cite: 9]
+            local name = petData.id -- [cite: 10]
+            local amount = petData._am or 1 -- [cite: 10]
+            currentCounts[name] = (currentCounts[name] or 0) + amount -- [cite: 10]
         end
     end
     if firstInventoryCheck then
-        previousPetCounts = currentCounts
-        firstInventoryCheck = false
+        previousPetCounts = currentCounts -- [cite: 11]
+        firstInventoryCheck = false -- [cite: 11]
         return
     end
-    for name, count in pairs(currentCounts) do
-        local isTitanic = name:find("Titanic") ~= nil
-        local isHuge = (not isTitanic) and name:find("Huge") ~= nil
-        if isHuge or isTitanic then
-            local prevCount = previousPetCounts[name] or 0
-            if count > prevCount then
-                local gained = count - prevCount
-                local title = isTitanic and "TITANIC PET MOI!" or "HUGE PET MOI!"
-                local color = isTitanic and 16711680 or 65280
-                sendToDiscord(
-                    title,
-                    string_format("Tai khoan **%s** vua nhan duoc **%s** (x%d)!\nTong hien co: **%d**",
-                        player.Name, name, gained, count),
-                    color, true
+    for name, count in pairs(currentCounts) do -- [cite: 11]
+        local isTitanic = name:find("Titanic") ~= nil -- [cite: 11]
+        local isHuge = (not isTitanic) and name:find("Huge") ~= nil -- [cite: 11]
+        if isHuge or isTitanic then -- [cite: 11]
+            local prevCount = previousPetCounts[name] or 0 -- [cite: 11]
+            if count > prevCount then -- [cite: 11]
+                local gained = count - prevCount -- [cite: 11]
+                local title = isTitanic and "TITANIC PET MOI!" or "HUGE PET MOI!" -- [cite: 12]
+                local color = isTitanic and 16711680 or 65280 -- [cite: 13]
+                sendToDiscord( -- [cite: 13]
+                    title, -- [cite: 13]
+                    string_format("Tai khoan **%s** vua nhan duoc **%s** (x%d)!\nTong hien co: **%d**", -- [cite: 13]
+                        player.Name, name, gained, count), -- [cite: 13]
+                    color, true -- [cite: 13]
                 )
             end
         end
     end
-    previousPetCounts = currentCounts
+    previousPetCounts = currentCounts -- [cite: 14]
 end
 
 if getgenv().NOTIFY_HUGE_TITANIC then
-    task_spawn(function()
-        while true do
-            pcall(checkInventoryForHugeTitanic)
-            task_wait(3)
+    task_spawn(function() -- [cite: 14]
+        while true do -- [cite: 14]
+            pcall(checkInventoryForHugeTitanic) -- [cite: 14]
+            task_wait(3) -- [cite: 15]
         end
-    end)
+    end) -- [cite: 14]
 end
 
-if not spawnRoomFolder then return end
-local origin = spawnRoomFolder:FindFirstChildWhichIsA("BasePart", true)
-if not origin then return end
+if not spawnRoomFolder then return end -- [cite: 15]
+local origin = spawnRoomFolder:FindFirstChildWhichIsA("BasePart", true) -- [cite: 15]
+if not origin then return end -- [cite: 15]
 
-local originPos = origin.Position
+local originPos = origin.Position -- [cite: 15]
 
 -- ============================
--- INITIALIZE GUI (XẾP CHỒNG TRỤC DỌC CHUẨN)
+-- INITIALIZE GUI
 -- ============================
-if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() end
-local sg = Instance.new("ScreenGui", game.CoreGui)
-sg.Name = "ScanGUI"
-sg.ResetOnSpawn = false
+if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() end -- [cite: 15]
+local sg = Instance.new("ScreenGui", game.CoreGui) -- [cite: 15]
+sg.Name = "ScanGUI" -- [cite: 15]
+sg.ResetOnSpawn = false -- [cite: 15]
 
-local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 280, 0, 160)
+local label = Instance.new("TextLabel", sg) -- [cite: 15]
+label.Size = UDim2.new(0, 280, 0, 160) -- [cite: 15]
 label.Position = UDim2.new(0, 10, 0, 180) -- Giữ nguyên ô Status tại Y = 180
-label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-label.BackgroundTransparency = 0.3
-label.TextColor3 = Color3.fromRGB(0, 255, 100)
-label.Font = Enum.Font.Code
-label.TextSize = 11
-label.TextXAlignment = Enum.TextXAlignment.Left
-label.TextYAlignment = Enum.TextYAlignment.Top
-label.TextWrapped = true
+label.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- [cite: 15]
+label.BackgroundTransparency = 0.3 -- [cite: 15]
+label.TextColor3 = Color3.fromRGB(0, 255, 100) -- [cite: 15]
+label.Font = Enum.Font.Code -- [cite: 15]
+label.TextSize = 11 -- [cite: 15]
+label.TextXAlignment = Enum.TextXAlignment.Left -- [cite: 15]
+label.TextYAlignment = Enum.TextYAlignment.Top -- [cite: 15]
+label.TextWrapped = true -- [cite: 15]
 label.Text = "Status: Dang cho lenh tu Nut FARM..."
-Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8) -- [cite: 15]
 
 -- 1. NÚT FARM (NẰM Ở TRÊN CÙNG - TRỤC DỌC)
 local mainFarmEnabled = false
 local toggleFarmBtn = Instance.new("TextButton", sg)
-toggleFarmBtn.Size = UDim2.new(0, 280, 0, 30) -- Kéo rộng bằng ô status để không bị lệch hàng ngang
+toggleFarmBtn.Size = UDim2.new(0, 280, 0, 30) 
 toggleFarmBtn.Position = UDim2.new(0, 10, 0, 100) -- Y = 100
 toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
 toggleFarmBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -240,90 +251,90 @@ Instance.new("UICorner", toggleFarmBtn).CornerRadius = UDim.new(0, 6)
 
 -- 2. NÚT SCREEN CLICK (NẰM Ở GIỮA - TRỤC DỌC)
 local screenClickEnabled = true
-local toggleClickBtn = Instance.new("TextButton", sg)
-toggleClickBtn.Size = UDim2.new(0, 280, 0, 30) -- Kéo rộng bằng ô status
+local toggleClickBtn = Instance.new("TextButton", sg) -- [cite: 16]
+toggleClickBtn.Size = UDim2.new(0, 280, 0, 30) -- [cite: 16]
 toggleClickBtn.Position = UDim2.new(0, 10, 0, 140) -- Y = 140
-toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
-toggleClickBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleClickBtn.Font = Enum.Font.GothamBold
-toggleClickBtn.TextSize = 13
-toggleClickBtn.Text = "SCREEN CLICK: ON"
-Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 6)
+toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80) -- [cite: 16]
+toggleClickBtn.TextColor3 = Color3.new(1, 1, 1) -- [cite: 16]
+toggleClickBtn.Font = Enum.Font.GothamBold -- [cite: 16]
+toggleClickBtn.TextSize = 13 -- [cite: 16]
+toggleClickBtn.Text = "SCREEN CLICK: ON" -- [cite: 16]
+Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 6) -- [cite: 16]
 
-toggleClickBtn.MouseButton1Click:Connect(function()
-    screenClickEnabled = not screenClickEnabled
-    if screenClickEnabled then
-        toggleClickBtn.Text = "SCREEN CLICK: ON"
-        toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
-    else
-        toggleClickBtn.Text = "SCREEN CLICK: OFF"
-        toggleClickBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
-    end
-end)
+toggleClickBtn.MouseButton1Click:Connect(function() -- [cite: 16]
+    screenClickEnabled = not screenClickEnabled -- [cite: 16]
+    if screenClickEnabled then -- [cite: 16]
+        toggleClickBtn.Text = "SCREEN CLICK: ON" -- [cite: 16]
+        toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80) -- [cite: 16]
+    else -- [cite: 16]
+        toggleClickBtn.Text = "SCREEN CLICK: OFF" -- [cite: 16]
+        toggleClickBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30) -- [cite: 17]
+    end -- [cite: 16]
+end) -- [cite: 16]
 
 -- ============================
 -- CÁC HÀM HỆ THỐNG PHÒNG GỐC
 -- ============================
 local bossRooms = {}
-local breakablesContainer = thingsContainer:WaitForChild("Breakables")
+local breakablesContainer = thingsContainer:WaitForChild("Breakables") -- [cite: 32]
 
 local function isChestOnCooldown(room)
     if not room then return false, nil end
-    local bz = room:FindFirstChild("BREAK_ZONE", true)
-    if not bz then return false, nil end
-    local timer = bz:FindFirstChild("ChestTimer")
-    if not timer then return false, bz end
-    return timer.Enabled, bz
+    local bz = room:FindFirstChild("BREAK_ZONE", true) -- [cite: 27]
+    if not bz then return false, nil end -- [cite: 27]
+    local timer = bz:FindFirstChild("ChestTimer") -- [cite: 28]
+    if not timer then return false, bz end -- [cite: 28]
+    return timer.Enabled, bz -- [cite: 28]
 end
 
 local function isLocked(room)
     if not room then return false end
-    return room:GetAttribute("LockedRoom") == true
+    return room:GetAttribute("LockedRoom") == true -- [cite: 29]
 end
 
 local function unlockRoom(room)
     if not room then return end
-    local roomUID = room:GetAttribute("RoomUID")
-    if not roomUID then return end
-    pcall(function()
-        ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer(
-            "Backrooms", "AbstractRoom_FireServer", roomUID, "UnlockDoors"
-        )
-    end)
+    local roomUID = room:GetAttribute("RoomUID") -- [cite: 30]
+    if not roomUID then return end -- [cite: 30]
+    pcall(function() -- [cite: 30]
+        ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer( -- [cite: 30]
+            "Backrooms", "AbstractRoom_FireServer", roomUID, "UnlockDoors" -- [cite: 30]
+        ) -- [cite: 30]
+    end) -- [cite: 30]
 end
 
 local function getCorners(r, breakZone)
-    local positions = {}
+    local positions = {} -- [cite: 31]
     if breakZone then
-        local mainPart = breakZone:IsA("BasePart") and breakZone or breakZone:FindFirstChildWhichIsA("BasePart", true)
-        if mainPart then
-            table_insert(positions, mainPart.Position)
+        local mainPart = breakZone:IsA("BasePart") and breakZone or breakZone:FindFirstChildWhichIsA("BasePart", true) -- [cite: 31]
+        if mainPart then -- [cite: 31]
+            table_insert(positions, mainPart.Position) -- [cite: 31]
         end
     end
     if r then
-        local spawnPoints = r:FindFirstChild("MiniChestSpawnPoints")
-        if spawnPoints then
-            local points = spawnPoints:GetChildren()
-            for i = 1, #points do
-                local v = points[i]
-                local part = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-                if part then
-                    table_insert(positions, part.Position)
+        local spawnPoints = r:FindFirstChild("MiniChestSpawnPoints") -- [cite: 31]
+        if spawnPoints then -- [cite: 31]
+            local points = spawnPoints:GetChildren() -- [cite: 31]
+            for i = 1, #points do -- [cite: 32]
+                local v = points[i] -- [cite: 32]
+                local part = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true) -- [cite: 32]
+                if part then -- [cite: 32]
+                    table_insert(positions, part.Position) -- [cite: 32]
                 end
             end
         end
     end
-    return positions
+    return positions -- [cite: 33]
 end
 
 local function detectSpawnedRoom(bossPos)
-    local children = generatedBackrooms:GetChildren()
-    for i = 1, #children do
-        local r = children[i]
-        if r.Name == "GameMastersStage" then
-            local bz = r:FindFirstChild("BREAK_ZONE", true)
-            if bz then
-                local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
+    local children = generatedBackrooms:GetChildren() -- [cite: 19]
+    for i = 1, #children do -- [cite: 20]
+        local r = children[i] -- [cite: 20]
+        if r.Name == "GameMastersStage" then -- [cite: 20]
+            local bz = r:FindFirstChild("BREAK_ZONE", true) -- [cite: 20]
+            if bz then -- [cite: 20]
+                local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true) -- [cite: 21]
                 if part and (part.Position - bossPos).Magnitude < 150 then
                     return r, bz
                 end
@@ -334,72 +345,72 @@ local function detectSpawnedRoom(bossPos)
 end
 
 local function updateStatusUI(currentAction)
-    local str = string_format("Status: %s\n", currentAction)
-    str = str .. "-----------------------------\n"
-    for i, entry in ipairs(bossRooms) do
-        local cooldown = isChestOnCooldown(entry.room)
+    local str = string_format("Status: %s\n", currentAction) -- [cite: 28]
+    str = str .. "-----------------------------\n" -- [cite: 28]
+    for i, entry in ipairs(bossRooms) do -- [cite: 28]
+        local cooldown = isChestOnCooldown(entry.room) -- [cite: 29]
         local statusText = entry.unlockStatus
         if entry.room and statusText ~= "Dang khoa" then
-            statusText = cooldown and "Dang Hoi" or "San Sang"
+            statusText = cooldown and "Dang Hoi" or "San Sang" -- [cite: 29]
         end
-        str = str .. string_format("room%d: (%.0f, %.0f): %s\n", i, entry.pos.X, entry.pos.Z, statusText)
+        str = str .. string_format("room%d: (%.0f, %.0f): %s\n", i, entry.pos.X, entry.pos.Z, statusText) -- [cite: 29]
     end
-    label.Text = str
+    label.Text = str -- [cite: 29]
 end
 
-local networkFolder = ReplicatedStorage:WaitForChild("Network", 15)
-local damageRemote = networkFolder:WaitForChild("Breakables_PlayerDealDamage")
+local networkFolder = ReplicatedStorage:WaitForChild("Network", 15) -- [cite: 33]
+local damageRemote = networkFolder:WaitForChild("Breakables_PlayerDealDamage") -- [cite: 33]
 
 local function isBreakableInstance(inst)
-    if inst:IsA("BasePart") or inst:IsA("Model") then
-        return inst:GetAttribute("BreakableUID") ~= nil
+    if inst:IsA("BasePart") or inst:IsA("Model") then -- [cite: 33]
+        return inst:GetAttribute("BreakableUID") ~= nil -- [cite: 33]
     end
-    return false
+    return false -- [cite: 34]
 end
 
 -- Vòng lặp Screen Clicker chạy nền
 task_spawn(function()
-    while true do
-        if screenClickEnabled then
-            local vp = camera.ViewportSize
-            vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, true, game, 0)
-            vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, false, game, 0)
+    while true do -- [cite: 34]
+        if screenClickEnabled then -- [cite: 34]
+            local vp = camera.ViewportSize -- [cite: 34]
+            vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, true, game, 0) -- [cite: 34]
+            vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, false, game, 0) -- [cite: 35]
         end
-        task_wait(1)
+        task_wait(1) -- [cite: 35]
     end
 end)
 
 -- Auto Clicker đập các vật thể xung quanh nhân vật
-local farmingThisRoom = true
+local farmingThisRoom = true -- [cite: 35]
 task_spawn(function()
-    while true do
-        if mainFarmEnabled and farmingThisRoom then
+    while true do -- [cite: 35]
+        if mainFarmEnabled and farmingThisRoom then -- [cite: 36]
             local hrp = getHRP()
             if hrp then
-                local bestInst, bestDist = nil, math.huge
-                local breakables = breakablesContainer:GetChildren()
-                for i = 1, #breakables do
-                    local obj = breakables[i]
-                    local uid = obj:GetAttribute("BreakableUID")
-                    if uid then
-                        local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
-                        if part then
-                            local d = (part.Position - hrp.Position).Magnitude
-                            if d <= 15 and d < bestDist then
-                                bestDist = d
-                                bestInst = obj
+                local bestInst, bestDist = nil, math.huge -- [cite: 36]
+                local breakables = breakablesContainer:GetChildren() -- [cite: 36]
+                for i = 1, #breakables do -- [cite: 36]
+                    local obj = breakables[i] -- [cite: 36]
+                    local uid = obj:GetAttribute("BreakableUID") -- [cite: 37]
+                    if uid then -- [cite: 37]
+                        local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true) -- [cite: 37]
+                        if part then -- [cite: 38]
+                            local d = (part.Position - hrp.Position).Magnitude -- [cite: 38]
+                            if d <= 15 and d < bestDist then -- [cite: 38]
+                                bestDist = d -- [cite: 39]
+                                bestInst = obj -- [cite: 39]
                             end
                         end
                     end
                 end
-                if bestInst then
-                    pcall(function()
-                        damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID")))
-                    end)
+                if bestInst then -- [cite: 40]
+                    pcall(function() -- [cite: 40]
+                        damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID"))) -- [cite: 40]
+                    end) -- [cite: 41]
                 end
             end
         end
-        task_wait(0.1)
+        task_wait(0.1) -- [cite: 41]
     end
 end)
 
