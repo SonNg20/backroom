@@ -390,7 +390,7 @@ task_spawn(function()
                 vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, true, game, 0)
                 vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, false, game, 0)
             end
-            task_wait(1)
+            task_wait(0.5)
         end
     end)
 
