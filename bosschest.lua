@@ -1,17 +1,10 @@
 -- ============================
--- CONFIG (CẤU HÌNH SỐ PHÒNG TẠI ĐÂY)
+-- CONFIG
 -- ============================
-getgenv().TargetRoomsCount = 2        -- Nhập số phòng bạn muốn farm (Ví dụ: 1 hoặc 2 hoặc 3)
 getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 getgenv().DiscordUserID ="989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false
-getgenv().NOTIFY_HUGE_TITANIC = true  
-
-local STEP = 350
-local MIN_X, MAX_X = -7500, -2100
-local MIN_Z, MAX_Z = -3600, 900
-local SCAN_Y = 2055 
-local WAIT_TIME = 0.7
+getgenv().NOTIFY_HUGE_TITANIC = true 
 
 if not game:IsLoaded() then
     game.Loaded:Wait()
@@ -53,11 +46,7 @@ if not libraryFolder then
     return
 end
 
-local STEPS_X = math_floor((MAX_X - MIN_X) / STEP) + 1
-local STEPS_Z = math_floor((MAX_Z - MIN_Z) / STEP) + 1
-local TOTAL_POINTS = STEPS_X * STEPS_Z
-
--- Hàm dịch chuyển an toàn (Tiếp đất sát sàn thực tế + Đóng băng ngắn chống rơi tự do gây lag)
+-- Hàm dịch chuyển an toàn
 local function safeTeleport(pos)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
@@ -82,7 +71,7 @@ if joinTarget then
     InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
 end
 
-task_wait(10) 
+task_wait(10)
 
 local thingsContainer = workspace:WaitForChild("__THINGS")
 local activeContainer = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active")
@@ -217,7 +206,7 @@ sg.Name = "ScanGUI"
 sg.ResetOnSpawn = false
 
 local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 280, 0, 160) 
+label.Size = UDim2.new(0, 280, 0, 160)
 label.Position = UDim2.new(0, 10, 0, 140)
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
@@ -253,74 +242,48 @@ toggleClickBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ============================
--- BUOC 1: QUET MAP + TIM ROOM
+-- PHẦN QUÉT & KHỞI TẠO TOÀN BỘ BOSS TRÊN MAP
 -- ============================
 local bossRooms = {}
 
 hrp.Anchored = true
-label.Text = "Dang quet map..."
+label.Text = "Dang quet tim boss..."
 
 task_spawn(function()
-    local count = 0
-    local scanDone = false
-    local lastLabelUpdate = tick()
+    local Breakables = thingsContainer:WaitForChild("Breakables")
+    local bossesCount = 0
+    
+    task_wait(1)
 
-    for x = MIN_X, MAX_X, STEP do
-        if scanDone then break end
-        for z = MIN_Z, MAX_Z, STEP do
-            if scanDone then break end
-            count = count + 1
-
-            hrp.CFrame = CFrame_new(x, SCAN_Y + 30, z)
-            task_wait(WAIT_TIME)
-
-            local now = tick()
-            if now - lastLabelUpdate >= 0.5 then
-                label.Text = string_format(
-                    "Dang quet: %d / %d\nX: %.0f  Z: %.0f\nRoom: %d/%d",
-                    count, TOTAL_POINTS, x, z, #bossRooms, getgenv().TargetRoomsCount)
-                lastLabelUpdate = now
-            end
-
-            local children = generatedBackrooms:GetChildren()
-            for i = 1, #children do
-                local room = children[i]
-                if room.Name == "GameMastersStage" then
-                    local bz = room:FindFirstChild("BREAK_ZONE", true)
-                    if bz then
-                        local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
-                        if part then
-                            local found = false
-                            for j = 1, #bossRooms do
-                                if bossRooms[j].room == room then
-                                    found = true
-                                    break
-                                end
-                            end
-                            if not found then
-                                table_insert(bossRooms, {room = room, pos = part.Position, unlocked = false})
-                            end
-                        end
-                    end
-                end
-            end
-
-            if count % 10 == 0 then
-                local currentMem = gcinfo()
-            end
-
-            if #bossRooms >= getgenv().TargetRoomsCount then
-                scanDone = true
+    -- Quét toàn bộ vật thể đập phá đang có để lọc Boss
+    for _, breakable in ipairs(Breakables:GetChildren()) do
+        if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
+            bossesCount = bossesCount + 1
+            
+            local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
+            if part then
+                -- Ánh xạ Boss thành Room mà không giới hạn số lượng target
+                table_insert(bossRooms, {
+                    room = breakable, 
+                    pos = part.Position, 
+                    unlocked = true, 
+                    corners = {part.Position, part.Position, part.Position, part.Position, part.Position}
+                })
             end
         end
     end
 
+    if bossesCount >= 3 then
+        print("3 or more bosses detected:", bossesCount)
+    end
+
     if #bossRooms == 0 then
         hrp.Anchored = false
-        label.Text = "Khong tim thay GameMastersStage nao!"
+        label.Text = "Khong tim thay Daydream Mimic Boss2 nao!"
         return
     end
 
+    -- Sắp xếp phòng chứa Boss theo khoảng cách từ gần đến xa
     table_sort(bossRooms, function(a, b)
         return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
     end)
@@ -328,59 +291,37 @@ task_spawn(function()
     hrp.Anchored = false
 
     -- ============================
-    -- HÀM KIỂM TRA COOLDOWN NGUYÊN BẢN
+    -- HÀM KIỂM TRA TRẠNG THÁI BOSS
     -- ============================
     local function isChestOnCooldown(room)
-        local bz = room:FindFirstChild("BREAK_ZONE", true)
-        if not bz then return false, nil end
-        local timer = bz:FindFirstChild("ChestTimer")
-        if not timer then return false, bz end
-        return timer.Enabled, bz
+        if not room or not room.Parent then 
+            return true, nil 
+        end
+        return false, room
     end
 
-    -- HÀM CẬP NHẬT TRẠNG THÁI DANH SÁCH PHÒNG LÊN UI
+    -- HÀM CẬP NHẬT TRẠNG THÁI UI TỰ ĐỘNG THEO TỔNG SỐ BOSS QUÉT ĐƯỢC
     local function updateStatusUI(currentAction)
         local str = string_format("Status: %s\n", currentAction)
         str = str .. "-----------------------------\n"
         for i, entry in ipairs(bossRooms) do
             local cooldown = isChestOnCooldown(entry.room)
-            local statusText = cooldown and "Dang Hoi" or "San Sang"
+            local statusText = cooldown and "Da Chet" or "San Sang"
             str = str .. string_format("room%d: (%.0f, %.0f, %.0f): %s\n", i, entry.pos.X, entry.pos.Y, entry.pos.Z, statusText)
         end
         label.Text = str
     end
 
     local function isLocked(room)
-        return room:GetAttribute("LockedRoom") == true
+        return false
     end
 
     local function unlockRoom(room)
-        local roomUID = room:GetAttribute("RoomUID")
-        if not roomUID then return end
-        pcall(function()
-            ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer(
-                "Backrooms", "AbstractRoom_FireServer", roomUID, "UnlockDoors"
-            )
-        end)
+        return
     end
 
     local function getCorners(r, breakZone)
-        local positions = {}
-        local mainPart = breakZone:IsA("BasePart") and breakZone or breakZone:FindFirstChildWhichIsA("BasePart", true)
-        if mainPart then
-            table_insert(positions, mainPart.Position)
-        end
-        local spawnPoints = r:FindFirstChild("MiniChestSpawnPoints")
-        if spawnPoints then
-            local points = spawnPoints:GetChildren()
-            for i = 1, #points do
-                local v = points[i]
-                local part = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-                if part then
-                    table_insert(positions, part.Position)
-                end
-            end
-        end
+        local positions = {r:IsA("BasePart") and r.Position or r:FindFirstChildWhichIsA("BasePart", true).Position}
         return positions
     end
 
@@ -439,7 +380,7 @@ task_spawn(function()
     end)
 
     -- ============================
-    -- OPTIMIZED FARM LOOP
+    -- VÒNG LẶP FARM CHẠY HẾT TOÀN BỘ BOSS QUÉT ĐƯỢC
     -- ============================
     local idx = 1
     local numRooms = #bossRooms 
@@ -450,121 +391,45 @@ task_spawn(function()
         local onCooldown, bz = isChestOnCooldown(room)
 
         if onCooldown then
-            updateStatusUI(string_format("Room %d/%d: DANG HOI -> chuyen tiep", idx, numRooms))
+            updateStatusUI(string_format("Room %d/%d: DA CHET -> chuyen tiep", idx, numRooms))
             idx = idx % numRooms + 1 
             task_wait(0.5)
             continue
         end
 
-        updateStatusUI(string_format("Room %d/%d: TELE va DANH chest", idx, numRooms))
+        updateStatusUI(string_format("Room %d/%d: TELE va DIET BOSS", idx, numRooms))
 
         for i = 1, 3 do
             safeTeleport(entry.pos)
-            task_wait(1)
-        end
-
-        local _, bzFresh = isChestOnCooldown(room)
-        bz = bzFresh or bz
-
-        if not entry.unlocked and isLocked(room) then
-            updateStatusUI(string_format("Room %d/%d: DANG MO KHOA...", idx, numRooms))
-            local unlockStart = tick()
-            while isLocked(room) do
-                unlockRoom(room)
-                task_wait(1)
-                if tick() - unlockStart > 30 then
-                    updateStatusUI(string_format("Room %d/%d: Mo khoa qua lau, bo qua", idx, numRooms))
-                    break
-                end
-            end
-            entry.unlocked = true
-        elseif not entry.unlocked then
-            entry.unlocked = true
+            task_wait(0.5)
         end
 
         if getgenv().NOTIFY_TARGET_ROOM then
             sendToDiscord(
-                "Dang farm GameMastersStage",
+                "Dang farm Daydream Mimic Boss2",
                 string_format("Room %d/%d\nVi tri: (%.0f, %.0f, %.0f)",
                     idx, numRooms, entry.pos.X, entry.pos.Y, entry.pos.Z),
                 65280, false
             )
         end
 
-        local _, bzFinal = isChestOnCooldown(room)
-        bz = bzFinal or bz
-        local corners = getCorners(room, bz)
-        local center = corners[1]
-        local miniSpots = {corners[2], corners[3], corners[4], corners[5]}
-
-        local pendingChests = {}
-        local processing = false
-
-        local function nearestSpotIndex(pos)
-            local bestIdx, bestDist = nil, math.huge
-            for i = 1, 4 do
-                local spot = miniSpots[i]
-                if spot then
-                    local d = (spot - pos).Magnitude
-                    if d < bestDist then
-                        bestDist = d
-                        bestIdx = i
-                    end
-                end
-            end
-            return bestIdx, bestDist
-        end
-
-        local listenerConn = breakablesContainer.ChildAdded:Connect(function(inst)
-            task_defer(function()
-                if not isBreakableInstance(inst) then return end
-                local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
-                if not part then return end
-                local idx2, dist = nearestSpotIndex(part.Position)
-                if idx2 and dist <= 15 then
-                    table_insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
-                end
-            end)
-        end)
-
+        local center = entry.pos
         farmingThisRoom = true
 
-        task_spawn(function()
-            while farmingThisRoom do
-                if #pendingChests > 0 and not processing then
-                    processing = true
-                    local chestEntry = table_remove(pendingChests, 1)
-
-                    safeTeleport(chestEntry.pos)
-                    updateStatusUI(string_format("Room %d/%d: Danh Mini Chest", idx, numRooms))
-
-                    while chestEntry.inst and chestEntry.inst.Parent do
-                        task_wait(0.2)
-                    end
-
-                    processing = false
-                else
-                    task_wait(0.1)
-                end
-            end
-        end)
-
+        -- Vòng lặp liên tục đứng tại Boss để farm cho đến khi biến mất
         while true do
             local cooldown = isChestOnCooldown(room)
             if cooldown then
-                updateStatusUI(string_format("Room %d/%d: Da pha! Chuyen room...", idx, numRooms))
+                updateStatusUI(string_format("Room %d/%d: Da tieu diet! Chuyen room...", idx, numRooms))
                 break
             end
 
-            if #pendingChests == 0 and not processing then
-                safeTeleport(center)
-                updateStatusUI(string_format("Room %d/%d: Dang danh Boss", idx, numRooms))
-            end
+            safeTeleport(center)
+            updateStatusUI(string_format("Room %d/%d: Dang danh Boss", idx, numRooms))
             task_wait(0.5)
         end
 
         farmingThisRoom = false
-        listenerConn:Disconnect()
 
         idx = idx % numRooms + 1
         task_wait(0.5)
