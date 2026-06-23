@@ -410,15 +410,13 @@ local function startScanAndFarmLoop()
     local currentHrp = getHRP()
     if currentHrp then currentHrp.Anchored = true end
     
-    -- TỐI ƯU CHỐNG LAG: Phân tách luồng xử lý quét danh sách Model số lượng lớn bằng Parallel Luau ngầm
-    task.desynchronize()
+    task_wait(0.5)
     
     local rawChildren = breakablesContainer:GetChildren()
     local tempBosses = {}
     
-    -- Chia nhỏ vòng lặp lớn bằng các chặng dừng rải rác để Executor giải phóng bộ nhớ, không treo máy
-    for i = 1, #rawChildren do
-        local breakable = rawChildren[i]
+    -- SỬA LỖI TẠI ĐÂY: Trả về luồng chính đồng bộ để đảm bảo Executor đọc Workspace chuẩn 100%
+    for i, breakable in ipairs(rawChildren) do
         if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
             local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
             if part then
@@ -431,10 +429,9 @@ local function startScanAndFarmLoop()
                 })
             end
         end
-        if i % 150 == 0 then
-            task.synchronize()
+        -- Cứ mỗi 100 mục tiêu ngắt nhịp nhẹ để chống lag luồng chính mà không gây mất dữ liệu
+        if i % 100 == 0 then
             task_wait(0.01)
-            task.desynchronize()
         end
     end
     
@@ -442,8 +439,6 @@ local function startScanAndFarmLoop()
         return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
     end)
     
-    -- Đồng bộ lại luồng đồ họa chính sau khi quét ngầm xong để cập nhật dữ liệu mượt mà
-    task.synchronize()
     bossRooms = tempBosses
     local bossesCount = #bossRooms
 
