@@ -111,7 +111,7 @@ end
 -- HAM GUI DISCORD WEBHOOK
 -- ============================
 local MENTION_STRING = "<@" .. getgenv().DiscordUserID .. ">"
-local requestFunction = syn and syn the request or http_request or request
+local requestFunction = syn and syn.request or http_request or request
 
 local function sendToDiscord(title, description, color, mention)
     if not requestFunction then return end
@@ -202,7 +202,7 @@ local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- ============================
--- INITIALIZE GUI (ĐÃ CÂN CHỈNH VỊ TRÍ NÚT)
+-- INITIALIZE GUI
 -- ============================
 if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", game.CoreGui)
@@ -227,7 +227,7 @@ Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
 local mainFarmEnabled = false
 local toggleFarmBtn = Instance.new("TextButton", sg)
 toggleFarmBtn.Size = UDim2.new(0, 135, 0, 30)
-toggleFarmBtn.Position = UDim2.new(0, 10, 0, 140) -- Đẩy về góc trái X = 10
+toggleFarmBtn.Position = UDim2.new(0, 10, 0, 140)
 toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
 toggleFarmBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleFarmBtn.Font = Enum.Font.GothamBold
@@ -239,7 +239,7 @@ Instance.new("UICorner", toggleFarmBtn).CornerRadius = UDim.new(0, 6)
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", sg)
 toggleClickBtn.Size = UDim2.new(0, 135, 0, 30)
-toggleClickBtn.Position = UDim2.new(0, 155, 0, 140) -- Đẩy sang phải X = 155 (cách nút Farm 10px)
+toggleClickBtn.Position = UDim2.new(0, 155, 0, 140)
 toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleClickBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleClickBtn.Font = Enum.Font.GothamBold
