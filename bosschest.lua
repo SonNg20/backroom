@@ -6,6 +6,11 @@ getgenv().DiscordUserID ="989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false
 getgenv().NOTIFY_HUGE_TITANIC = true 
 
+-- Khởi tạo bảng lưu trữ trạng thái mở khóa toàn cục
+if not getgenv().UnlockedRoomsCache then
+    getgenv().UnlockedRoomsCache = {}
+end
+
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
@@ -59,7 +64,7 @@ local function safeTeleport(pos)
 end
 
 -- ============================
--- AUTO JOIN MINIGAME EVENT
+-- AUTO JOIN MINIGAME EVENT (LUÔN CHẠY KHI EXE)
 -- ============================
 local ClientFolder = libraryFolder:WaitForChild("Client", 15)
 local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
@@ -106,7 +111,7 @@ end
 -- HAM GUI DISCORD WEBHOOK
 -- ============================
 local MENTION_STRING = "<@" .. getgenv().DiscordUserID .. ">"
-local requestFunction = syn and syn.request or http_request or request
+local requestFunction = syn and syn the request or http_request or request
 
 local function sendToDiscord(title, description, color, mention)
     if not requestFunction then return end
@@ -197,7 +202,7 @@ local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- ============================
--- GUI
+-- INITIALIZE GUI (ĐÃ CÂN CHỈNH VỊ TRÍ NÚT)
 -- ============================
 if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", game.CoreGui)
@@ -206,7 +211,7 @@ sg.ResetOnSpawn = false
 
 local label = Instance.new("TextLabel", sg)
 label.Size = UDim2.new(0, 280, 0, 160)
-label.Position = UDim2.new(0, 10, 0, 140)
+label.Position = UDim2.new(0, 10, 0, 180)
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
 label.TextColor3 = Color3.fromRGB(0, 255, 100)
@@ -215,56 +220,208 @@ label.TextSize = 11
 label.TextXAlignment = Enum.TextXAlignment.Left
 label.TextYAlignment = Enum.TextYAlignment.Top
 label.TextWrapped = true
-label.Text = "Dang khoi tao..."
+label.Text = "Status: Dang cho lenh tu Nut FARM..."
 Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
 
+-- 1. NÚT FARM (NẰM BÊN TRÁI)
+local mainFarmEnabled = false
+local toggleFarmBtn = Instance.new("TextButton", sg)
+toggleFarmBtn.Size = UDim2.new(0, 135, 0, 30)
+toggleFarmBtn.Position = UDim2.new(0, 10, 0, 140) -- Đẩy về góc trái X = 10
+toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+toggleFarmBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleFarmBtn.Font = Enum.Font.GothamBold
+toggleFarmBtn.TextSize = 12
+toggleFarmBtn.Text = "FARM: OFF"
+Instance.new("UICorner", toggleFarmBtn).CornerRadius = UDim.new(0, 6)
+
+-- 2. NÚT SCREEN CLICK (NẰM BÊN PHẢI)
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", sg)
-toggleClickBtn.Size = UDim2.new(0, 160, 0, 30)
-toggleClickBtn.Position = UDim2.new(0, 10, 0, 100)
+toggleClickBtn.Size = UDim2.new(0, 135, 0, 30)
+toggleClickBtn.Position = UDim2.new(0, 155, 0, 140) -- Đẩy sang phải X = 155 (cách nút Farm 10px)
 toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleClickBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleClickBtn.Font = Enum.Font.GothamBold
-toggleClickBtn.TextSize = 13
-toggleClickBtn.Text = "SCREEN CLICK: ON"
+toggleClickBtn.TextSize = 12
+toggleClickBtn.Text = "CLICK: ON"
 Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 6)
 
 toggleClickBtn.MouseButton1Click:Connect(function()
     screenClickEnabled = not screenClickEnabled
     if screenClickEnabled then
-        toggleClickBtn.Text = "SCREEN CLICK: ON"
+        toggleClickBtn.Text = "CLICK: ON"
         toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
     else
-        toggleClickBtn.Text = "SCREEN CLICK: OFF"
+        toggleClickBtn.Text = "CLICK: OFF"
         toggleClickBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
     end
 end)
 
 -- ============================
--- PHẦN QUÉT BOSS BAN ĐẦU
+-- CÁC HÀM HỆ THỐNG PHÒNG GỐC
 -- ============================
 local bossRooms = {}
+local breakablesContainer = thingsContainer:WaitForChild("Breakables")
 
-hrp.Anchored = true
-label.Text = "Dang quet tim boss..."
+local function isChestOnCooldown(room)
+    if not room then return false, nil end
+    local bz = room:FindFirstChild("BREAK_ZONE", true)
+    if not bz then return false, nil end
+    local timer = bz:FindFirstChild("ChestTimer")
+    if not timer then return false, bz end
+    return timer.Enabled, bz
+end
 
+local function isLocked(room)
+    if not room then return false end
+    return room:GetAttribute("LockedRoom") == true
+end
+
+local function unlockRoom(room)
+    if not room then return end
+    local roomUID = room:GetAttribute("RoomUID")
+    if not roomUID then return end
+    pcall(function()
+        ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer(
+            "Backrooms", "AbstractRoom_FireServer", roomUID, "UnlockDoors"
+        )
+    end)
+end
+
+local function getCorners(r, breakZone)
+    local positions = {}
+    if breakZone then
+        local mainPart = breakZone:IsA("BasePart") and breakZone or breakZone:FindFirstChildWhichIsA("BasePart", true)
+        if mainPart then
+            table_insert(positions, mainPart.Position)
+        end
+    end
+    if r then
+        local spawnPoints = r:FindFirstChild("MiniChestSpawnPoints")
+        if spawnPoints then
+            local points = spawnPoints:GetChildren()
+            for i = 1, #points do
+                local v = points[i]
+                local part = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
+                if part then
+                    table_insert(positions, part.Position)
+                end
+            end
+        end
+    end
+    return positions
+end
+
+local function detectSpawnedRoom(bossPos)
+    local children = generatedBackrooms:GetChildren()
+    for i = 1, #children do
+        local r = children[i]
+        if r.Name == "GameMastersStage" then
+            local bz = r:FindFirstChild("BREAK_ZONE", true)
+            if bz then
+                local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
+                if part and (part.Position - bossPos).Magnitude < 150 then
+                    return r, bz
+                end
+            end
+        end
+    end
+    return nil, nil
+end
+
+local function updateStatusUI(currentAction)
+    local str = string_format("Status: %s\n", currentAction)
+    str = str .. "-----------------------------\n"
+    for i, entry in ipairs(bossRooms) do
+        local cooldown = isChestOnCooldown(entry.room)
+        local statusText = entry.unlockStatus
+        if entry.room and statusText ~= "Dang khoa" then
+            statusText = cooldown and "Dang Hoi" or "San Sang"
+        end
+        str = str .. string_format("room%d: (%.0f, %.0f): %s\n", i, entry.pos.X, entry.pos.Z, statusText)
+    end
+    label.Text = str
+end
+
+local networkFolder = ReplicatedStorage:WaitForChild("Network", 15)
+local damageRemote = networkFolder:WaitForChild("Breakables_PlayerDealDamage")
+
+local function isBreakableInstance(inst)
+    if inst:IsA("BasePart") or inst:IsA("Model") then
+        return inst:GetAttribute("BreakableUID") ~= nil
+    end
+    return false
+end
+
+-- Vòng lặp Screen Clicker chạy nền
 task_spawn(function()
-    local Breakables = thingsContainer:WaitForChild("Breakables")
-    local bossesCount = 0
+    while true do
+        if screenClickEnabled then
+            local vp = camera.ViewportSize
+            vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, true, game, 0)
+            vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, false, game, 0)
+        end
+        task_wait(1)
+    end
+end)
+
+-- Auto Clicker đập các vật thể xung quanh nhân vật
+local farmingThisRoom = true
+task_spawn(function()
+    while true do
+        if mainFarmEnabled and farmingThisRoom then
+            local bestInst, bestDist = nil, math.huge
+            local breakables = breakablesContainer:GetChildren()
+            for i = 1, #breakables do
+                local obj = breakables[i]
+                local uid = obj:GetAttribute("BreakableUID")
+                if uid then
+                    local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
+                    if part then
+                        local d = (part.Position - hrp.Position).Magnitude
+                        if d <= 15 and d < bestDist then
+                            bestDist = d
+                            bestInst = obj
+                        end
+                    end
+                end
+            end
+            if bestInst then
+                pcall(function()
+                    damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID")))
+                end)
+            end
+        end
+        task_wait(0.1)
+    end
+end)
+
+-- ============================
+-- CORE LOGIC RUNNER (CHỈ CHẠY KHI FARM ON)
+-- ============================
+local function startScanAndFarmLoop()
+    bossRooms = {}
+    label.Text = "Status: [ON] Dang quet tim kiem boss..."
+    
+    local character = player.Character or player.CharacterAdded:Wait()
+    local currentHrp = character:WaitForChild("HumanoidRootPart", 5)
+    if currentHrp then currentHrp.Anchored = true end
     
     task_wait(1)
+    local bossesCount = 0
 
-    for _, breakable in ipairs(Breakables:GetChildren()) do
+    for _, breakable in ipairs(breakablesContainer:GetChildren()) do
         if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
             bossesCount = bossesCount + 1
-            
             local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
             if part then
                 table_insert(bossRooms, {
                     bossModel = breakable, 
                     pos = part.Position, 
                     unlocked = false,
-                    room = nil -- Sẽ được nhận diện động ngay sau khi tele tới
+                    unlockStatus = "Cho quet room",
+                    room = nil 
                 })
             end
         end
@@ -275,8 +432,11 @@ task_spawn(function()
     end
 
     if #bossRooms == 0 then
-        hrp.Anchored = false
-        label.Text = "Khong tim thay Daydream Mimic Boss2 nao!"
+        if currentHrp then currentHrp.Anchored = false end
+        label.Text = "Status: [ON] Khong tim thay Daydream Mimic Boss2 nao!"
+        mainFarmEnabled = false
+        toggleFarmBtn.Text = "FARM: OFF"
+        toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
         return
     end
 
@@ -284,173 +444,71 @@ task_spawn(function()
         return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
     end)
 
-    hrp.Anchored = false
+    if currentHrp then currentHrp.Anchored = false end
 
-    -- ============================
-    -- KHÔI PHỤC HÀM GỐC TỪ FILE BOSSCHEST
-    -- ============================
-    local function isChestOnCooldown(room)
-        if not room then return false, nil end
-        local bz = room:FindFirstChild("BREAK_ZONE", true)
-        if not bz then return false, nil end
-        local timer = bz:FindFirstChild("ChestTimer")
-        if not timer then return false, bz end
-        return timer.Enabled, bz
-    end
-
-    local function isLocked(room)
-        if not room then return false end
-        return room:GetAttribute("LockedRoom") == true
-    end
-
-    local function unlockRoom(room)
-        if not room then return end
-        local roomUID = room:GetAttribute("RoomUID")
-        if not roomUID then return end
-        pcall(function()
-            ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer(
-                "Backrooms", "AbstractRoom_FireServer", roomUID, "UnlockDoors"
-            )
-        end)
-    end
-
-    local function getCorners(r, breakZone)
-        local positions = {}
-        if breakZone then
-            local mainPart = breakZone:IsA("BasePart") and breakZone or breakZone:FindFirstChildWhichIsA("BasePart", true)
-            if mainPart then
-                table_insert(positions, mainPart.Position)
-            end
-        end
-        if r then
-            local spawnPoints = r:FindFirstChild("MiniChestSpawnPoints")
-            if spawnPoints then
-                local points = spawnPoints:GetChildren()
-                for i = 1, #points do
-                    local v = points[i]
-                    local part = v:IsA("BasePart") and v or v:FindFirstChildWhichIsA("BasePart", true)
-                    if part then
-                        table_insert(positions, part.Position)
-                    end
-                end
-            end
-        end
-        return positions
-    end
-
-    -- HÀM NHẬN DIỆN PHÒNG GAMEMASTERSTAGE SAU KHI PHÒNG ĐÃ SPAWN
-    local function detectSpawnedRoom(bossPos)
-        local children = generatedBackrooms:GetChildren()
-        for i = 1, #children do
-            local r = children[i]
-            if r.Name == "GameMastersStage" then
-                local bz = r:FindFirstChild("BREAK_ZONE", true)
-                if bz then
-                    local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
-                    if part and (part.Position - bossPos).Magnitude < 150 then
-                        return r, bz
-                    end
-                end
-            end
-        end
-        return nil, nil
-    end
-
-    -- HÀM CẬP NHẬT TRẠNG THÁI UI LINH HOẠT
-    local function updateStatusUI(currentAction)
-        local str = string_format("Status: %s\n", currentAction)
-        str = str .. "-----------------------------\n"
-        for i, entry in ipairs(bossRooms) do
-            local cooldown = isChestOnCooldown(entry.room)
-            local statusText = "Cho quet room"
-            if entry.room then
-                statusText = cooldown and "Dang Hoi" or (isLocked(entry.room) and "Dang Khoa" or "San Sang")
-            end
-            str = str .. string_format("room%d: (%.0f, %.0f): %s\n", i, entry.pos.X, entry.pos.Z, statusText)
-        end
-        label.Text = str
-    end
-
-    local breakablesContainer = thingsContainer:WaitForChild("Breakables")
-    local networkFolder = ReplicatedStorage:WaitForChild("Network", 15)
-    local damageRemote = networkFolder:WaitForChild("Breakables_PlayerDealDamage")
-
-    local function isBreakableInstance(inst)
-        if inst:IsA("BasePart") or inst:IsA("Model") then
-            return inst:GetAttribute("BreakableUID") ~= nil
-        end
-        return false
-    end
-
-    -- Vòng lặp Screen Clicker chạy nền
-    task_spawn(function()
-        while true do
-            if screenClickEnabled then
-                local vp = camera.ViewportSize
-                vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, true, game, 0)
-                vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, false, game, 0)
-            end
-            task_wait(0.5)
-        end
-    end)
-
-    -- Auto Clicker đập các vật thể xung quanh nhân vật trong bán kính 15 studs
-    local farmingThisRoom = true
-    task_spawn(function()
-        while true do
-            if farmingThisRoom then
-                local bestInst, bestDist = nil, math.huge
-                local breakables = breakablesContainer:GetChildren()
-                for i = 1, #breakables do
-                    local obj = breakables[i]
-                    local uid = obj:GetAttribute("BreakableUID")
-                    if uid then
-                        local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
-                        if part then
-                            local d = (part.Position - hrp.Position).Magnitude
-                            if d <= 15 and d < bestDist then
-                                bestDist = d
-                                bestInst = obj
-                            end
-                        end
-                    end
-                end
-                if bestInst then
-                    pcall(function()
-                        damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID")))
-                    end)
-                end
-            end
-            task_wait(0.1)
-        end
-    end)
-
-    -- ============================
-    -- TOÀN BỘ LOGIC FARM GỐC TỪ FILE BOSSCHEST
-    -- ============================
     local idx = 1
-    local numRooms = #bossRooms 
-
-    while true do
+    while mainFarmEnabled do
+        local numRooms = #bossRooms
         local entry = bossRooms[idx]
+
+        if not entry then
+            idx = 1
+            task_wait(0.5)
+            continue
+        end
 
         updateStatusUI(string_format("Teleport den toa do Boss %d/%d", idx, numRooms))
 
-        -- Dịch chuyển áp sát tọa độ boss để kích hoạt game spawn phòng GameMastersStage
         for i = 1, 3 do
+            if not mainFarmEnabled then break end
             safeTeleport(entry.pos)
             task_wait(0.5)
         end
+        if not mainFarmEnabled then break end
 
-        -- [NHẬN DIỆN PHÒNG ĐỘNG SAU KHI TELE]
         local actualRoom, bz = detectSpawnedRoom(entry.pos)
-        entry.room = actualRoom -- Đồng bộ ngược lại cấu trúc để ChestTimer và UI nhận diện đúng
+        entry.room = actualRoom 
 
         if not actualRoom then
             updateStatusUI(string_format("Room %d/%d: Game chua spawn map, chuyen...", idx, numRooms))
             idx = idx % numRooms + 1
             task_wait(1)
             continue
+        end
+
+        local roomUID = actualRoom:GetAttribute("RoomUID") or tostring(entry.pos)
+
+        if getgenv().UnlockedRoomsCache[roomUID] or not isLocked(actualRoom) then
+            entry.unlockStatus = "Da mo"
+            entry.unlocked = true
+        else
+            updateStatusUI(string_format("Room %d/%d: MO KHOA LAN DAU...", idx, numRooms))
+            local unlockStart = tick()
+            local fail = false
+            
+            while isLocked(actualRoom) and mainFarmEnabled do
+                unlockRoom(actualRoom)
+                task_wait(1)
+                if tick() - unlockStart > 30 then
+                    fail = true
+                    break
+                end
+            end
+            
+            if not mainFarmEnabled then break end
+            
+            if fail then
+                entry.unlockStatus = "Dang khoa"
+                entry.unlocked = false
+                updateStatusUI(string_format("Room %d/%d: Mo khoa that bai, bo qua!", idx, numRooms))
+                idx = idx % numRooms + 1
+                task_wait(0.5)
+                continue
+            else
+                getgenv().UnlockedRoomsCache[roomUID] = true
+                entry.unlockStatus = "Da mo"
+                entry.unlocked = true
+            end
         end
 
         local onCooldown, bzFresh = isChestOnCooldown(actualRoom)
@@ -465,35 +523,19 @@ task_spawn(function()
 
         updateStatusUI(string_format("Room %d/%d: TELE va DANH chest", idx, numRooms))
 
-        -- Giữ chân tại phòng sau khi map đã load
         for i = 1, 3 do
+            if not mainFarmEnabled then break end
             safeTeleport(entry.pos)
             task_wait(0.5)
         end
-
-        -- LOGIC UNLOCK ROOM NGUYÊN BẢN
-        if not entry.unlocked and isLocked(actualRoom) then
-            updateStatusUI(string_format("Room %d/%d: DANG MO KHOA...", idx, numRooms))
-            local unlockStart = tick()
-            while isLocked(actualRoom) do
-                unlockRoom(actualRoom)
-                task_wait(1)
-                if tick() - unlockStart > 30 then
-                    updateStatusUI(string_format("Room %d/%d: Mo khoa qua lau, bo qua", idx, numRooms))
-                    break
-                end
-            end
-            entry.unlocked = true
-        elseif not entry.unlocked then
-            entry.unlocked = true
-        end
+        if not mainFarmEnabled then break end
 
         if getgenv().NOTIFY_TARGET_ROOM then
             sendToDiscord(
                 "Dang farm GameMastersStage",
                 string_format("Room %d/%d\nVi tri: (%.0f, %.0f, %.0f)",
                     idx, numRooms, entry.pos.X, entry.pos.Y, entry.pos.Z),
-                65280, false
+                    65280, false
             )
         end
 
@@ -522,7 +564,6 @@ task_spawn(function()
             return bestIdx, bestDist
         end
 
-        -- LOGIC CHECK/QUÉT MINICHEST KHI SPAWN Ở CÁC GÓC PHÒNG NGUYÊN BẢN
         local listenerConn = breakablesContainer.ChildAdded:Connect(function(inst)
             task_defer(function()
                 if not isBreakableInstance(inst) then return end
@@ -538,7 +579,7 @@ task_spawn(function()
         farmingThisRoom = true
 
         task_spawn(function()
-            while farmingThisRoom do
+            while farmingThisRoom and mainFarmEnabled do
                 if #pendingChests > 0 and not processing then
                     processing = true
                     local chestEntry = table_remove(pendingChests, 1)
@@ -546,7 +587,7 @@ task_spawn(function()
                     safeTeleport(chestEntry.pos)
                     updateStatusUI(string_format("Room %d/%d: Danh Mini Chest", idx, numRooms))
 
-                    while chestEntry.inst and chestEntry.inst.Parent do
+                    while chestEntry.inst and chestEntry.inst.Parent and mainFarmEnabled do
                         task_wait(0.2)
                     end
 
@@ -557,8 +598,7 @@ task_spawn(function()
             end
         end)
 
-        -- VÒNG LẶP FARMLOOP CHÍNH TẠI CENTER PHÒNG
-        while true do
+        while mainFarmEnabled do
             local cooldown = isChestOnCooldown(actualRoom)
             if cooldown then
                 updateStatusUI(string_format("Room %d/%d: Da pha! Chuyen room...", idx, numRooms))
@@ -575,7 +615,23 @@ task_spawn(function()
         farmingThisRoom = false
         listenerConn:Disconnect()
 
+        if not mainFarmEnabled then break end
         idx = idx % numRooms + 1
         task_wait(0.5)
+    end
+end
+
+-- LẮNG NGHE SỰ KIỆN CLICK NÚT FARM
+toggleFarmBtn.MouseButton1Click:Connect(function()
+    mainFarmEnabled = not mainFarmEnabled
+    if mainFarmEnabled then
+        toggleFarmBtn.Text = "FARM: ON"
+        toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+        task_spawn(startScanAndFarmLoop)
+    else
+        toggleFarmBtn.Text = "FARM: OFF"
+        toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+        farmingThisRoom = false
+        label.Text = "Status: Da tat Farm. Dang dung lai..."
     end
 end)
