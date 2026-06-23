@@ -473,11 +473,29 @@ local function startScanAndFarmLoop()
         local actualRoom, bz = detectSpawnedRoom(entry.pos)
         entry.room = actualRoom 
 
+        -- ✅ FIX: Nếu game chưa spawn → tele vào 2 lần thay vì chuyển room
         if not actualRoom then
-            updateStatusUI(string_format("Room %d/%d: Game chua spawn map, chuyen...", idx, numRooms))
-            idx = idx % numRooms + 1
-            task_wait(1)
-            continue
+            updateStatusUI(string_format("Room %d/%d: Game chua spawn, tele lai (1/2)...", idx, numRooms))
+            
+            -- Tele lần 1
+            safeTeleport(entry.pos)
+            task_wait(0.5)
+            
+            -- Tele lần 2
+            safeTeleport(entry.pos)
+            task_wait(0.5)
+            
+            -- Thử detect lại sau 2 lần tele
+            actualRoom, bz = detectSpawnedRoom(entry.pos)
+            entry.room = actualRoom
+            
+            -- Nếu vẫn không detect → mới chuyển room
+            if not actualRoom then
+                updateStatusUI(string_format("Room %d/%d: Tele 2 lan khong spawn, chuyen...", idx, numRooms))
+                idx = idx % numRooms + 1
+                task_wait(0.5)
+                continue
+            end
         end
 
         local roomUID = actualRoom:GetAttribute("RoomUID") or tostring(entry.pos)
