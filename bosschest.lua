@@ -211,7 +211,7 @@ sg.ResetOnSpawn = false
 
 local label = Instance.new("TextLabel", sg)
 label.Size = UDim2.new(0, 280, 0, 160)
-label.Position = UDim2.new(0, 10, 0, 180)
+label.Position = UDim2.new(0, 10, 0, 180) -- Bảng text giữ nguyên vị trí Y = 180
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
 label.TextColor3 = Color3.fromRGB(0, 255, 100)
@@ -223,37 +223,37 @@ label.TextWrapped = true
 label.Text = "Status: Dang cho lenh tu Nut FARM..."
 Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
 
--- 1. NÚT FARM (NẰM BÊN TRÁI)
+-- 1. NÚT FARM (ĐẨY LÊN TRÊN, VỊ TRÍ CŨ CỦA CLICK SCREEN)
 local mainFarmEnabled = false
 local toggleFarmBtn = Instance.new("TextButton", sg)
-toggleFarmBtn.Size = UDim2.new(0, 135, 0, 30)
-toggleFarmBtn.Position = UDim2.new(0, 10, 0, 140)
+toggleFarmBtn.Size = UDim2.new(0, 160, 0, 30)
+toggleFarmBtn.Position = UDim2.new(0, 10, 0, 100) -- Y = 100 (Nằm ở trên)
 toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
 toggleFarmBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleFarmBtn.Font = Enum.Font.GothamBold
-toggleFarmBtn.TextSize = 12
+toggleFarmBtn.TextSize = 13
 toggleFarmBtn.Text = "FARM: OFF"
 Instance.new("UICorner", toggleFarmBtn).CornerRadius = UDim.new(0, 6)
 
--- 2. NÚT SCREEN CLICK (NẰM BÊN PHẢI)
+-- 2. NÚT SCREEN CLICK (TRẢ VỀ VỊ TRÍ GỐC BAN ĐẦU)
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", sg)
-toggleClickBtn.Size = UDim2.new(0, 135, 0, 30)
-toggleClickBtn.Position = UDim2.new(0, 155, 0, 140)
+toggleClickBtn.Size = UDim2.new(0, 160, 0, 30)
+toggleClickBtn.Position = UDim2.new(0, 10, 0, 140) -- Y = 140 (Nằm ở dưới)
 toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleClickBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleClickBtn.Font = Enum.Font.GothamBold
-toggleClickBtn.TextSize = 12
-toggleClickBtn.Text = "CLICK: ON"
+toggleClickBtn.TextSize = 13
+toggleClickBtn.Text = "SCREEN CLICK: ON"
 Instance.new("UICorner", toggleClickBtn).CornerRadius = UDim.new(0, 6)
 
 toggleClickBtn.MouseButton1Click:Connect(function()
     screenClickEnabled = not screenClickEnabled
     if screenClickEnabled then
-        toggleClickBtn.Text = "CLICK: ON"
+        toggleClickBtn.Text = "SCREEN CLICK: ON"
         toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
     else
-        toggleClickBtn.Text = "CLICK: OFF"
+        toggleClickBtn.Text = "SCREEN CLICK: OFF"
         toggleClickBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
     end
 end)
