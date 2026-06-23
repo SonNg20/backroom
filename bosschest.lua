@@ -5,6 +5,7 @@ getgenv().WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpE
 getgenv().DiscordUserID = "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false
 getgenv().NOTIFY_HUGE_TITANIC = true
+getgenv().UNLOCK_TIMEOUT = 5
 
 if not getgenv().UnlockedRoomsCache then
     getgenv().UnlockedRoomsCache = {}
@@ -32,6 +33,7 @@ local table_sort = table.sort
 local tostring = tostring
 local pcall = pcall
 local tick = tick
+local math_huge = math.huge
 
 -- ============================
 -- KHAI BÁO BIẾN HỆ THỐNG CƠ BẢN
@@ -45,10 +47,7 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 
 local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
-if not libraryFolder then
-    print("Khong tim thay thu vien Library trong thoi gian cho!")
-    return
-end
+if not libraryFolder then return end
 
 local function getHRP()
     local char = player.Character or player.CharacterAdded:Wait()
@@ -84,7 +83,6 @@ local activeContainer = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):Wai
 local backroomsFolder = activeContainer:WaitForChild("Backrooms")
 local generatedBackrooms = backroomsFolder:WaitForChild("GeneratedBackrooms")
 
-print("Dang tim kiem cong vao Deep Backrooms...")
 local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
 if spawnRoomFolder then
     local deepDoor = spawnRoomFolder:WaitForChild("DeepDoor", 15)
@@ -105,9 +103,7 @@ if spawnRoomFolder then
                     "Backrooms", "AbstractRoom_FireServer", roomUID, "EnterDeepBackrooms"
                 )
             end)
-            print("Da kich hoat Deep Backrooms qua Network Event!")
         else
-            print("Khong tim thay RoomUID, dang thu va cham truc tiep...")
             safeTeleport(interactPart.Position)
         end
     end
@@ -370,37 +366,6 @@ task_spawn(function()
 end)
 
 local farmingThisRoom = true
-task_spawn(function()
-    while true do
-        if mainFarmEnabled and farmingThisRoom then
-            local hrp = getHRP()
-            if hrp then
-                local bestInst, bestDist = nil, math.huge
-                local breakables = breakablesContainer:GetChildren()
-                for i = 1, #breakables do
-                    local obj = breakables[i]
-                    local uid = obj:GetAttribute("BreakableUID")
-                    if uid then
-                        local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
-                        if part then
-                            local d = (part.Position - hrp.Position).Magnitude
-                            if d <= 15 and d < bestDist then
-                                bestDist = d
-                                bestInst = obj
-                            end
-                        end
-                    end
-                end
-                if bestInst then
-                    pcall(function()
-                        damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID")))
-                    end)
-                end
-            end
-        end
-        task_wait(0.1)
-    end
-end)
 
 -- ============================
 -- CORE LOGIC RUNNER (CHỈ CHẠY KHI FARM ON)
@@ -429,10 +394,6 @@ local function startScanAndFarmLoop()
                 })
             end
         end
-    end
-
-    if bossesCount >= 3 then
-        print("3 or more bosses detected:", bossesCount)
     end
 
     if #bossRooms == 0 then
@@ -484,9 +445,6 @@ local function startScanAndFarmLoop()
 
         local roomUID = actualRoom:GetAttribute("RoomUID") or tostring(entry.pos)
 
-        -- ============================
-        -- UNLOCK ROOM LOGIC (GIỮ NGUYÊN HÀM GỐC + THÊM TIMEOUT 5S)
-        -- ============================
         if getgenv().UnlockedRoomsCache[roomUID] or not isLocked(actualRoom) then
             entry.unlockStatus = "Da mo"
             entry.unlocked = true
@@ -494,13 +452,11 @@ local function startScanAndFarmLoop()
             updateStatusUI(string_format("Room %d/%d: MO KHOA (timeout 5s)...", idx, numRooms))
             local unlockStart = tick()
             
-            -- Thử unlock trong 5s
             while isLocked(actualRoom) and mainFarmEnabled do
                 unlockRoom(actualRoom)
                 task_wait(1)
                 
-                -- Nếu quá 5s thì bỏ qua, coi như đã mở
-                if tick() - unlockStart > 5 then
+                if tick() - unlockStart > getgenv().UNLOCK_TIMEOUT then
                     updateStatusUI(string_format("Room %d/%d: Qua 5s chua mo duoc -> Bo qua, farm luon!", idx, numRooms))
                     getgenv().UnlockedRoomsCache[roomUID] = true
                     entry.unlockStatus = "Da mo (skip)"
@@ -509,7 +465,6 @@ local function startScanAndFarmLoop()
                 end
             end
             
-            -- Nếu thoát vòng lặp do đã mở khóa (không phải timeout)
             if not isLocked(actualRoom) and entry.unlockStatus ~= "Da mo (skip)" then
                 getgenv().UnlockedRoomsCache[roomUID] = true
                 entry.unlockStatus = "Da mo"
@@ -518,7 +473,6 @@ local function startScanAndFarmLoop()
             
             if not mainFarmEnabled then break end
         end
-        -- ============================
 
         local onCooldown, bzFresh = isChestOnCooldown(actualRoom)
         bz = bzFresh or bz
@@ -559,7 +513,7 @@ local function startScanAndFarmLoop()
         local processing = false
 
         local function nearestSpotIndex(pos)
-            local bestIdx, bestDist = nil, math.huge
+            local bestIdx, bestDist = nil, math_huge
             for i = 1, 4 do
                 local spot = miniSpots[i]
                 if spot then
