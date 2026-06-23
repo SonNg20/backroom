@@ -1,10 +1,10 @@
 -- ============================
 -- CONFIG
 -- ============================
-getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID ="989895037406044200"
-getgenv().NOTIFY_TARGET_ROOM = false
-getgenv().NOTIFY_HUGE_TITANIC = true 
+getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os" [cite: 1]
+getgenv().DiscordUserID ="989895037406044200" [cite: 1]
+getgenv().NOTIFY_TARGET_ROOM = false [cite: 1]
+getgenv().NOTIFY_HUGE_TITANIC = true [cite: 1]
 
 -- Khởi tạo bảng lưu trữ trạng thái mở khóa toàn cục
 if not getgenv().UnlockedRoomsCache then
@@ -12,7 +12,7 @@ if not getgenv().UnlockedRoomsCache then
 end
 
 if not game:IsLoaded() then
-    game.Loaded:Wait()
+    game.Loaded:Wait() [cite: 1]
 end
 
 -- ============================
@@ -51,10 +51,15 @@ if not libraryFolder then
     return
 end
 
+-- Hàm lấy HumanoidRootPart an toàn động chống lỗi Index Nil
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart", 10)
+end
+
 -- Hàm dịch chuyển an toàn
 local function safeTeleport(pos)
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart", 5)
+    local hrp = getHRP()
     if hrp and pos then
         hrp.CFrame = CFrame_new(Vector3_new(pos.X, pos.Y + 2.5, pos.Z))
         hrp.Anchored = true
@@ -198,11 +203,9 @@ local origin = spawnRoomFolder:FindFirstChildWhichIsA("BasePart", true)
 if not origin then return end
 
 local originPos = origin.Position
-local char = player.Character or player.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- ============================
--- INITIALIZE GUI
+-- INITIALIZE GUI (XẾP CHỒNG TRỤC DỌC CHUẨN)
 -- ============================
 if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", game.CoreGui)
@@ -211,7 +214,7 @@ sg.ResetOnSpawn = false
 
 local label = Instance.new("TextLabel", sg)
 label.Size = UDim2.new(0, 280, 0, 160)
-label.Position = UDim2.new(0, 10, 0, 180) -- Bảng text giữ nguyên vị trí Y = 180
+label.Position = UDim2.new(0, 10, 0, 180) -- Giữ nguyên ô Status tại Y = 180
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
 label.TextColor3 = Color3.fromRGB(0, 255, 100)
@@ -223,11 +226,11 @@ label.TextWrapped = true
 label.Text = "Status: Dang cho lenh tu Nut FARM..."
 Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
 
--- 1. NÚT FARM (ĐẨY LÊN TRÊN, VỊ TRÍ CŨ CỦA CLICK SCREEN)
+-- 1. NÚT FARM (NẰM Ở TRÊN CÙNG - TRỤC DỌC)
 local mainFarmEnabled = false
 local toggleFarmBtn = Instance.new("TextButton", sg)
-toggleFarmBtn.Size = UDim2.new(0, 160, 0, 30)
-toggleFarmBtn.Position = UDim2.new(0, 10, 0, 100) -- Y = 100 (Nằm ở trên)
+toggleFarmBtn.Size = UDim2.new(0, 280, 0, 30) -- Kéo rộng bằng ô status để không bị lệch hàng ngang
+toggleFarmBtn.Position = UDim2.new(0, 10, 0, 100) -- Y = 100
 toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
 toggleFarmBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleFarmBtn.Font = Enum.Font.GothamBold
@@ -235,11 +238,11 @@ toggleFarmBtn.TextSize = 13
 toggleFarmBtn.Text = "FARM: OFF"
 Instance.new("UICorner", toggleFarmBtn).CornerRadius = UDim.new(0, 6)
 
--- 2. NÚT SCREEN CLICK (TRẢ VỀ VỊ TRÍ GỐC BAN ĐẦU)
+-- 2. NÚT SCREEN CLICK (NẰM Ở GIỮA - TRỤC DỌC)
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", sg)
-toggleClickBtn.Size = UDim2.new(0, 160, 0, 30)
-toggleClickBtn.Position = UDim2.new(0, 10, 0, 140) -- Y = 140 (Nằm ở dưới)
+toggleClickBtn.Size = UDim2.new(0, 280, 0, 30) -- Kéo rộng bằng ô status
+toggleClickBtn.Position = UDim2.new(0, 10, 0, 140) -- Y = 140
 toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleClickBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleClickBtn.Font = Enum.Font.GothamBold
@@ -371,26 +374,29 @@ local farmingThisRoom = true
 task_spawn(function()
     while true do
         if mainFarmEnabled and farmingThisRoom then
-            local bestInst, bestDist = nil, math.huge
-            local breakables = breakablesContainer:GetChildren()
-            for i = 1, #breakables do
-                local obj = breakables[i]
-                local uid = obj:GetAttribute("BreakableUID")
-                if uid then
-                    local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
-                    if part then
-                        local d = (part.Position - hrp.Position).Magnitude
-                        if d <= 15 and d < bestDist then
-                            bestDist = d
-                            bestInst = obj
+            local hrp = getHRP()
+            if hrp then
+                local bestInst, bestDist = nil, math.huge
+                local breakables = breakablesContainer:GetChildren()
+                for i = 1, #breakables do
+                    local obj = breakables[i]
+                    local uid = obj:GetAttribute("BreakableUID")
+                    if uid then
+                        local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
+                        if part then
+                            local d = (part.Position - hrp.Position).Magnitude
+                            if d <= 15 and d < bestDist then
+                                bestDist = d
+                                bestInst = obj
+                            end
                         end
                     end
                 end
-            end
-            if bestInst then
-                pcall(function()
-                    damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID")))
-                end)
+                if bestInst then
+                    pcall(function()
+                        damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID")))
+                    end)
+                end
             end
         end
         task_wait(0.1)
@@ -404,8 +410,7 @@ local function startScanAndFarmLoop()
     bossRooms = {}
     label.Text = "Status: [ON] Dang quet tim kiem boss..."
     
-    local character = player.Character or player.CharacterAdded:Wait()
-    local currentHrp = character:WaitForChild("HumanoidRootPart", 5)
+    local currentHrp = getHRP()
     if currentHrp then currentHrp.Anchored = true end
     
     task_wait(1)
@@ -432,6 +437,7 @@ local function startScanAndFarmLoop()
     end
 
     if #bossRooms == 0 then
+        currentHrp = getHRP()
         if currentHrp then currentHrp.Anchored = false end
         label.Text = "Status: [ON] Khong tim thay Daydream Mimic Boss2 nao!"
         mainFarmEnabled = false
@@ -444,6 +450,7 @@ local function startScanAndFarmLoop()
         return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
     end)
 
+    currentHrp = getHRP()
     if currentHrp then currentHrp.Anchored = false end
 
     local idx = 1
