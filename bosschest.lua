@@ -6,7 +6,6 @@ getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu
 getgenv().DiscordUserID ="989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false
 getgenv().NOTIFY_HUGE_TITANIC = true  
-getgenv().CpuSaver = true             -- Bật (true) hoặc Tắt (false) chế độ tiết kiệm CPU/RAM tại đây
 
 local STEP = 350
 local MIN_X, MAX_X = -7500, -2100
@@ -19,31 +18,7 @@ if not game:IsLoaded() then
 end
 
 -- ============================
--- CPU SAVER MODULE (TÍNH NĂNG TIẾT KIỆM CPU)
--- ============================
-if getgenv().CpuSaver then
-    if setfpscap then setfpscap(15) end
-
-    local settings = settings()
-    if settings and settings.Rendering then
-        pcall(function()
-            settings.Rendering.QualityLevel = Enum.QualityLevel.Level01
-            settings.Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.DistanceBased
-        end)
-    end
-
-    task.spawn(function()
-        while task.wait(15) do
-            pcall(function()
-                gcinfo() 
-                collectgarbage("collect")
-            end)
-        end
-    end)
-end
-
--- ============================
--- OPTIMIZATION: CACHE GLOBAL FUNCTIONS & SERVICES
+-- OPTIMIZATION: CACHE GLOBAL FUNCTIONS
 -- ============================
 local Vector3_new = Vector3.new
 local CFrame_new = CFrame.new
@@ -61,160 +36,37 @@ local tostring = tostring
 local pcall = pcall
 local tick = tick
 
+-- ============================
+-- KHAI BÁO BIẾN HỆ THỐNG CƠ BẢN
+-- ============================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
-local StarterGui = game:GetService("StarterGui")
 local vim = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
-local PlayerGui = player:WaitForChild("PlayerGui")
 
 local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
-if not libraryFolder then return end
-
--- Cache Remotes để tối ưu tốc độ gọi Server
-local networkFolder = ReplicatedStorage:WaitForChild("Network", 15)
-local customFireRemote = networkFolder:WaitForChild("Instancing_FireCustomFromClient")
+if not libraryFolder then
+    print("Khong tim thay thu vien Library trong thoi gian cho!")
+    return
+end
 
 local STEPS_X = math_floor((MAX_X - MIN_X) / STEP) + 1
 local STEPS_Z = math_floor((MAX_Z - MIN_Z) / STEP) + 1
 local TOTAL_POINTS = STEPS_X * STEPS_Z
 
--- Hàm dịch chuyển an toàn tối ưu hóa giảm giật lag nhân vật
+-- Hàm dịch chuyển an toàn (Tiếp đất sát sàn thực tế + Đóng băng ngắn chống rơi tự do gây lag)
 local function safeTeleport(pos)
     local char = player.Character or player.CharacterAdded:Wait()
     local hrp = char:WaitForChild("HumanoidRootPart", 5)
     if hrp and pos then
-        hrp.CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)
+        hrp.CFrame = CFrame_new(Vector3_new(pos.X, pos.Y + 2.5, pos.Z))
+        
         hrp.Anchored = true
-        task_wait(0.12)
+        task_wait(0.15)
         hrp.Anchored = false
-    end
-end
-
--- HÀM XÓA CONSOLE ĐA NỀN TẢNG
-local function clearConsoleLog()
-    pcall(function()
-        if rconsoleclear then
-            rconsoleclear()
-        elseif clearconsole then
-            clearconsole()
-        end
-        print("--- CONSOLE CLEARED: MAP SCAN COMPLETED ---")
-    end)
-end
-
--- ============================
--- KÍCH HOẠT CÁC TÍNH NĂNG ẨN/TỐI ƯU CỦA CPU SAVER
--- ============================
-if getgenv().CpuSaver then
-    local function isPlayerBody(v)
-        return v:IsDescendantOf(player.Character) or Players:GetPlayerFromCharacter(v:FindFirstAncestorOfClass("Model")) ~= nil
-    end
-
-    local function isBreakableOrPetMesh(v)
-        local name = v.Name
-        if string.find(name, "Breakable") or string.find(name, "Pet") then return true end
-        local parent = v.Parent
-        if parent and (string.find(parent.Name, "Breakable") or string.find(parent.Name, "Pet")) then return true end
-        return false
-    end
-
-    local function killEffectInstance(obj)
-        if isPlayerBody(obj) then return end
-        if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") 
-        or obj:IsA("Fire") or obj:IsA("Beam") or obj:IsA("PointLight") 
-        or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
-            obj:Destroy()
-        elseif obj:IsA("PostEffect") then
-            obj.Enabled = false
-        end
-    end
-
-    local function hideAndDisableCharacter(character)
-        if not character or character == player.Character then return end
-        
-        local humanoid = character:WaitForChild("Humanoid", 5)
-        if humanoid then
-            humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-            humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
-            
-            local animator = humanoid:FindFirstChildOfClass("Animator")
-            if animator then animator:Destroy() end
-            local blindAnimator = Instance.new("Animator")
-            blindAnimator.Parent = humanoid
-        end
-        
-        local animateScript = character:WaitForChild("Animate", 3)
-        if animateScript then animateScript.Enabled = false end
-        
-        for _, obj in ipairs(character:GetDescendants()) do
-            if obj:IsA("BasePart") or obj:IsA("Decal") then
-                obj.Transparency = 1
-                obj.CanCollide = false
-            elseif obj:IsA("VisualAttachment") or obj:IsA("Attachment") then
-                for _, child in ipairs(obj:GetChildren()) do killEffectInstance(child) end
-            end
-        end
-    end
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then hideAndDisableCharacter(p.Character) end
-        p.CharacterAdded:Connect(hideAndDisableCharacter)
-    end
-    Players.PlayerAdded:Connect(function(p)
-        p.CharacterAdded:Connect(hideAndDisableCharacter)
-    end)
-
-    local function handleMapPart(v)
-        if isPlayerBody(v) then return end
-        
-        if isBreakableOrPetMesh(v) then 
-            if string.find(v.Name, "Pet") or (v.Parent and string.find(v.Parent.Name, "Pet")) then
-                if v:IsA("BasePart") then
-                    v.Transparency = 1
-                    v.CanCollide = false
-                    if v:IsA("MeshPart") then v.TextureID = "" end
-                end
-            else
-                if v:IsA("BasePart") then
-                    v.Shape = Enum.PartType.Block
-                    v.Size = Vector3_new(1.5, 1.5, 1.5)
-                    v.Color = Color3.fromRGB(128, 128, 128)
-                    v.Material = Enum.Material.SmoothPlastic
-                    v.CastShadow = false
-                    if v:IsA("MeshPart") then v.TextureID = "" end
-                end
-            end
-        else 
-            if v:IsA("BasePart") then
-                v.Transparency = 1 
-                v.CastShadow = false
-                if v:IsA("MeshPart") then v.TextureID = "" end
-            elseif v:IsA("Texture") or v:IsA("Decal") or v:IsA("SpecialMesh") then
-                v:Destroy() 
-            end
-        end
-    end
-
-    for _, v in ipairs(workspace:GetDescendants()) do 
-        pcall(handleMapPart, v) 
-        pcall(killEffectInstance, v)
-    end
-    workspace.DescendantAdded:Connect(function(v)
-        pcall(handleMapPart, v)
-        pcall(killEffectInstance, v)
-    end)
-
-    if camera then
-        for _, child in ipairs(camera:GetChildren()) do
-            if child:IsA("Model") or child:IsA("BasePart") then child:Destroy() end
-        end
-        camera.ChildAdded:Connect(function(child)
-            if child:IsA("Model") or child:IsA("BasePart") then task_wait() child:Destroy() end
-        end)
     end
 end
 
@@ -256,6 +108,7 @@ if spawnRoomFolder then
             fireproximityprompt(prompt)
             print("Da kich hoat cong vao Deep Backrooms thanh cong!")
         else
+            print("Khong tim thay ProximityPrompt, dang thu va cham truc tiep...")
             safeTeleport(interactPart.Position)
         end
     end
@@ -356,7 +209,7 @@ local char = player.Character or player.CharacterAdded:Wait()
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- ============================
--- GUI HỆ THỐNG
+-- GUI
 -- ============================
 if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() end
 local sg = Instance.new("ScreenGui", game.CoreGui)
@@ -452,6 +305,10 @@ task_spawn(function()
                 end
             end
 
+            if count % 10 == 0 then
+                local currentMem = gcinfo()
+            end
+
             if #bossRooms >= getgenv().TargetRoomsCount then
                 scanDone = true
             end
@@ -470,11 +327,8 @@ task_spawn(function()
 
     hrp.Anchored = false
 
-    -- DỌN SẠCH CONSOLE NGAY KHI QUÉT XONG
-    clearConsoleLog()
-
     -- ============================
-    -- HAM KIỂM TRA COOLDOWN NGUYÊN BẢN
+    -- HÀM KIỂM TRA COOLDOWN NGUYÊN BẢN
     -- ============================
     local function isChestOnCooldown(room)
         local bz = room:FindFirstChild("BREAK_ZONE", true)
@@ -484,6 +338,7 @@ task_spawn(function()
         return timer.Enabled, bz
     end
 
+    -- HÀM CẬP NHẬT TRẠNG THÁI DANH SÁCH PHÒNG LÊN UI
     local function updateStatusUI(currentAction)
         local str = string_format("Status: %s\n", currentAction)
         str = str .. "-----------------------------\n"
@@ -503,7 +358,9 @@ task_spawn(function()
         local roomUID = room:GetAttribute("RoomUID")
         if not roomUID then return end
         pcall(function()
-            customFireRemote:FireServer("Backrooms", "AbstractRoom_FireServer", roomUID, "UnlockDoors")
+            ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer(
+                "Backrooms", "AbstractRoom_FireServer", roomUID, "UnlockDoors"
+            )
         end)
     end
 
@@ -528,6 +385,8 @@ task_spawn(function()
     end
 
     local breakablesContainer = thingsContainer:WaitForChild("Breakables")
+    local networkFolder = ReplicatedStorage:WaitForChild("Network", 15)
+    local damageRemote = networkFolder:WaitForChild("Breakables_PlayerDealDamage")
 
     local function isBreakableInstance(inst)
         if inst:IsA("BasePart") or inst:IsA("Model") then
@@ -538,9 +397,9 @@ task_spawn(function()
 
     -- Vòng lặp Screen Clicker chạy nền
     task_spawn(function()
-        local vp = camera.ViewportSize
         while true do
             if screenClickEnabled then
+                local vp = camera.ViewportSize
                 vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, true, game, 0)
                 vim:SendMouseButtonEvent(vp.X / 2, vp.Y / 2, 0, false, game, 0)
             end
@@ -548,12 +407,42 @@ task_spawn(function()
         end
     end)
 
+    -- Auto Clicker đập các vật thể xung quanh nhân vật trong bán kính 15 studs
+    local farmingThisRoom = true
+    task_spawn(function()
+        while true do
+            if farmingThisRoom then
+                local bestInst, bestDist = nil, math.huge
+                local breakables = breakablesContainer:GetChildren()
+                for i = 1, #breakables do
+                    local obj = breakables[i]
+                    local uid = obj:GetAttribute("BreakableUID")
+                    if uid then
+                        local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
+                        if part then
+                            local d = (part.Position - hrp.Position).Magnitude
+                            if d <= 15 and d < bestDist then
+                                bestDist = d
+                                bestInst = obj
+                            end
+                        end
+                    end
+                end
+                if bestInst then
+                    pcall(function()
+                        damageRemote:FireServer(tostring(bestInst:GetAttribute("BreakableUID")))
+                    end)
+                end
+            end
+            task_wait(0.1)
+        end
+    end)
+
     -- ============================
-    -- OPTIMIZED FARM LOOP (GIỮ NGUYÊN LOGIC DI CHUYỂN)
+    -- OPTIMIZED FARM LOOP
     -- ============================
     local idx = 1
     local numRooms = #bossRooms 
-    local farmingThisRoom = true
 
     while true do
         local entry = bossRooms[idx]
@@ -571,7 +460,7 @@ task_spawn(function()
 
         for i = 1, 3 do
             safeTeleport(entry.pos)
-            task_wait(0.8)
+            task_wait(1)
         end
 
         local _, bzFresh = isChestOnCooldown(room)
@@ -612,30 +501,27 @@ task_spawn(function()
         local processing = false
 
         local function nearestSpotIndex(pos)
-            local bestIdx, bestDistSq = nil, math.huge
+            local bestIdx, bestDist = nil, math.huge
             for i = 1, 4 do
                 local spot = miniSpots[i]
                 if spot then
-                    local dx = spot.X - pos.X
-                    local dy = spot.Y - pos.Y
-                    local dz = spot.Z - pos.Z
-                    local dSq = (dx*dx) + (dy*dy) + (dz*dz)
-                    if dSq < bestDistSq then
-                        bestDistSq = dSq
+                    local d = (spot - pos).Magnitude
+                    if d < bestDist then
+                        bestDist = d
                         bestIdx = i
                     end
                 end
             end
-            return bestIdx, bestDistSq
+            return bestIdx, bestDist
         end
 
         local listenerConn = breakablesContainer.ChildAdded:Connect(function(inst)
-            if not isBreakableInstance(inst) then return end
             task_defer(function()
+                if not isBreakableInstance(inst) then return end
                 local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
                 if not part then return end
-                local idx2, distSq = nearestSpotIndex(part.Position)
-                if idx2 and distSq <= 225 then
+                local idx2, dist = nearestSpotIndex(part.Position)
+                if idx2 and dist <= 15 then
                     table_insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
                 end
             end)
@@ -653,7 +539,7 @@ task_spawn(function()
                     updateStatusUI(string_format("Room %d/%d: Danh Mini Chest", idx, numRooms))
 
                     while chestEntry.inst and chestEntry.inst.Parent do
-                        task_wait(0.15)
+                        task_wait(0.2)
                     end
 
                     processing = false
@@ -674,13 +560,13 @@ task_spawn(function()
                 safeTeleport(center)
                 updateStatusUI(string_format("Room %d/%d: Dang danh Boss", idx, numRooms))
             end
-            task_wait(0.4)
+            task_wait(0.5)
         end
 
         farmingThisRoom = false
         listenerConn:Disconnect()
 
         idx = idx % numRooms + 1
-        task_wait(0.4)
+        task_wait(0.5)
     end
 end)
