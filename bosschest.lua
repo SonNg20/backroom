@@ -5,6 +5,7 @@ getgenv().WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpE
 getgenv().DiscordUserID = "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false
 getgenv().NOTIFY_HUGE_TITANIC = true
+getgenv().UNLOCK_TIMEOUT = 5 -- Thời gian timeout unlock (giây)
 
 if not getgenv().UnlockedRoomsCache then
     getgenv().UnlockedRoomsCache = {}
@@ -296,6 +297,46 @@ local function unlockRoom(room)
     end)
 end
 
+-- Hàm tryUnlockRoom: thử unlock trong timeout giây, nếu quá thì bỏ qua coi như đã mở
+local function tryUnlockRoom(room, roomUID, idx, numRooms)
+    if not isLocked(room) then
+        return true -- Đã mở sẵn
+    end
+    
+    updateStatusUI(string_format("🔓 Room %d/%d: Dang mo khoa (%ds timeout)...", idx, numRooms, getgenv().UNLOCK_TIMEOUT))
+    
+    local unlockStart = tick()
+    local unlockAttempts = 0
+    
+    while isLocked(room) and mainFarmEnabled do
+        unlockRoom(room)
+        unlockAttempts = unlockAttempts + 1
+        task_wait(0.5)
+        
+        local elapsed = tick() - unlockStart
+        
+        -- Kiểm tra timeout
+        if elapsed >= getgenv().UNLOCK_TIMEOUT then
+            updateStatusUI(string_format("⚠️ Room %d/%d: Qua %ds van chua mo duoc -> Bo qua, coi nhu da mo!", 
+                idx, numRooms, getgenv().UNLOCK_TIMEOUT))
+            
+            -- Vẫn cache để lần sau không thử unlock nữa
+            getgenv().UnlockedRoomsCache[roomUID] = true
+            
+            task_wait(1)
+            return true -- Coi như đã mở, tiến hành farm
+        end
+    end
+    
+    if not mainFarmEnabled then return false end
+    
+    -- Unlock thành công
+    getgenv().UnlockedRoomsCache[roomUID] = true
+    updateStatusUI(string_format("✅ Room %d/%d: Da mo khoa sau %d lan thu!", idx, numRooms, unlockAttempts))
+    
+    return true
+end
+
 local function getCorners(room, breakZone)
     local positions = {}
     
@@ -344,8 +385,8 @@ local function updateStatusUI(currentAction)
         local cooldown = isChestOnCooldown(entry.room)
         local statusText = entry.unlockStatus
         
-        if entry.room and statusText ~= "Dang khoa" then
-            statusText = cooldown and "Dang Hoi" or "San Sang"
+        if entry.room and statusText ~= "Dang khoa" and statusText ~= "⚠️ Bo qua (timeout)" then
+            statusText = cooldown and "⏳ Dang Hoi" or "✅ San Sang"
         end
         
         str = str .. string_format("Room %d: (%.0f, %.0f) %s\n",
@@ -466,7 +507,7 @@ local function startScanAndFarmLoop()
             continue
         end
         
-        updateStatusUI(string_format("Teleport den Boss %d/%d", idx, numRooms))
+        updateStatusUI(string_format("📍 Teleport den Boss %d/%d", idx, numRooms))
         
         -- Teleport đến boss (3 lần)
         for _ = 1, 3 do
@@ -482,7 +523,7 @@ local function startScanAndFarmLoop()
         entry.room = actualRoom
         
         if not actualRoom then
-            updateStatusUI(string_format("Room %d/%d: Chua spawn map...", idx, numRooms))
+            updateStatusUI(string_format("⏳ Room %d/%d: Chua spawn map...", idx, numRooms))
             idx = idx % numRooms + 1
             task_wait(1)
             continue
@@ -490,51 +531,36 @@ local function startScanAndFarmLoop()
         
         local roomUID = actualRoom:GetAttribute("RoomUID") or tostring(entry.pos)
         
-        -- Unlock nếu cần
-        if not getgenv().UnlockedRoomsCache[roomUID] and isLocked(actualRoom) then
-            updateStatusUI(string_format("Room %d/%d: MO KHOA...", idx, numRooms))
+        -- === LOGIC UNLOCK ROOM MỚI (5s timeout) ===
+        if not getgenv().UnlockedRoomsCache[roomUID] then
+            local unlocked = tryUnlockRoom(actualRoom, roomUID, idx, numRooms)
             
-            local unlockStart = tick()
-            local fail = false
-            
-            while isLocked(actualRoom) and mainFarmEnabled do
-                unlockRoom(actualRoom)
-                task_wait(1)
-                if tick() - unlockStart > 30 then
-                    fail = true
-                    break
-                end
+            if not unlocked then
+                -- mainFarmEnabled = false, thoát
+                break
             end
             
-            if not mainFarmEnabled then break end
-            
-            if fail then
-                entry.unlockStatus = "Dang khoa"
-                updateStatusUI(string_format("Room %d/%d: Mo khoa that bai!", idx, numRooms))
-                idx = idx % numRooms + 1
-                task_wait(0.5)
-                continue
-            end
-            
-            getgenv().UnlockedRoomsCache[roomUID] = true
+            entry.unlockStatus = "Da mo"
+            entry.unlocked = true
+        else
+            entry.unlockStatus = "Da mo (cached)"
+            entry.unlocked = true
         end
-        
-        entry.unlockStatus = "Da mo"
-        entry.unlocked = true
+        -- ===========================================
         
         -- Check cooldown
         local onCooldown, bzFresh = isChestOnCooldown(actualRoom)
         bz = bzFresh or bz
         
         if onCooldown then
-            updateStatusUI(string_format("Room %d/%d: DANG HOI...", idx, numRooms))
+            updateStatusUI(string_format("⏳ Room %d/%d: DANG HOI -> Chuyen room...", idx, numRooms))
             idx = idx % numRooms + 1
             task_wait(0.5)
             continue
         end
         
         -- Bắt đầu farm
-        updateStatusUI(string_format("Room %d/%d: Dang farm!", idx, numRooms))
+        updateStatusUI(string_format("⚔️ Room %d/%d: Bat dau farm!", idx, numRooms))
         
         -- Teleport lại lần nữa
         for _ = 1, 3 do
@@ -605,9 +631,11 @@ local function startScanAndFarmLoop()
                     local chestEntry = table_remove(pendingChests, 1)
                     
                     safeTeleport(chestEntry.pos)
-                    updateStatusUI(string_format("Room %d/%d: Mini Chest!", idx, numRooms))
+                    updateStatusUI(string_format("📦 Room %d/%d: Mini Chest!", idx, numRooms))
                     
+                    local waitStart = tick()
                     while chestEntry.inst and chestEntry.inst.Parent and mainFarmEnabled do
+                        if tick() - waitStart > 15 then break end
                         task_wait(0.2)
                     end
                     
@@ -622,13 +650,13 @@ local function startScanAndFarmLoop()
         while mainFarmEnabled do
             local cooldown = isChestOnCooldown(actualRoom)
             if cooldown then
-                updateStatusUI(string_format("Room %d/%d: Da pha xong!", idx, numRooms))
+                updateStatusUI(string_format("✅ Room %d/%d: Da pha xong!", idx, numRooms))
                 break
             end
             
             if #pendingChests == 0 and not processing then
                 safeTeleport(center)
-                updateStatusUI(string_format("Room %d/%d: Dang danh Boss", idx, numRooms))
+                updateStatusUI(string_format("⚔️ Room %d/%d: Dang danh Boss", idx, numRooms))
             end
             
             task_wait(0.5)
@@ -664,3 +692,4 @@ toggleFarmBtn.MouseButton1Click:Connect(function()
 end)
 
 print("✅ Script da san sang!")
+print("⏱️ Unlock timeout: " .. getgenv().UNLOCK_TIMEOUT .. "s")
