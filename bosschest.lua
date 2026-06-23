@@ -1,10 +1,10 @@
 -- ============================
 -- CONFIG
 -- ============================
-getgenv().WebhookURL ="https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-getgenv().DiscordUserID ="989895037406044200"
+getgenv().WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+getgenv().DiscordUserID = "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false
-getgenv().NOTIFY_HUGE_TITANIC = true 
+getgenv().NOTIFY_HUGE_TITANIC = true
 
 if not getgenv().UnlockedRoomsCache then
     getgenv().UnlockedRoomsCache = {}
@@ -66,7 +66,7 @@ local function safeTeleport(pos)
 end
 
 -- ============================
--- AUTO JOIN MINIGAME EVENT (LUÔN CHẠY KHI EXE)
+-- AUTO JOIN MINIGAME EVENT
 -- ============================
 local ClientFolder = libraryFolder:WaitForChild("Client", 15)
 local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
@@ -105,9 +105,9 @@ if spawnRoomFolder then
                     "Backrooms", "AbstractRoom_FireServer", roomUID, "EnterDeepBackrooms"
                 )
             end)
-            print("Da kich hoat Deep Backrooms qua Network Event!")
+            print("Da khich hoat Deep Backrooms!")
         else
-            print("Khong tim thay RoomUID, dang thu va cham truc tiep...")
+            print("Khong tim thay RoomUID, dang thu va cham...")
             safeTeleport(interactPart.Position)
         end
     end
@@ -227,7 +227,6 @@ label.TextWrapped = true
 label.Text = "Status: Dang cho lenh tu Nut FARM..."
 Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
 
--- 1. NÚT FARM (NẰM TRÊN CÙNG - Y = 100)
 local mainFarmEnabled = false
 local toggleFarmBtn = Instance.new("TextButton", sg)
 toggleFarmBtn.Size = UDim2.new(0, 280, 0, 30) 
@@ -239,7 +238,6 @@ toggleFarmBtn.TextSize = 13
 toggleFarmBtn.Text = "FARM: OFF"
 Instance.new("UICorner", toggleFarmBtn).CornerRadius = UDim.new(0, 6)
 
--- 2. NÚT SCREEN CLICK (NẰM Ở GIỮA - Y = 140)
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", sg)
 toggleClickBtn.Size = UDim2.new(0, 280, 0, 30)
@@ -412,15 +410,19 @@ local function startScanAndFarmLoop()
     local currentHrp = getHRP()
     if currentHrp then currentHrp.Anchored = true end
     
-    task_wait(1)
-    local bossesCount = 0
-
-    for _, breakable in ipairs(breakablesContainer:GetChildren()) do
+    -- TỐI ƯU CHỐNG LAG: Phân tách luồng xử lý quét danh sách Model số lượng lớn bằng Parallel Luau ngầm
+    task.desynchronize()
+    
+    local rawChildren = breakablesContainer:GetChildren()
+    local tempBosses = {}
+    
+    -- Chia nhỏ vòng lặp lớn bằng các chặng dừng rải rác để Executor giải phóng bộ nhớ, không treo máy
+    for i = 1, #rawChildren do
+        local breakable = rawChildren[i]
         if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
-            bossesCount = bossesCount + 1
             local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
             if part then
-                table_insert(bossRooms, {
+                table_insert(tempBosses, {
                     bossModel = breakable, 
                     pos = part.Position, 
                     unlocked = false,
@@ -429,13 +431,27 @@ local function startScanAndFarmLoop()
                 })
             end
         end
+        if i % 150 == 0 then
+            task.synchronize()
+            task_wait(0.01)
+            task.desynchronize()
+        end
     end
+    
+    table_sort(tempBosses, function(a, b)
+        return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
+    end)
+    
+    -- Đồng bộ lại luồng đồ họa chính sau khi quét ngầm xong để cập nhật dữ liệu mượt mà
+    task.synchronize()
+    bossRooms = tempBosses
+    local bossesCount = #bossRooms
 
     if bossesCount >= 3 then
         print("3 or more bosses detected:", bossesCount)
     end
 
-    if #bossRooms == 0 then
+    if bossesCount == 0 then
         currentHrp = getHRP()
         if currentHrp then currentHrp.Anchored = false end
         label.Text = "Status: [ON] Khong tim thay Daydream Mimic Boss2 nao!"
@@ -444,10 +460,6 @@ local function startScanAndFarmLoop()
         toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
         return
     end
-
-    table_sort(bossRooms, function(a, b)
-        return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
-    end)
 
     currentHrp = getHRP()
     if currentHrp then currentHrp.Anchored = false end
