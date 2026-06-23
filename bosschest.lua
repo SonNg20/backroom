@@ -15,7 +15,7 @@ if not game:IsLoaded() then
 end
 
 -- ============================
--- OPTIMIZATION: CACHE GLOBAL FUNCTIONS (CẢI TIẾN)
+-- OPTIMIZATION: CACHE GLOBAL FUNCTIONS
 -- ============================
 local Vector3_new = Vector3.new
 local CFrame_new = CFrame.new
@@ -59,7 +59,6 @@ local lastHRPCheck = 0
 local function getHRP()
     local currentTime = tick()
     
-    -- Chỉ check lại mỗi 0.5 giây nếu character bị thay đổi
     if cachedHRP and cachedHRP.Parent and (currentTime - lastHRPCheck) < 0.5 then
         return cachedHRP
     end
@@ -83,7 +82,7 @@ local function safeTeleport(pos)
 end
 
 -- ============================
--- AUTO JOIN MINIGAME EVENT (LUÔN CHẠY KHI EXE)
+-- AUTO JOIN MINIGAME EVENT
 -- ============================
 local ClientFolder = libraryFolder:WaitForChild("Client", 15)
 local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
@@ -132,12 +131,12 @@ if spawnRoomFolder then
 end
 
 -- ============================
--- HAM GUI DISCORD WEBHOOK (CÓ THỂ ASYNC)
+-- HAM GUI DISCORD WEBHOOK (ASYNC)
 -- ============================
 local MENTION_STRING = "<@" .. getgenv().DiscordUserID .. ">"
 local requestFunction = syn and syn.request or http_request or request
 
--- ✅ CẢI TIẾN: Async Discord call (không block main thread)
+-- ✅ CẢI TIẾN: Async Discord call
 local function sendToDiscordAsync(title, description, color, mention)
     if not requestFunction then return end
     
@@ -163,7 +162,7 @@ local function sendToDiscordAsync(title, description, color, mention)
 end
 
 -- ============================
--- CHECK INVENTORY HUGE/TITANIC (CẢI TIẾN)
+-- CHECK INVENTORY HUGE/TITANIC
 -- ============================
 local SaveModule
 do
@@ -175,8 +174,6 @@ end
 
 local previousPetCounts = {}
 local firstInventoryCheck = true
-
--- ✅ CẢI TIẾN: Cache inventory check (mỗi 3 giây là đủ)
 local lastInventoryCheck = 0
 local INVENTORY_CHECK_INTERVAL = 3
 
@@ -265,7 +262,7 @@ label.TextWrapped = true
 label.Text = "Status: Dang cho lenh tu Nut FARM..."
 Instance.new("UICorner", label).CornerRadius = UDim.new(0, 8)
 
--- 1. NÚT FARM (NẰM TRÊN CÙNG - Y = 100)
+-- NÚT FARM
 local mainFarmEnabled = false
 local toggleFarmBtn = Instance.new("TextButton", sg)
 toggleFarmBtn.Name = "FarmBtn"
@@ -278,7 +275,7 @@ toggleFarmBtn.TextSize = 12
 toggleFarmBtn.Text = "FARM: OFF"
 Instance.new("UICorner", toggleFarmBtn).CornerRadius = UDim.new(0, 6)
 
--- ✅ CẢI TIẾN: Thêm debounce để tránh multi-click
+-- ✅ CẢI TIẾN: Debounce click
 local lastFarmToggleTime = 0
 local FARM_TOGGLE_DEBOUNCE = 0.5
 
@@ -290,35 +287,39 @@ end
 local farmingThisRoom = false
 local currentHrp = nil
 
--- ✅ CẢI TIẾN: Detect room với cache tốt hơn
-local roomCache = {}
-local function detectSpawnedRoom(pos)
-    local key = math_floor(pos.X) .. "," .. math_floor(pos.Y) .. "," .. math_floor(pos.Z)
+-- ============================
+-- ✅ FIX: DETECT MECHANISM TỪ FILE GỐC
+-- ============================
+
+local function detectSpawnedRoom(bossPos)
+    -- ✅ FIX: Dùng generatedBackrooms thay vì active
+    local children = generatedBackrooms:GetChildren()
     
-    if roomCache[key] then
-        return roomCache[key].room, roomCache[key].bz
-    end
-    
-    local thingsContainer = workspace:FindFirstChild("__THINGS")
-    if not thingsContainer then return nil end
-    
-    local instances = thingsContainer:FindFirstChild("__INSTANCE_CONTAINER")
-    if not instances then return nil end
-    
-    local active = instances:FindFirstChild("Active")
-    if not active then return nil end
-    
-    for _, room in ipairs(active:GetChildren()) do
-        local mainPart = room:FindFirstChild("MainPart")
-        if mainPart and (mainPart.Position - pos).Magnitude < 50 then
-            local bz = room:FindFirstChild("BossZone") or room:FindFirstChild("BossZone_Dummy")
-            roomCache[key] = {room = room, bz = bz}
-            return room, bz
+    for i = 1, #children do
+        local r = children[i]
+        
+        -- ✅ FIX: Tìm "GameMastersStage" chính xác
+        if r.Name == "GameMastersStage" then
+            -- ✅ FIX: Tìm BREAK_ZONE (không phải BossZone/MainPart)
+            local bz = r:FindFirstChild("BREAK_ZONE", true)
+            
+            if bz then
+                local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
+                
+                -- ✅ FIX: Threshold 150 studs (không phải 50)
+                if part and (part.Position - bossPos).Magnitude < 150 then
+                    return r, bz
+                end
+            end
         end
     end
     
-    return nil
+    return nil, nil
 end
+
+-- ============================
+-- HỘ TRỢ FUNCTIONS
+-- ============================
 
 local function isLocked(room)
     local door = room:FindFirstChild("Door")
@@ -376,7 +377,6 @@ local function isBreakableInstance(inst)
     return false
 end
 
--- ✅ CẢI TIẾN: Cache breakablesContainer
 local breakablesContainer = nil
 local function getBreakablesContainer()
     if not breakablesContainer or not breakablesContainer.Parent then
@@ -391,7 +391,10 @@ end
 local networkFolder = ReplicatedStorage:WaitForChild("Network", 15)
 local damageRemote = networkFolder:WaitForChild("Breakables_PlayerDealDamage")
 
--- ✅ CẢI TIẾN: Optimized farm loop - giảm task spawn, tối ưu wait time
+-- ============================
+-- MAIN FARMING LOGIC
+-- ============================
+
 local function startScanAndFarmLoop()
     breakablesContainer = getBreakablesContainer()
     
@@ -409,7 +412,6 @@ local function startScanAndFarmLoop()
     local bossRooms = {}
     local bossesCount = 0
 
-    -- ✅ CẢI TIẾN: Scan một lần, dùng cached children
     local breakablesChildren = breakablesContainer:GetChildren()
     for _, breakable in ipairs(breakablesChildren) do
         if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
@@ -449,7 +451,7 @@ local function startScanAndFarmLoop()
     if currentHrp then currentHrp.Anchored = false end
 
     local idx = 1
-    local mainLoopTimeout = 0  -- ✅ CẢI TIẾN: Thêm timeout để tránh infinite loop
+    local mainLoopTimeout = 0
     
     while mainFarmEnabled do
         local numRooms = #bossRooms
@@ -473,23 +475,19 @@ local function startScanAndFarmLoop()
         local actualRoom, bz = detectSpawnedRoom(entry.pos)
         entry.room = actualRoom 
 
-        -- ✅ FIX: Nếu game chưa spawn → tele vào 2 lần thay vì chuyển room
+        -- ✅ FIX: Tele 2 lần thay vì chuyển room
         if not actualRoom then
             updateStatusUI(string_format("Room %d/%d: Game chua spawn, tele lai (1/2)...", idx, numRooms))
             
-            -- Tele lần 1
             safeTeleport(entry.pos)
             task_wait(0.5)
             
-            -- Tele lần 2
             safeTeleport(entry.pos)
             task_wait(0.5)
             
-            -- Thử detect lại sau 2 lần tele
             actualRoom, bz = detectSpawnedRoom(entry.pos)
             entry.room = actualRoom
             
-            -- Nếu vẫn không detect → mới chuyển room
             if not actualRoom then
                 updateStatusUI(string_format("Room %d/%d: Tele 2 lan khong spawn, chuyen...", idx, numRooms))
                 idx = idx % numRooms + 1
@@ -571,7 +569,6 @@ local function startScanAndFarmLoop()
         local pendingChests = {}
         local processing = false
         
-        -- ✅ CẢI TIẾN: Cache hàm nearestSpotIndex
         local function nearestSpotIndex(pos)
             local bestIdx, bestDist = nil, math_huge
             for i = 1, 4 do
@@ -603,7 +600,6 @@ local function startScanAndFarmLoop()
 
         farmingThisRoom = true
         
-        -- ✅ CẢI TIẾN: Task spawn xử lý chest (không thay đổi logic)
         local chestProcessTask = task_spawn(function()
             while farmingThisRoom and mainFarmEnabled do
                 if #pendingChests > 0 and not processing then
@@ -638,7 +634,6 @@ local function startScanAndFarmLoop()
             end
             task_wait(0.5)
             
-            -- ✅ CẢI TIẾN: Timeout protection (10 phút)
             if tick() - mainLoopTimeout > 600 then
                 updateStatusUI(string_format("Room %d/%d: Timeout, chuyen room", idx, numRooms))
                 break
@@ -650,7 +645,6 @@ local function startScanAndFarmLoop()
             listenerConn:Disconnect()
         end
         
-        -- ✅ CẢI TIẾN: Clear pending chests
         for i = 1, #pendingChests do
             pendingChests[i] = nil
         end
@@ -659,12 +653,11 @@ local function startScanAndFarmLoop()
         idx = idx % numRooms + 1
         task_wait(0.5)
         
-        -- ✅ CẢI TIẾN: Garbage collection sau mỗi room
         collectgarbage("collect")
     end
 end
 
--- ✅ CẢI TIẾN: Debounce click event
+-- LẮNG NGHE SỰ KIỆN CLICK NÚT FARM
 toggleFarmBtn.MouseButton1Click:Connect(function()
     local currentTime = tick()
     if (currentTime - lastFarmToggleTime) < FARM_TOGGLE_DEBOUNCE then
