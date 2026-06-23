@@ -179,7 +179,7 @@ local function sendToDiscord(title, description, color, mention)
 end
 
 -- ============================
--- CẤU HÌNH CÁCH 2: QUỆT VẾT DẦU LOANG (LAN TỎA)
+-- CẤU HÌNH CÁCH 2: QUỆT VẾT DẦU LOANG (TỐI ƯU CHỈ LỌC ROOM)
 -- ============================
 local TARGET_ROOMS = getgenv().FarmMultiChest and 2 or 1
 local WAIT_TIME_FOR_SPAWN = 0.8 
@@ -188,16 +188,18 @@ local bossRooms = {}
 local scannedRooms = {} 
 local queue = {}        
 
-local function getRoomPosition(room)
-    local part = room:FindFirstChildWhichIsA("BasePart", true)
-    return part and part.Position or nil
+-- Hàm lấy vị trí nhanh từ một phần tử gốc của phòng (Không quét sâu vào trong)
+local function getRoomPositionFast(room)
+    -- Thường các căn phòng trong Pet Sim đều có một Part gốc cố định, thử tìm nhanh theo tên hoặc loại cơ bản
+    local mainPart = room:FindFirstChild("Floor") or room:FindFirstChild("Hitbox") or room:FindFirstChildWhichIsA("BasePart")
+    return mainPart and mainPart.Position or nil
 end
 
 task.spawn(function()
     table.clear(queue)
     table.clear(scannedRooms)
     
-    local p = getRoomPosition(spawnRoom)
+    local p = getRoomPositionFast(spawnRoom)
     if p then table.insert(queue, p) end
 
     label.Text = "Bat dau quet theo luong Sinh Phong..."
@@ -209,7 +211,6 @@ task.spawn(function()
         if not scannedRooms[key] then
             scannedRooms[key] = true
 
-            -- Di chuyển nhân vật lan tỏa để ép game nạp các phòng kế cạnh
             safeTeleport(currentPos + Vector3.new(0, 5, 0))
             task.wait(WAIT_TIME_FOR_SPAWN)
 
@@ -217,39 +218,42 @@ task.spawn(function()
             for i = 1, #children do
                 local room = children[i]
                 
-                -- BỘ LỌC CHỈ DUYỆT TRONG DEEP BACKROOMS (Bỏ sảnh chờ cũ)
+                -- BỘ LỌC CẤP CAO: Chỉ check tên của Room Object cha, bỏ qua toàn bộ Wall, Light, Prop bên trong
                 if room.Name ~= "SpawnRoom" and room.Name ~= "DeepDoor" then
-                    local rPos = getRoomPosition(room)
                     
-                    if rPos then
-                        if room.Name == "GameMastersStage" then
-                            local bz = room:FindFirstChild("BREAK_ZONE", true)
-                            if bz then
-                                local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
-                                if part then
-                                    local found = false
-                                    for j = 1, #bossRooms do
-                                        if bossRooms[j].room == room then found = true break end
-                                    end
-                                    if not found then
-                                        table.insert(bossRooms, {room = room, pos = part.Position})
-                                        label.Text = string.format("Tim thay GameMasterStage! (%d/%d)", #bossRooms, TARGET_ROOMS)
-                                    end
+                    if room.Name == "GameMastersStage" then
+                        -- Khi xác định đúng là phòng Boss thì mới đi tìm vùng BREAK_ZONE để lấy tọa độ chính xác
+                        local bz = room:FindFirstChild("BREAK_ZONE", true)
+                        if bz then
+                            local part = bz:IsA("BasePart") and bz or bz:FindFirstChildWhichIsA("BasePart", true)
+                            if part then
+                                local found = false
+                                for j = 1, #bossRooms do
+                                    if bossRooms[j].room == room then found = true break end
+                                end
+                                if not found then
+                                    table.insert(bossRooms, {room = room, pos = part.Position})
+                                    label.Text = string.format("Tim thay GameMasterStage! (%d/%d)", #bossRooms, TARGET_ROOMS)
                                 end
                             end
                         end
-
-                        local rKey = string.format("%.0f,%.0f", rPos.X, rPos.Z)
-                        if not scannedRooms[rKey] and (rPos - currentPos).Magnitude < 700 then
-                            local inQueue = false
-                            for _, qPos in ipairs(queue) do
-                                if (qPos - rPos).Magnitude < 10 then inQueue = true break end
-                            end
-                            if not inQueue then
-                                table.insert(queue, rPos)
+                    else
+                        -- Nếu là phòng thường, chỉ lấy vị trí bề nổi nhanh để nạp vào hàng đợi nhảy tiếp theo
+                        local rPos = getRoomPositionFast(room)
+                        if rPos then
+                            local rKey = string.format("%.0f,%.0f", rPos.X, rPos.Z)
+                            if not scannedRooms[rKey] and (rPos - currentPos).Magnitude < 700 then
+                                local inQueue = false
+                                for _, qPos in ipairs(queue) do
+                                    if (qPos - rPos).Magnitude < 10 then inQueue = true break end
+                                end
+                                if not inQueue then
+                                    table.insert(queue, rPos)
+                                end
                             end
                         end
                     end
+
                 end
             end
             label.Text = string.format("Dang quet lan toa... (Con %d diem)\nRoom: %d/%d", #queue, #bossRooms, TARGET_ROOMS)
