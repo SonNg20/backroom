@@ -1,4 +1,8 @@
 -- ============================
+-- SCRIPT FARM PET SIMULATOR 99 - HOÀN CHỈNH
+-- ============================
+
+-- ============================
 -- CONFIG
 -- ============================
 getgenv().WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
@@ -6,6 +10,7 @@ getgenv().DiscordUserID = "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false
 getgenv().NOTIFY_HUGE_TITANIC = true
 getgenv().UNLOCK_TIMEOUT = 5
+getgenv().TweenSpeed = 11
 
 if not getgenv().UnlockedRoomsCache then getgenv().UnlockedRoomsCache = {} end
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -26,6 +31,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local vim = game:GetService("VirtualInputManager")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -33,16 +39,72 @@ local camera = workspace.CurrentCamera
 local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
 if not libraryFolder then return end
 
+-- ============================
+-- NOCLIP
+-- ============================
+local noclipEnabled = false
+local noclipConnection = nil
+
+local function enableNoclip()
+    if noclipEnabled then return end
+    noclipEnabled = true
+    noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+        pcall(function()
+            local char = player.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
+            end
+        end)
+    end)
+end
+
+enableNoclip()
+player.CharacterAdded:Connect(function() task.wait(0.5) enableNoclip() end)
+
+-- ============================
+-- TWEEN
+-- ============================
+local function getTweenSpeed()
+    return getgenv().TweenSpeed or 8
+end
+
+local function getSlowTweenInfo()
+    return TweenInfo.new(60 / getTweenSpeed(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+end
+
+local function getMiniChestTweenInfo()
+    return TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+end
+
+local currentTween = nil
+
 local function getHRP()
     local char = player.Character or player.CharacterAdded:Wait()
     return char:WaitForChild("HumanoidRootPart", 10)
 end
 
-local function safeTeleport(pos)
+local function tweenToPosition(pos)
     local hrp = getHRP()
-    if hrp and pos then
-        hrp.CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)
-    end
+    if not hrp or not pos then return end
+    if currentTween then currentTween:Cancel() currentTween = nil end
+    local tween = TweenService:Create(hrp, getSlowTweenInfo(), {CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)})
+    currentTween = tween
+    tween:Play()
+    tween.Completed:Wait()
+    currentTween = nil
+end
+
+local function tweenToMiniChest(pos)
+    local hrp = getHRP()
+    if not hrp or not pos then return end
+    if currentTween then currentTween:Cancel() currentTween = nil end
+    local tween = TweenService:Create(hrp, getMiniChestTweenInfo(), {CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)})
+    currentTween = tween
+    tween:Play()
+    tween.Completed:Wait()
+    currentTween = nil
 end
 
 -- ============================
@@ -79,23 +141,16 @@ local function sendToDiscord(title, description, color, mention)
 end
 
 -- ============================
--- INVENTORY CHECK (FIX)
+-- INVENTORY CHECK
 -- ============================
 local SaveModule = nil
 local saveLoadAttempt = 0
 
--- Thử load Save module nhiều lần
 task_spawn(function()
     while not SaveModule and saveLoadAttempt < 10 do
         saveLoadAttempt = saveLoadAttempt + 1
-        local ok, mod = pcall(function()
-            return require(ClientFolder:WaitForChild("Save"))
-        end)
-        if ok and mod then
-            SaveModule = mod
-        else
-            task_wait(2)
-        end
+        local ok, mod = pcall(function() return require(ClientFolder:WaitForChild("Save")) end)
+        if ok and mod then SaveModule = mod else task_wait(2) end
     end
 end)
 
@@ -104,43 +159,23 @@ local firstCheck = true
 
 local function checkInventoryForHugeTitanic()
     if not SaveModule then return end
-    
     local ok, data = pcall(function() return SaveModule.Get() end)
     if not ok or not data then return end
-    
-    -- PS99 lưu inventory trong data.Inventory.Pet hoặc data.Pets
-    local petData = nil
-    if data.Inventory and data.Inventory.Pet then
-        petData = data.Inventory.Pet
-    elseif data.Pets then
-        petData = data.Pets
-    else
-        return
-    end
-    
+    local petData = data.Inventory and data.Inventory.Pet or data.Pets
+    if not petData then return end
     local current = {}
     for _, pet in pairs(petData) do
-        if pet.id then
-            current[pet.id] = (current[pet.id] or 0) + (pet._am or 1)
-        end
+        if pet.id then current[pet.id] = (current[pet.id] or 0) + (pet._am or 1) end
     end
-    
-    if firstCheck then
-        previousPetCounts = current
-        firstCheck = false
-        return
-    end
-    
+    if firstCheck then previousPetCounts = current firstCheck = false return end
     for name, count in pairs(current) do
         local prev = previousPetCounts[name] or 0
         if count > prev and (name:find("Huge") or name:find("Titanic")) then
             local isTitanic = name:find("Titanic") ~= nil
             sendToDiscord(
                 isTitanic and "💎 TITANIC PET MOI!" or "🔥 HUGE PET MOI!",
-                string_format("**%s** vua nhan **%s** (x%d)\nTong: **%d**",
-                    player.Name, name, count - prev, count),
-                isTitanic and 16711680 or 65280,
-                true
+                string_format("**%s** vua nhan **%s** (x%d)\nTong: **%d**", player.Name, name, count - prev, count),
+                isTitanic and 16711680 or 65280, true
             )
         end
     end
@@ -165,7 +200,6 @@ label.TextSize = 9
 label.TextWrapped = true
 label.Text = "Dang vao event..."
 
--- NÚT FARM (MẶC ĐỊNH ON)
 local mainFarmEnabled = false
 local farmStarted = false
 local toggleFarmBtn = Instance.new("TextButton", sg)
@@ -177,7 +211,6 @@ toggleFarmBtn.Font = Enum.Font.GothamBold
 toggleFarmBtn.TextSize = 13
 toggleFarmBtn.Text = "FARM: ON"
 
--- NÚT CLICK
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", sg)
 toggleClickBtn.Size = UDim2.new(0, 300, 0, 30)
@@ -215,21 +248,41 @@ task_spawn(function()
 end)
 
 -- ============================
--- ROOM FUNCTIONS
+-- ENTER DEEP BACKROOMS (1 LẦN)
 -- ============================
-local thingsContainer = workspace:WaitForChild("__THINGS")
-local breakablesContainer = thingsContainer:WaitForChild("Breakables")
-local generatedBackrooms = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active"):WaitForChild("Backrooms"):WaitForChild("GeneratedBackrooms")
-local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
+task.wait(10)
 
-local origin = nil
-local originPos = nil
+local thingsContainer = workspace:WaitForChild("__THINGS")
+local generatedBackrooms = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active"):WaitForChild("Backrooms"):WaitForChild("GeneratedBackrooms")
+
+local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
 if spawnRoomFolder then
-    origin = spawnRoomFolder:FindFirstChildWhichIsA("BasePart", true)
-    if origin then originPos = origin.Position end
+    local deepDoor = spawnRoomFolder:WaitForChild("DeepDoor", 15)
+    if deepDoor and deepDoor:FindFirstChild("Interact") then
+        local interactPart = deepDoor.Interact
+        local doorPos = interactPart.Position
+        
+        tweenToPosition(Vector3_new(doorPos.X, doorPos.Y, doorPos.Z))
+        task.wait(1)
+        
+        local roomUID = spawnRoomFolder:GetAttribute("RoomUID")
+        if roomUID then
+            pcall(function()
+                ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer("Backrooms", "AbstractRoom_FireServer", roomUID, "EnterDeepBackrooms")
+            end)
+        end
+    end
 end
 
-local damageRemote = ReplicatedStorage:WaitForChild("Network", 15):WaitForChild("Breakables_PlayerDealDamage")
+if not spawnRoomFolder then return end
+local origin = spawnRoomFolder:FindFirstChildWhichIsA("BasePart", true)
+if not origin then return end
+local originPos = origin.Position
+
+-- ============================
+-- ROOM FUNCTIONS
+-- ============================
+local breakablesContainer = thingsContainer:WaitForChild("Breakables")
 local farmingThisRoom = false
 local bossQueue = {}
 local scannedBossObjects = {}
@@ -295,34 +348,21 @@ local function scanBosses()
         if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
             if not scannedBossObjects[breakable] then
                 scannedBossObjects[breakable] = true
-                
                 local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
                 if part then
-                    table_insert(bossQueue, {
-                        bossModel = breakable,
-                        pos = part.Position,
-                        room = nil
-                    })
+                    table_insert(bossQueue, {bossModel = breakable, pos = part.Position, room = nil})
                 end
             end
         end
     end
-    
     if #bossQueue > 1 and originPos then
-        table_sort(bossQueue, function(a, b)
-            return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
-        end)
+        table_sort(bossQueue, function(a, b) return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude end)
     end
 end
 
--- ============================
--- SCAN LOOP
--- ============================
 task_spawn(function()
     while task_wait(1) do
-        if mainFarmEnabled then
-            scanBosses()
-        end
+        if mainFarmEnabled then scanBosses() end
     end
 end)
 
@@ -334,19 +374,11 @@ task_spawn(function()
         if mainFarmEnabled then
             local str = "[FARM] "
             if screenClickEnabled then str = str .. "[CLICK] " end
-            str = str .. "\n"
-            str = str .. "-----------------------------\n"
-            
-            if isFarming then
-                str = str .. "Dang farm boss...\n"
-            elseif #bossQueue > 0 then
-                str = str .. string_format("Cho: %d boss\n", #bossQueue)
-            else
-                str = str .. "Dang tim boss...\n"
-            end
-            
+            str = str .. "\n-----------------------------\n"
+            if isFarming then str = str .. "Dang farm boss...\n"
+            elseif #bossQueue > 0 then str = str .. string_format("Cho: %d boss\n", #bossQueue)
+            else str = str .. "Dang tim boss...\n" end
             str = str .. string_format("Queue: %d | Da quet: %d\n", #bossQueue, #scannedBossObjects)
-            
             if #bossQueue > 0 then
                 str = str .. "-----------------------------\n"
                 for i = 1, math.min(3, #bossQueue) do
@@ -354,10 +386,8 @@ task_spawn(function()
                     str = str .. string_format("  #%d: (%.0f, %.0f)\n", i, b.pos.X, b.pos.Z)
                 end
             end
-            
             str = str .. "-----------------------------\n"
-            str = str .. string_format("FPS: %d", workspace:GetRealPhysicsFPS())
-            
+            str = str .. string_format("FPS: %d | Tween: %d", workspace:GetRealPhysicsFPS(), getTweenSpeed())
             label.Text = str
         end
     end
@@ -374,13 +404,12 @@ local function farmBoss(bossData)
     
     for i = 1, 3 do
         if not mainFarmEnabled then isFarming = false return end
-        safeTeleport(bossData.pos)
-        task_wait(0.5)
+        tweenToPosition(bossData.pos)
+        task_wait(0.3)
     end
     if not mainFarmEnabled then isFarming = false return end
     
     local actualRoom = detectSpawnedRoom(bossData.pos)
-    
     if not actualRoom then
         scannedBossObjects[bossData.bossModel] = nil
         isFarming = false
@@ -414,7 +443,7 @@ local function farmBoss(bossData)
         sendToDiscord("Dang farm", string_format("(%.0f, %.0f, %.0f)\nQueue: %d", bossData.pos.X, bossData.pos.Y, bossData.pos.Z, #bossQueue), 65280, false)
     end
     
-    safeTeleport(bossData.pos)
+    tweenToPosition(bossData.pos)
     
     local bz = actualRoom:FindFirstChild("BREAK_ZONE", true)
     local corners = getCorners(actualRoom, bz)
@@ -438,12 +467,16 @@ local function farmBoss(bossData)
     
     local listenerConn = breakablesContainer.ChildAdded:Connect(function(inst)
         task_defer(function()
-            if not inst:GetAttribute("BreakableUID") then return end
-            local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
-            if not part then return end
-            local idx2, dist = nearestSpotIndex(part.Position)
-            if idx2 and dist <= 15 then
-                table_insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
+            if inst:IsA("Model") and inst:GetAttribute("BreakableID") == "Daydream Mimic Chest2" then
+                local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
+                if part then
+                    local idx2 = nearestSpotIndex(part.Position)
+                    if idx2 then
+                        table_insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
+                    else
+                        table_insert(pendingChests, {pos = center, inst = inst})
+                    end
+                end
             end
         end)
     end)
@@ -455,13 +488,14 @@ local function farmBoss(bossData)
             if #pendingChests > 0 and not processing then
                 processing = true
                 local chestEntry = table_remove(pendingChests, 1)
-                safeTeleport(chestEntry.pos)
+                tweenToMiniChest(chestEntry.pos)
                 
-                local waitStart = tick()
-                while chestEntry.inst and chestEntry.inst.Parent and mainFarmEnabled do
-                    if tick() - waitStart > 15 then break end
+                while mainFarmEnabled do
+                    if not chestEntry.inst or not chestEntry.inst.Parent then break end
+                    if isChestOnCooldown(actualRoom) then break end
                     task_wait(0.2)
                 end
+                
                 processing = false
             else
                 task_wait(0.1)
@@ -472,7 +506,7 @@ local function farmBoss(bossData)
     while mainFarmEnabled do
         if isChestOnCooldown(actualRoom) then break end
         if #pendingChests == 0 and not processing then
-            safeTeleport(center)
+            tweenToPosition(center)
         end
         task_wait(0.5)
     end
@@ -491,47 +525,27 @@ end
 -- ============================
 function processQueue()
     if not mainFarmEnabled then return end
-    
     local cleanQueue = {}
     for _, b in ipairs(bossQueue) do
-        if b.bossModel and b.bossModel.Parent then
-            table_insert(cleanQueue, b)
-        else
-            scannedBossObjects[b.bossModel] = nil
-        end
+        if b.bossModel and b.bossModel.Parent then table_insert(cleanQueue, b)
+        else scannedBossObjects[b.bossModel] = nil end
     end
     bossQueue = cleanQueue
-    
-    if #bossQueue > 0 then
-        local nextBoss = table_remove(bossQueue, 1)
-        farmBoss(nextBoss)
-    else
-        task_wait(1)
-        processQueue()
-    end
+    if #bossQueue > 0 then farmBoss(table_remove(bossQueue, 1))
+    else task_wait(1) processQueue() end
 end
 
 -- ============================
 -- TICK SYSTEM
 -- ============================
 local tickCount = 0
-
 task_spawn(function()
     while task_wait(1) do
         tickCount = tickCount + 1
-        
-        if tickCount % 3 == 0 then
-            pcall(checkInventoryForHugeTitanic)
-        end
-        
-        if tickCount % 15 == 0 then
-            collectgarbage("collect")
-        end
-        
+        if tickCount % 3 == 0 then pcall(checkInventoryForHugeTitanic) end
+        if tickCount % 15 == 0 then collectgarbage("collect") end
         if tickCount % 30 == 0 and gcinfo() > 300000 then
-            for _ = 1, 3 do
-                collectgarbage("collect")
-            end
+            for _ = 1, 3 do collectgarbage("collect") task_wait(0.1) end
         end
     end
 end)
@@ -541,24 +555,17 @@ end)
 -- ============================
 toggleFarmBtn.MouseButton1Click:Connect(function()
     mainFarmEnabled = not mainFarmEnabled
-    
     if mainFarmEnabled then
         toggleFarmBtn.Text = "FARM: ON"
         toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
-        
         if farmStarted then
-            bossQueue = {}
-            scannedBossObjects = {}
-            isFarming = false
-            farmingThisRoom = false
+            bossQueue = {} scannedBossObjects = {} isFarming = false farmingThisRoom = false
             processQueue()
         end
     else
         toggleFarmBtn.Text = "FARM: OFF"
         toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
-        farmingThisRoom = false
-        isFarming = false
-        bossQueue = {}
+        farmingThisRoom = false isFarming = false bossQueue = {}
     end
 end)
 
@@ -566,21 +573,13 @@ end)
 -- AUTO START FARM SAU 10S
 -- ============================
 task_spawn(function()
-    label.Text = "Dang vao event... (10s)"
-    
     for i = 10, 1, -1 do
         label.Text = "Dang vao event... (" .. i .. "s)"
         task_wait(1)
     end
-    
     label.Text = "Bat dau farm!"
-    
     mainFarmEnabled = true
     farmStarted = true
-    bossQueue = {}
-    scannedBossObjects = {}
-    isFarming = false
-    farmingThisRoom = false
-    
+    bossQueue = {} scannedBossObjects = {} isFarming = false farmingThisRoom = false
     processQueue()
 end)
