@@ -1,51 +1,68 @@
---[[
-    SCRIPT BYPASS CƠ CHẾ CHẶN SERVER HOP CỦA HUB
-    Chạy đoạn này TRƯỚC khi chạy script Server Hop của bạn
---]]
+local IGNORE_FILE = "ServerHop.txt"
+local HOUR = 3600
 
--- 1. Khôi phục trực tiếp hàm Teleport ẩn thông qua GetService tĩnh
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local PlaceId = game.PlaceId
+local Module = {}
 
-print("Đang cố gắng bypass Anti-Scam của Hub...")
+local HttpService, TeleportService = game:GetService"HttpService", game:GetService"TeleportService"
 
--- 2. Thử phá vỡ các hàm hook phổ biến bằng cách gọi trực tiếp nguyên bản dữ liệu
-local function bypassAndHop()
-    -- Lấy danh sách server ít người từ API ẩn (Bypass qua HttpGet trực tiếp)
-    local success, result = pcall(function()
-        return game:HttpServiceDecode(game:HttpGet(string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100", tostring(PlaceId))))
-    end)
+local function GET()
+    if not isfile(IGNORE_FILE) then return {} end
+    local list = {}
+    local now = os.time()
+    for _, line in next, readfile(IGNORE_FILE):split("\n") do
+        local pmo, ts = line:match("([^|]+)|?(%d*)")
+        ts = tonumber(ts) or 0
+        if now - ts < HOUR then list[pmo] = ts end
+    end
+    return list
+end
+
+local function Update(List)
+    local sybau = {}
+    for ts, pmo in next, List do
+        table.insert(sybau, ts .. "|" .. pmo)
+    end
+    writefile(IGNORE_FILE, table.concat(sybau, "\n"))
+end
+
+local IgnoredServers = GET()
+
+function Module:GetServers(Sort)
+    Sort = Sort or { ping = true, fps = false, asc = false }
     
-    if success and result and result.data then
-        -- Sắp xếp tìm server ít người
-        local servers = result.data
-        table.sort(servers, function(a, b) return a.playing < b.playing end)
+    local cursor = ""
+    while true do
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet(`https://games.roblox.com/v1/games/{game.PlaceId}/servers/Public?limit=100&sortOrder={(Sort.asc and "Asc" or "Desc")}&excludeFullGames=true&cursor={cursor}`))
+        end)
         
-        for _, server in ipairs(servers) do
-            if server.id ~= game.JobId and server.playing < server.maxPlayers then
-                print("Tìm thấy server hợp lệ. Đang ép xung Teleport...")
-                
-                -- Thực hiện ép nhảy server (Sử dụng task.spawn để cô lập tiến trình tránh bị Hub bắt bài)
-                task.spawn(function()
-                    for i = 1, 5 do -- Thử lại 5 lần liên tục để phá bộ lọc đè
-                        pcall(function()
-                            TeleportService:TeleportToPlaceInstance(PlaceId, server.id, LocalPlayer)
-                        end)
-                        task.wait(0.2)
-                    end
-                end)
-                break
+        if not success or not result or not result.data then error("server error (not success or no result or no data)") end
+
+        local ServersList = result.data
+
+        table.sort(ServersList, function(a, b)
+            if Sort.ping and Sort.fps then
+                return a.ping == b.ping and a.fps > b.fps or a.ping < b.ping
+            elseif Sort.ping then
+                return a.ping < b.ping
+            elseif Sort.fps then
+                return a.fps > b.fps
+            end
+        end)
+
+        for _, Server in next, ServersList do
+            if not IgnoredServers[Server.id] then
+                IgnoredServers[Server.id] = os.time()
+                Update(IgnoredServers)
+
+                return TeleportService:TeleportToPlaceInstance(game.PlaceId, Server.id, game:GetService("Players").LocalPlayer)
             end
         end
-    else
-        -- Phương án dự phòng cưỡng ép rời phòng bằng Teleport mặc định
-        task.spawn(function()
-            pcall(function() TeleportService:Teleport(PlaceId, LocalPlayer) end)
-        end)
+
+        assert(result.nextPageCursor, "No server found.")
+
+        cursor = result.nextPageCursor
     end
 end
 
--- Chạy hàm cưỡng ép chuyển server
-bypassAndHop()
+return Module
