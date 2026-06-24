@@ -1,83 +1,82 @@
---[[
-    SCRIPT SERVER HOP (NÉ SERVER CŨ & ƯU TIÊN SERVER ÍT NGƯỜI)
---]]
+-- ============================
+-- AUTO JOIN EVENT + TÌM BOSS + GỬI DISCORD + HOP SERVER (FIX)
+-- ============================
 
+getgenv().WebhookURL = ""
+getgenv().WebhookUserID = ""
+
+local webhookURL = getgenv().WebhookURL
+local DiscordUserID = getgenv().WebhookUserID
+local playerName = game.Players.LocalPlayer.Name
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local PlaceId = game.PlaceId
-local JobId = game.JobId
-
--- File lưu các server đã từng vào để không bị trùng (chỉ hoạt động trên các executor hỗ trợ file)
-local function getVisitedServers()
-    if isfile and isfile("visited_servers.json") then
-        local content = readfile("visited_servers.json")
-        local success, data = pcall(function() return HttpService:JSONDecode(content) end)
-        if success then return data end
-    end
-    return {}
-end
-
-local function saveServer(id)
-    if writefile and isfile then
-        local visited = getVisitedServers()
-        visited[id] = os.time()
-        
-        -- Dọn dẹp bớt các server cũ quá 1 tiếng để tránh đầy bộ nhớ file
-        for k, v in pairs(visited) do
-            if os.time() - v > 3600 then visited[k] = nil end
-        end
-        
-        writefile("visited_servers.json", HttpService:JSONEncode(visited))
+-- ============================
+-- 1. JOIN EVENT
+-- ============================
+local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
+if libraryFolder then
+    local ClientFolder = libraryFolder:WaitForChild("Client", 15)
+    local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
+    local FFlags = require(ClientFolder:WaitForChild("FFlags"))
+    
+    local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
+    if joinTarget then
+        InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
     end
 end
 
-local function serverHop()
-    print("Đang tìm kiếm server ít người...")
-    local visited = getVisitedServers()
+task.wait(10)
+
+-- ============================
+-- 2. ĐẾM BOSS
+-- ============================
+local Breakables = workspace.__THINGS.Breakables
+local bosses = 0
+
+for _, breakable in ipairs(Breakables:GetChildren()) do
+    if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
+        bosses = bosses + 1
+    end
+end
+
+-- ============================
+-- 3. XỬ LÝ KẾT QUẢ
+-- ============================
+if bosses >= 3 then
+    local serverJobId = game.JobId
+    local placeId = game.PlaceId
+    local playerCount = #game.Players:GetPlayers()
     
-    -- Lấy danh sách server công khai từ API của Roblox
-    local url = string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100", tostring(PlaceId))
-    local success, result = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(url))
-    end)
+    local description = "🎉 **" .. playerName .. "** đã tìm thấy server có **" .. bosses .. "** Boss!\n"
+    description = description .. "Server JobId: `" .. serverJobId .. "`\n"
+    description = description .. "Place ID: `" .. placeId .. "`\n"
+    description = description .. "Số người chơi: " .. playerCount .. "\n"
+    description = description .. "Số boss: **" .. bosses .. "**"
     
-    if success and result and result.data then
-        -- Sắp xếp danh sách server theo số lượng người chơi tăng dần (ít người xếp trước)
-        local servers = result.data
-        table.sort(servers, function(a, b)
-            return a.playing < b.playing
+    if webhookURL ~= "" then
+        pcall(function()
+            syn.request({
+                Url = webhookURL,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode({
+                    content = DiscordUserID ~= "" and "<@" .. DiscordUserID .. ">" or "",
+                    embeds = {{
+                        title = "🔥 TIM THAY SERVER NHIEU BOSS",
+                        description = description,
+                        color = 16711680,
+                        footer = {text = "Pet Simulator 99 - Boss Scanner"},
+                        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                    }}
+                })
+            })
         end)
-        
-        -- Tìm server phù hợp
-        for _, server in ipairs(servers) do
-            if server.id ~= JobId and not visited[server.id] and server.playing < server.maxPlayers then
-                -- Lưu lại server này trước khi bay để lần sau không trùng
-                saveServer(server.id)
-                
-                print(string.format("Đã tìm thấy server! Số người hiện tại: %d/%d. Đang kết nối...", server.playing, server.maxPlayers))
-                
-                -- Thực hiện chuyển server
-                local tpSuccess, errorMsg = pcall(function()
-                    TeleportService:TeleportToPlaceInstance(PlaceId, server.id, Players.LocalPlayer)
-                end)
-                
-                if tpSuccess then 
-                    return 
-                else
-                    warn("Lỗi kết nối server này, đang thử server khác:", errorMsg)
-                end
-            end
-        end
     end
-    
-    -- Nếu không tìm được qua API (hoặc API lỗi), dùng hệ thống mặc định của Roblox làm phương án dự phòng
-    print("Không tìm được qua API, đang dùng hệ thống Teleport dự phòng...")
+else
+    -- Hop server đơn giản nhất
     pcall(function()
-        TeleportService:Teleport(PlaceId, Players.LocalPlayer)
+        TeleportService:Teleport(game.PlaceId)
     end)
 end
-
--- Kích hoạt nhảy server
-serverHop()
