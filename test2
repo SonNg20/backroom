@@ -1,10 +1,10 @@
 -- ============================
--- HOP QUA LẠI 2 PRIVATE SERVER - TÌM BOSS (CÓ UI)
+-- HOP QUA LẠI 2 PRIVATE SERVER - TÌM BOSS (FIX)
 -- ============================
 
 getgenv().PrivateServerCode1 = "92884917368738392535007079413789"
 getgenv().PrivateServerCode2 = "85951203710875663196976345559936"
-getgenv().TotalBoss = 2
+getgenv().TotalBoss = 3
 
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -21,11 +21,12 @@ end
 -- GUI
 -- ============================
 if game.CoreGui:FindFirstChild("HopUI") then game.CoreGui.HopUI:Destroy() end
-local sg = Instance.new("ScreenGui", game.CoreGui)
+local sg = Instance.new("ScreenGui")
 sg.Name = "HopUI"
+sg.Parent = game.CoreGui
 
-local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 250, 0, 60)
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(0, 250, 0, 80)
 label.Position = UDim2.new(0, 10, 0, 10)
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
@@ -34,12 +35,15 @@ label.Font = Enum.Font.Code
 label.TextSize = 14
 label.TextWrapped = true
 label.Text = "Dang vao server..."
+label.Parent = sg
 
 -- ============================
 -- HÀM
 -- ============================
 local function updateUI(text)
-    label.Text = text
+    pcall(function()
+        label.Text = text
+    end)
 end
 
 local function getJobIdFromCode(code)
@@ -81,28 +85,43 @@ local function joinEvent()
     end
 end
 
-local function checkAndHop()
-    updateUI("Dang vao server " .. getgenv().CurrentServer .. "...")
-    task.wait(18)
-    
-    updateUI("Dang vao event...")
-    joinEvent()
-    task.wait(7)
-    
-    updateUI("Dang quet boss...")
-    local Breakables = workspace.__THINGS.Breakables
-    local bosses = 0
-    
-    for _, breakable in ipairs(Breakables:GetChildren()) do
-        if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
-            bosses = bosses + 1
+local function countBosses()
+    local Breakables = workspace:FindFirstChild("__THINGS")
+    if Breakables then
+        Breakables = Breakables:FindFirstChild("Breakables")
+        if Breakables then
+            local bosses = 0
+            for _, breakable in ipairs(Breakables:GetChildren()) do
+                if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
+                    bosses = bosses + 1
+                end
+            end
+            return bosses
         end
     end
+    return 0
+end
+
+local function checkAndHop()
+    updateUI("Server " .. getgenv().CurrentServer .. " - Dang doi 18s...")
+    task.wait(18)
+    
+    updateUI("Server " .. getgenv().CurrentServer .. " - Dang vao event...")
+    joinEvent()
+    
+    -- Quét boss liên tục trong lúc chờ
+    for i = 7, 1, -1 do
+        local bosses = countBosses()
+        updateUI("Server " .. getgenv().CurrentServer .. " - Event: " .. i .. "s\nBoss: " .. bosses)
+        task.wait(1)
+    end
+    
+    local bosses = countBosses()
     
     if bosses >= getgenv().TotalBoss then
-        updateUI("🔥 TIM THAY " .. bosses .. " BOSS!\nO lai server " .. getgenv().CurrentServer)
+        updateUI("🔥 TIM THAY " .. bosses .. " BOSS!\nServer " .. getgenv().CurrentServer .. " - O LAI")
     else
-        updateUI("❌ Chi co " .. bosses .. "/" .. getgenv().TotalBoss .. " boss\nDang chuyen server...")
+        updateUI("❌ " .. bosses .. "/" .. getgenv().TotalBoss .. " boss\nDang chuyen server...")
         task.wait(2)
         
         if getgenv().CurrentServer == 1 then
