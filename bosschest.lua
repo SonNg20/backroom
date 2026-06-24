@@ -10,7 +10,7 @@ getgenv().DiscordUserID = "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false
 getgenv().NOTIFY_HUGE_TITANIC = true
 getgenv().UNLOCK_TIMEOUT = 5
-getgenv().TweenSpeed = 11
+getgenv().TweenSpeed = 8
 
 if not getgenv().UnlockedRoomsCache then getgenv().UnlockedRoomsCache = {} end
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -248,7 +248,7 @@ task_spawn(function()
 end)
 
 -- ============================
--- ENTER DEEP BACKROOMS (1 LẦN)
+-- ENTER DEEP BACKROOMS (1 LẦN - TWEEN)
 -- ============================
 task.wait(10)
 
@@ -402,9 +402,13 @@ local function farmBoss(bossData)
     
     isFarming = true
     
+    -- TELE đến boss
     for i = 1, 3 do
         if not mainFarmEnabled then isFarming = false return end
-        tweenToPosition(bossData.pos)
+        local hrp = getHRP()
+        if hrp then
+            hrp.CFrame = CFrame_new(bossData.pos.X, bossData.pos.Y + 2.5, bossData.pos.Z)
+        end
         task_wait(0.3)
     end
     if not mainFarmEnabled then isFarming = false return end
@@ -443,7 +447,11 @@ local function farmBoss(bossData)
         sendToDiscord("Dang farm", string_format("(%.0f, %.0f, %.0f)\nQueue: %d", bossData.pos.X, bossData.pos.Y, bossData.pos.Z, #bossQueue), 65280, false)
     end
     
-    tweenToPosition(bossData.pos)
+    -- TELE vào vị trí farm
+    local hrp = getHRP()
+    if hrp then
+        hrp.CFrame = CFrame_new(bossData.pos.X, bossData.pos.Y + 2.5, bossData.pos.Z)
+    end
     
     local bz = actualRoom:FindFirstChild("BREAK_ZONE", true)
     local corners = getCorners(actualRoom, bz)
