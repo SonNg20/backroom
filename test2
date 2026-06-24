@@ -1,5 +1,5 @@
 -- ============================
--- HOP QUA LẠI 2 PRIVATE SERVER - TÌM BOSS (ĐỢI 18S + 7S)
+-- HOP QUA LẠI 2 PRIVATE SERVER - TÌM BOSS (CÓ UI)
 -- ============================
 
 getgenv().PrivateServerCode1 = "92884917368738392535007079413789"
@@ -15,6 +15,31 @@ local PLACE_ID = 8737899170
 
 if not getgenv().CurrentServer then
     getgenv().CurrentServer = 1
+end
+
+-- ============================
+-- GUI
+-- ============================
+if game.CoreGui:FindFirstChild("HopUI") then game.CoreGui.HopUI:Destroy() end
+local sg = Instance.new("ScreenGui", game.CoreGui)
+sg.Name = "HopUI"
+
+local label = Instance.new("TextLabel", sg)
+label.Size = UDim2.new(0, 250, 0, 60)
+label.Position = UDim2.new(0, 10, 0, 10)
+label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+label.BackgroundTransparency = 0.3
+label.TextColor3 = Color3.fromRGB(0, 255, 100)
+label.Font = Enum.Font.Code
+label.TextSize = 14
+label.TextWrapped = true
+label.Text = "Dang vao server..."
+
+-- ============================
+-- HÀM
+-- ============================
+local function updateUI(text)
+    label.Text = text
 end
 
 local function getJobIdFromCode(code)
@@ -57,10 +82,14 @@ local function joinEvent()
 end
 
 local function checkAndHop()
+    updateUI("Dang vao server " .. getgenv().CurrentServer .. "...")
     task.wait(18)
+    
+    updateUI("Dang vao event...")
     joinEvent()
     task.wait(7)
     
+    updateUI("Dang quet boss...")
     local Breakables = workspace.__THINGS.Breakables
     local bosses = 0
     
@@ -71,8 +100,11 @@ local function checkAndHop()
     end
     
     if bosses >= getgenv().TotalBoss then
-        print("Tim thay " .. bosses .. " boss! O lai server " .. getgenv().CurrentServer)
+        updateUI("🔥 TIM THAY " .. bosses .. " BOSS!\nO lai server " .. getgenv().CurrentServer)
     else
+        updateUI("❌ Chi co " .. bosses .. "/" .. getgenv().TotalBoss .. " boss\nDang chuyen server...")
+        task.wait(2)
+        
         if getgenv().CurrentServer == 1 then
             getgenv().CurrentServer = 2
             hopToPrivateServer(getgenv().PrivateServerCode2)
