@@ -4,7 +4,7 @@
 
 getgenv().PrivateServerCode1 = "92884917368738392535007079413789"
 getgenv().PrivateServerCode2 = "85951203710875663196976345559936"
-getgenv().TotalBoss = 3
+getgenv().TotalBoss = 2
 
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
