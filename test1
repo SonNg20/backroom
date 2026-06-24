@@ -1,5 +1,5 @@
 -- ============================
--- SCRIPT FARM PET SIMULATOR 99 - HOÀN CHỈNH
+-- SCRIPT FARM PET SIMULATOR 99 - HOÀN CHỈNH (FINAL)
 -- ============================
 
 -- ============================
@@ -348,17 +348,26 @@ local function detectSpawnedRoom(bossPos)
 end
 
 -- ============================
+-- CHECK OBJECT BẰNG ATTRIBUTE
+-- ============================
+local function isBoss(obj)
+    return obj:IsA("Model") and obj:GetAttribute("BreakableID") == "Daydream Mimic Boss2"
+end
+
+local function isMiniChest(obj)
+    return obj:IsA("Model") and obj:GetAttribute("BreakableID") == "Daydream Mimic Chest2"
+end
+
+-- ============================
 -- SCAN BOSS
 -- ============================
 local function scanBosses()
     for _, breakable in ipairs(breakablesContainer:GetChildren()) do
-        if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
-            if not scannedBossObjects[breakable] then
-                scannedBossObjects[breakable] = true
-                local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
-                if part then
-                    table_insert(bossQueue, {bossModel = breakable, pos = part.Position, room = nil})
-                end
+        if isBoss(breakable) and not scannedBossObjects[breakable] then
+            scannedBossObjects[breakable] = true
+            local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
+            if part then
+                table_insert(bossQueue, {bossModel = breakable, pos = part.Position, room = nil})
             end
         end
     end
@@ -474,10 +483,23 @@ local function farmBoss(bossData)
         return bestIdx, bestDist
     end
     
+    -- QUÉT MINI CHEST CÓ SẴN
+    for _, inst in ipairs(breakablesContainer:GetChildren()) do
+        if isMiniChest(inst) then
+            local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
+            if part then
+                local idx2, dist = nearestSpotIndex(part.Position)
+                if idx2 and dist <= 15 then
+                    table_insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
+                end
+            end
+        end
+    end
+    
     -- Lắng nghe mini chest SPAWN
     local listenerConn = breakablesContainer.ChildAdded:Connect(function(inst)
         task_defer(function()
-            if not inst:GetAttribute("BreakableUID") then return end
+            if not isMiniChest(inst) then return end
             local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
             if not part then return end
             local idx2, dist = nearestSpotIndex(part.Position)
@@ -491,6 +513,7 @@ local function farmBoss(bossData)
     -- Lắng nghe mini chest BỊ XÓA
     local removedListener = breakablesContainer.ChildRemoved:Connect(function(inst)
         task_defer(function()
+            if not isMiniChest(inst) then return end
             if currentChest and currentChest.inst == inst then
                 currentChest = nil
                 processing = false
