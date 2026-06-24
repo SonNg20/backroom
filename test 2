@@ -1,83 +1,51 @@
 --[[
-    SCRIPT SERVER HOP (NÉ SERVER CŨ & ƯU TIÊN SERVER ÍT NGƯỜI)
+    SCRIPT BYPASS CƠ CHẾ CHẶN SERVER HOP CỦA HUB
+    Chạy đoạn này TRƯỚC khi chạy script Server Hop của bạn
 --]]
 
-local HttpService = game:GetService("HttpService")
+-- 1. Khôi phục trực tiếp hàm Teleport ẩn thông qua GetService tĩnh
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
-
+local LocalPlayer = Players.LocalPlayer
 local PlaceId = game.PlaceId
-local JobId = game.JobId
 
--- File lưu các server đã từng vào để không bị trùng (chỉ hoạt động trên các executor hỗ trợ file)
-local function getVisitedServers()
-    if isfile and isfile("visited_servers.json") then
-        local content = readfile("visited_servers.json")
-        local success, data = pcall(function() return HttpService:JSONDecode(content) end)
-        if success then return data end
-    end
-    return {}
-end
+print("Đang cố gắng bypass Anti-Scam của Hub...")
 
-local function saveServer(id)
-    if writefile and isfile then
-        local visited = getVisitedServers()
-        visited[id] = os.time()
-        
-        -- Dọn dẹp bớt các server cũ quá 1 tiếng để tránh đầy bộ nhớ file
-        for k, v in pairs(visited) do
-            if os.time() - v > 3600 then visited[k] = nil end
-        end
-        
-        writefile("visited_servers.json", HttpService:JSONEncode(visited))
-    end
-end
-
-local function serverHop()
-    print("Đang tìm kiếm server ít người...")
-    local visited = getVisitedServers()
-    
-    -- Lấy danh sách server công khai từ API của Roblox
-    local url = string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100", tostring(PlaceId))
+-- 2. Thử phá vỡ các hàm hook phổ biến bằng cách gọi trực tiếp nguyên bản dữ liệu
+local function bypassAndHop()
+    -- Lấy danh sách server ít người từ API ẩn (Bypass qua HttpGet trực tiếp)
     local success, result = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(url))
+        return game:HttpServiceDecode(game:HttpGet(string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100", tostring(PlaceId))))
     end)
     
     if success and result and result.data then
-        -- Sắp xếp danh sách server theo số lượng người chơi tăng dần (ít người xếp trước)
+        -- Sắp xếp tìm server ít người
         local servers = result.data
-        table.sort(servers, function(a, b)
-            return a.playing < b.playing
-        end)
+        table.sort(servers, function(a, b) return a.playing < b.playing end)
         
-        -- Tìm server phù hợp
         for _, server in ipairs(servers) do
-            if server.id ~= JobId and not visited[server.id] and server.playing < server.maxPlayers then
-                -- Lưu lại server này trước khi bay để lần sau không trùng
-                saveServer(server.id)
+            if server.id ~= game.JobId and server.playing < server.maxPlayers then
+                print("Tìm thấy server hợp lệ. Đang ép xung Teleport...")
                 
-                print(string.format("Đã tìm thấy server! Số người hiện tại: %d/%d. Đang kết nối...", server.playing, server.maxPlayers))
-                
-                -- Thực hiện chuyển server
-                local tpSuccess, errorMsg = pcall(function()
-                    TeleportService:TeleportToPlaceInstance(PlaceId, server.id, Players.LocalPlayer)
+                -- Thực hiện ép nhảy server (Sử dụng task.spawn để cô lập tiến trình tránh bị Hub bắt bài)
+                task.spawn(function()
+                    for i = 1, 5 do -- Thử lại 5 lần liên tục để phá bộ lọc đè
+                        pcall(function()
+                            TeleportService:TeleportToPlaceInstance(PlaceId, server.id, LocalPlayer)
+                        end)
+                        task.wait(0.2)
+                    end
                 end)
-                
-                if tpSuccess then 
-                    return 
-                else
-                    warn("Lỗi kết nối server này, đang thử server khác:", errorMsg)
-                end
+                break
             end
         end
+    else
+        -- Phương án dự phòng cưỡng ép rời phòng bằng Teleport mặc định
+        task.spawn(function()
+            pcall(function() TeleportService:Teleport(PlaceId, LocalPlayer) end)
+        end)
     end
-    
-    -- Nếu không tìm được qua API (hoặc API lỗi), dùng hệ thống mặc định của Roblox làm phương án dự phòng
-    print("Không tìm được qua API, đang dùng hệ thống Teleport dự phòng...")
-    pcall(function()
-        TeleportService:Teleport(PlaceId, Players.LocalPlayer)
-    end)
 end
 
--- Kích hoạt nhảy server
-serverHop()
+-- Chạy hàm cưỡng ép chuyển server
+bypassAndHop()
