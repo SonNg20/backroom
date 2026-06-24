@@ -71,15 +71,7 @@ local function getTweenSpeed()
 end
 
 local function getTweenInfo()
-    return TweenInfo.new(20 / getTweenSpeed(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-end
-
-local function getSlowTweenInfo()
-    return TweenInfo.new(40 / getTweenSpeed(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-end
-
-local function getFastTweenInfo()
-    return TweenInfo.new(10 / getTweenSpeed(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    return TweenInfo.new(60 / getTweenSpeed(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 end
 
 local currentTween = nil
@@ -89,36 +81,11 @@ local function getHRP()
     return char:WaitForChild("HumanoidRootPart", 10)
 end
 
--- Tween thường (đến boss)
 local function tweenToPosition(pos)
     local hrp = getHRP()
     if not hrp or not pos then return end
     if currentTween then currentTween:Cancel() currentTween = nil end
     local tween = TweenService:Create(hrp, getTweenInfo(), {CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)})
-    currentTween = tween
-    tween:Play()
-    tween.Completed:Wait()
-    currentTween = nil
-end
-
--- Tween chậm (chuyển room)
-local function tweenToPositionSlow(pos)
-    local hrp = getHRP()
-    if not hrp or not pos then return end
-    if currentTween then currentTween:Cancel() currentTween = nil end
-    local tween = TweenService:Create(hrp, getSlowTweenInfo(), {CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)})
-    currentTween = tween
-    tween:Play()
-    tween.Completed:Wait()
-    currentTween = nil
-end
-
--- Tween nhanh (mini chest)
-local function tweenToPositionFast(pos)
-    local hrp = getHRP()
-    if not hrp or not pos then return end
-    if currentTween then currentTween:Cancel() currentTween = nil end
-    local tween = TweenService:Create(hrp, getFastTweenInfo(), {CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)})
     currentTween = tween
     tween:Play()
     tween.Completed:Wait()
@@ -266,7 +233,7 @@ task_spawn(function()
 end)
 
 -- ============================
--- ENTER DEEP BACKROOMS (CHỈ 1 LẦN, KHÔNG BAY XÉO)
+-- ENTER DEEP BACKROOMS (1 LẦN)
 -- ============================
 task.wait(10)
 
@@ -280,9 +247,8 @@ if spawnRoomFolder then
         local interactPart = deepDoor.Interact
         local doorPos = interactPart.Position
         
-        -- Chỉ 1 lần, tween thẳng đến cửa
         tweenToPosition(Vector3_new(doorPos.X, doorPos.Y, doorPos.Z))
-        task_wait(1)
+        task.wait(1)
         
         local roomUID = spawnRoomFolder:GetAttribute("RoomUID")
         if roomUID then
@@ -359,24 +325,18 @@ local function detectSpawnedRoom(bossPos)
     return nil
 end
 
-local function isBoss(obj)
-    return obj:IsA("Model") and obj:GetAttribute("BreakableID") == "Daydream Mimic Boss2"
-end
-
-local function isMiniChest(obj)
-    return obj:IsA("Model") and obj:GetAttribute("BreakableID") == "Daydream Mimic Chest2"
-end
-
 -- ============================
 -- SCAN BOSS
 -- ============================
 local function scanBosses()
     for _, breakable in ipairs(breakablesContainer:GetChildren()) do
-        if isBoss(breakable) and not scannedBossObjects[breakable] then
-            scannedBossObjects[breakable] = true
-            local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
-            if part then
-                table_insert(bossQueue, {bossModel = breakable, pos = part.Position, room = nil})
+        if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
+            if not scannedBossObjects[breakable] then
+                scannedBossObjects[breakable] = true
+                local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
+                if part then
+                    table_insert(bossQueue, {bossModel = breakable, pos = part.Position, room = nil})
+                end
             end
         end
     end
@@ -427,10 +387,9 @@ local function farmBoss(bossData)
     
     isFarming = true
     
-    -- TWEEN CHẬM đến boss (chuyển room)
     for i = 1, 3 do
         if not mainFarmEnabled then isFarming = false return end
-        tweenToPositionSlow(bossData.pos)
+        tweenToPosition(bossData.pos)
         task_wait(0.3)
     end
     if not mainFarmEnabled then isFarming = false return end
@@ -477,9 +436,7 @@ local function farmBoss(bossData)
     local miniSpots = {corners[2], corners[3], corners[4], corners[5]}
     
     local pendingChests = {}
-    local currentChest = nil
     local processing = false
-    local miniChestTimer = tick()
     
     local function nearestSpotIndex(pos)
         local bestIdx, bestDist = nil, math_huge
@@ -493,95 +450,50 @@ local function farmBoss(bossData)
         return bestIdx, bestDist
     end
     
-    -- QUÉT MINI CHEST CÓ SẴN
-    for _, inst in ipairs(breakablesContainer:GetChildren()) do
-        if isMiniChest(inst) then
-            local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
-            if part then
-                local idx2, dist = nearestSpotIndex(part.Position)
-                if idx2 and dist <= 15 then
-                    table_insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
-                end
-            end
-        end
-    end
-    
-    -- Lắng nghe mini chest SPAWN
     local listenerConn = breakablesContainer.ChildAdded:Connect(function(inst)
         task_defer(function()
-            if not isMiniChest(inst) then return end
+            if not inst:GetAttribute("BreakableUID") then return end
             local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
             if not part then return end
             local idx2, dist = nearestSpotIndex(part.Position)
             if idx2 and dist <= 15 then
                 table_insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
-                miniChestTimer = tick()
-            end
-        end)
-    end)
-    
-    -- Lắng nghe mini chest BỊ XÓA
-    local removedListener = breakablesContainer.ChildRemoved:Connect(function(inst)
-        task_defer(function()
-            if currentChest and currentChest.inst == inst then
-                currentChest = nil
-                processing = false
-                miniChestTimer = tick()
-            end
-            for i = #pendingChests, 1, -1 do
-                if pendingChests[i].inst == inst then
-                    table_remove(pendingChests, i)
-                end
             end
         end)
     end)
     
     farmingThisRoom = true
     
-    -- Xử lý mini chest (KHÔNG TIMEOUT)
     task_spawn(function()
         while farmingThisRoom and mainFarmEnabled do
-            if not processing then
-                if currentChest and currentChest.inst and currentChest.inst.Parent then
+            if #pendingChests > 0 and not processing then
+                processing = true
+                local chestEntry = table_remove(pendingChests, 1)
+                tweenToPosition(chestEntry.pos)
+                
+                while mainFarmEnabled do
+                    if not chestEntry.inst or not chestEntry.inst.Parent then break end
+                    if isChestOnCooldown(actualRoom) then break end
                     task_wait(0.2)
-                elseif #pendingChests > 0 then
-                    processing = true
-                    currentChest = table_remove(pendingChests, 1)
-                    tweenToPositionFast(currentChest.pos)
-                    miniChestTimer = tick()
-                    
-                    while mainFarmEnabled do
-                        if not currentChest.inst or not currentChest.inst.Parent then
-                            currentChest = nil
-                            break
-                        end
-                        if isChestOnCooldown(actualRoom) then break end
-                        task_wait(0.2)
-                    end
-                    
-                    processing = false
-                    miniChestTimer = tick()
-                else
-                    task_wait(0.1)
                 end
+                
+                processing = false
             else
                 task_wait(0.1)
             end
         end
     end)
     
-    -- Đợi boss bị phá
     while mainFarmEnabled do
         if isChestOnCooldown(actualRoom) then break end
-        if #pendingChests == 0 and not currentChest and not processing and tick() - miniChestTimer > 3 then
-            tweenToPositionFast(center)
+        if #pendingChests == 0 and not processing then
+            tweenToPosition(center)
         end
         task_wait(0.5)
     end
     
     farmingThisRoom = false
     listenerConn:Disconnect()
-    removedListener:Disconnect()
     isFarming = false
     scannedBossObjects[bossData.bossModel] = nil
     
