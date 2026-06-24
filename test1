@@ -1,244 +1,99 @@
 -- ============================
--- AUTO JOIN EVENT + VÀO DEEP BACKROOMS + QUÉT BOSS + HIỂN THỊ UI + HOP SERVER CỰC MẠNH
--- ============================
-
-getgenv().TotalBoss = 3
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
-local player = Players.LocalPlayer
-local PLACE_ID = 8737899170
-
--- ============================
--- LƯU SERVER ĐÃ GHÉ
--- ============================
-if not getgenv().VisitedServers then
-    getgenv().VisitedServers = {}
-end
-getgenv().VisitedServers[game.JobId] = true
-
--- ============================
--- GUI
--- ============================
-if game.CoreGui:FindFirstChild("BossScanner") then game.CoreGui.BossScanner:Destroy() end
-local sg = Instance.new("ScreenGui", game.CoreGui)
-sg.Name = "BossScanner"
-
-local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 300, 0, 120)
-label.Position = UDim2.new(0, 10, 0, 10)
-label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-label.BackgroundTransparency = 0.3
-label.TextColor3 = Color3.fromRGB(0, 255, 100)
-label.Font = Enum.Font.Code
-label.TextSize = 12
-label.TextWrapped = true
-label.Text = "Dang vao event..."
-
--- ============================
--- HELPER
--- ============================
-local function getHRP()
-    local char = player.Character or player.CharacterAdded:Wait()
-    return char:WaitForChild("HumanoidRootPart", 10)
-end
-
-local function safeTeleport(pos)
-    local hrp = getHRP()
-    if hrp and pos then
-        hrp.CFrame = CFrame.new(pos.X, pos.Y + 2.5, pos.Z)
-    end
-end
-
--- ============================
--- HÀM TÌM SERVER MỚI
+-- HÀM TÌM SERVER MỚI (CỰC MẠNH + ANTI TRÙNG)
 -- ============================
 local function findNewServer()
     local allServers = {}
+    local cursor = ""
     
-    for page = 1, 5 do
-        local sortOrder = page % 2 == 0 and "Asc" or "Desc"
-        local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?limit=100&sortOrder=" .. sortOrder
-        
+    -- Quét qua nhiều trang bằng cursor để lấy danh sách server thực tế nhất
+    -- Chạy vòng lặp 3-4 lần để tăng độ phủ dữ liệu
+    for i = 1, 4 do
+        local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?limit=100&cursor=" .. cursor
         local success, result = pcall(function()
             return game:HttpGet(url)
         end)
         
         if success and result then
             local data = HttpService:JSONDecode(result)
-            if data.data then
+            if data and data.data then
                 for _, server in ipairs(data.data) do
-                    table.insert(allServers, server)
+                    -- Chỉ lấy các server có người chơi và chưa đầy
+                    if server.playing and server.maxPlayers and server.playing < server.maxPlayers then
+                        table.insert(allServers, server)
+                    end
                 end
+                cursor = data.nextPageCursor or ""
+                if cursor == "" then break end
+            else
+                break
             end
+        else
+            break
         end
+        task.wait(0.1) -- Delay nhỏ để tránh bị rate-limit HTTP
     end
     
-    -- Trộn ngẫu nhiên
+    -- Trộn ngẫu nhiên danh sách server thu thập được (Fisher-Yates Shuffle)
     for i = #allServers, 2, -1 do
         local j = math.random(1, i)
         allServers[i], allServers[j] = allServers[j], allServers[i]
     end
     
-    -- Tìm server chưa ghé, 1-5 người
+    -- Ưu tiên 1: Tìm server chưa ghé, có từ 1 đến 5 người (Lý tưởng để quét boss)
     for _, server in ipairs(allServers) do
-        local jobId = server.id
-        local playing = server.playing
-        local maxPlayers = server.maxPlayers
-        
-        if not getgenv().VisitedServers[jobId] and playing >= 1 and playing <= 5 and playing < maxPlayers then
-            return server
+        if server.id and not getgenv().VisitedServers[server.id] then
+            if server.playing >= 1 and server.playing <= 5 then
+                return server.id
+            end
         end
     end
     
-    getgenv().VisitedServers = {}
+    -- Ưu tiên 2: Nếu hết server lý tưởng, lấy đại server bất kỳ chưa ghé
     for _, server in ipairs(allServers) do
-        local playing = server.playing
-        if playing >= 1 and playing <= 5 then
-            return server
+        if server.id and not getgenv().VisitedServers[server.id] then
+            return server.id
         end
+    end
+    
+    -- Ưu tiên 3: Nếu đã đi hết sạch các server, reset lại danh sách bộ nhớ và chọn bừa 1 cái
+    getgenv().VisitedServers = {}
+    if #allServers > 0 then
+        return allServers[math.random(1, #allServers)].id
     end
     
     return nil
 end
 
 -- ============================
--- HOP SERVER CỰC MẠNH (NHIỀU CÁCH)
+-- HOP SERVER CỰC MẠNH (DÙNG TELEPORT ASYNC)
 -- ============================
 local function hopServer()
-    local bestServer = findNewServer()
+    local targetServerId = findNewServer()
     
-    if bestServer then
-        getgenv().VisitedServers[bestServer.id] = true
+    if targetServerId then
+        getgenv().VisitedServers[targetServerId] = true
         
-        -- Cách 1: TeleportToPlaceInstance
-        local success, err = pcall(function()
-            TeleportService:TeleportToPlaceInstance(PLACE_ID, bestServer.id, player)
-        end)
+        -- Khởi tạo tùy chọn Teleport nâng cao
+        local teleportOptions = Instance.new("TeleportOptions")
+        teleportOptions.ServerInstanceId = targetServerId
         
-        if not success then
-            -- Cách 2: Thử lại sau 2s
-            task.wait(2)
-            success, err = pcall(function()
-                TeleportService:TeleportToPlaceInstance(PLACE_ID, bestServer.id, player)
+        -- Thử thách teleport liên tục bằng vòng lặp nếu thất bại (Max 3 lần)
+        for attempt = 1, 3 do
+            local success, err = pcall(function()
+                TeleportService:TeleportAsync(PLACE_ID, {player}, teleportOptions)
             end)
-        end
-        
-        if not success then
-            -- Cách 3: Teleport thường
-            task.wait(2)
-            pcall(function()
-                TeleportService:Teleport(PLACE_ID)
-            end)
-        end
-        
-        if not success then
-            -- Cách 4: Dùng Http request để lấy link join
-            task.wait(2)
-            pcall(function()
-                local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?limit=1"
-                local res = game:HttpGet(url)
-                local data = HttpService:JSONDecode(res)
-                if data.data and #data.data > 0 then
-                    TeleportService:TeleportToPlaceInstance(PLACE_ID, data.data[1].id, player)
-                end
-            end)
+            
+            if success then 
+                break 
+            else
+                warn("Hop server that bai, thu lai sau 2s... Loi: " .. tostring(err))
+                task.wait(2)
+            end
         end
     else
-        -- Cách cuối: Teleport thường
+        -- Cách cứu cánh cuối cùng: Teleport đại vào game (Roblox tự xếp server)
         pcall(function()
-            TeleportService:Teleport(PLACE_ID)
+            TeleportService:Teleport(PLACE_ID, player)
         end)
     end
 end
-
--- ============================
--- AUTO JOIN EVENT
--- ============================
-local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
-if not libraryFolder then return end
-
-local ClientFolder = libraryFolder:WaitForChild("Client", 15)
-local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
-local FFlags = require(ClientFolder:WaitForChild("FFlags"))
-
-local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
-if joinTarget then
-    InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
-end
-
-task.wait(10)
-
--- ============================
--- VÀO DEEP BACKROOMS
--- ============================
-local thingsContainer = workspace:WaitForChild("__THINGS")
-local generatedBackrooms = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active"):WaitForChild("Backrooms"):WaitForChild("GeneratedBackrooms")
-
-local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
-if spawnRoomFolder then
-    local deepDoor = spawnRoomFolder:FindFirstChild("DeepDoor")
-    if deepDoor and deepDoor:FindFirstChild("Interact") then
-        local interactPart = deepDoor.Interact
-        
-        for i = 1, 5 do
-            safeTeleport(interactPart.Position)
-            task.wait(0.3)
-        end
-        
-        task.wait(2)
-        
-        local roomUID = spawnRoomFolder:GetAttribute("RoomUID")
-        if roomUID then
-            pcall(function()
-                ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer(
-                    "Backrooms", "AbstractRoom_FireServer", roomUID, "EnterDeepBackrooms"
-                )
-            end)
-        else
-            safeTeleport(interactPart.Position)
-        end
-    end
-end
-
--- ============================
--- QUÉT BOSS + HOP SERVER
--- ============================
-task.wait(2)
-
-local noBossCount = 0
-
-task.spawn(function()
-    while task.wait(1) do
-        local Breakables = workspace.__THINGS.Breakables
-        local bosses = 0
-        
-        for _, breakable in ipairs(Breakables:GetChildren()) do
-            if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
-                bosses = bosses + 1
-            end
-        end
-        
-        local str = "Đang tìm boss...\n"
-        str = str .. "Boss: " .. bosses .. "/" .. getgenv().TotalBoss
-        
-        if bosses < getgenv().TotalBoss then
-            noBossCount = noBossCount + 1
-            str = str .. "\nThiếu boss: " .. noBossCount .. "s"
-            
-            if noBossCount >= 10 then
-                str = str .. "\nDang hop server..."
-                label.Text = str
-                hopServer()
-                return
-            end
-        else
-            noBossCount = 0
-            str = str .. " 🔥"
-        end
-        
-        label.Text = str
-    end
-end)
