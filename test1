@@ -1,5 +1,5 @@
 -- ============================
--- SCRIPT FARM PET SIMULATOR 99 - HOÀN CHỈNH (FINAL)
+-- SCRIPT FARM PET SIMULATOR 99 - HOÀN CHỈNH
 -- ============================
 
 -- ============================
@@ -32,7 +32,6 @@ local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local vim = game:GetService("VirtualInputManager")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -49,7 +48,7 @@ local noclipConnection = nil
 local function enableNoclip()
     if noclipEnabled then return end
     noclipEnabled = true
-    noclipConnection = RunService.Stepped:Connect(function()
+    noclipConnection = game:GetService("RunService").Stepped:Connect(function()
         pcall(function()
             local char = player.Character
             if char then
@@ -65,7 +64,7 @@ enableNoclip()
 player.CharacterAdded:Connect(function() task.wait(0.5) enableNoclip() end)
 
 -- ============================
--- TWEEN (TỐC ĐỘ 8)
+-- TWEEN (TỐC ĐỘ MẶC ĐỊNH 8)
 -- ============================
 local function getTweenSpeed()
     return getgenv().TweenSpeed or 8
@@ -73,6 +72,10 @@ end
 
 local function getTweenInfo()
     return TweenInfo.new(20 / getTweenSpeed(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+end
+
+local function getSlowTweenInfo()
+    return TweenInfo.new(40 / getTweenSpeed(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 end
 
 local function getFastTweenInfo()
@@ -86,6 +89,7 @@ local function getHRP()
     return char:WaitForChild("HumanoidRootPart", 10)
 end
 
+-- Tween thường (đến boss)
 local function tweenToPosition(pos)
     local hrp = getHRP()
     if not hrp or not pos then return end
@@ -97,6 +101,19 @@ local function tweenToPosition(pos)
     currentTween = nil
 end
 
+-- Tween chậm (chuyển room)
+local function tweenToPositionSlow(pos)
+    local hrp = getHRP()
+    if not hrp or not pos then return end
+    if currentTween then currentTween:Cancel() currentTween = nil end
+    local tween = TweenService:Create(hrp, getSlowTweenInfo(), {CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)})
+    currentTween = tween
+    tween:Play()
+    tween.Completed:Wait()
+    currentTween = nil
+end
+
+-- Tween nhanh (mini chest)
 local function tweenToPositionFast(pos)
     local hrp = getHRP()
     if not hrp or not pos then return end
@@ -162,17 +179,13 @@ local function checkInventoryForHugeTitanic()
     if not SaveModule then return end
     local ok, data = pcall(function() return SaveModule.Get() end)
     if not ok or not data then return end
-    
     local petData = data.Inventory and data.Inventory.Pet or data.Pets
     if not petData then return end
-    
     local current = {}
     for _, pet in pairs(petData) do
         if pet.id then current[pet.id] = (current[pet.id] or 0) + (pet._am or 1) end
     end
-    
     if firstCheck then previousPetCounts = current firstCheck = false return end
-    
     for name, count in pairs(current) do
         local prev = previousPetCounts[name] or 0
         if count > prev and (name:find("Huge") or name:find("Titanic")) then
@@ -195,8 +208,8 @@ local sg = Instance.new("ScreenGui", game.CoreGui)
 sg.Name = "ScanGUI"
 
 local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 300, 0, 200)
-label.Position = UDim2.new(0, 10, 0, 140)
+label.Size = UDim2.new(0, 300, 0, 180)
+label.Position = UDim2.new(0, 10, 0, 150)
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
 label.TextColor3 = Color3.fromRGB(0, 255, 100)
@@ -219,7 +232,7 @@ toggleFarmBtn.Text = "FARM: ON"
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", sg)
 toggleClickBtn.Size = UDim2.new(0, 300, 0, 30)
-toggleClickBtn.Position = UDim2.new(0, 10, 0, 345)
+toggleClickBtn.Position = UDim2.new(0, 10, 0, 335)
 toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleClickBtn.TextColor3 = Color3.new(1,1,1)
 toggleClickBtn.Font = Enum.Font.GothamBold
@@ -253,7 +266,7 @@ task_spawn(function()
 end)
 
 -- ============================
--- ENTER DEEP BACKROOMS (FIX - 1 LẦN, KHÔNG BAY XÉO)
+-- ENTER DEEP BACKROOMS (CHỈ 1 LẦN, KHÔNG BAY XÉO)
 -- ============================
 task.wait(10)
 
@@ -265,9 +278,9 @@ if spawnRoomFolder then
     local deepDoor = spawnRoomFolder:WaitForChild("DeepDoor", 15)
     if deepDoor and deepDoor:FindFirstChild("Interact") then
         local interactPart = deepDoor.Interact
-        
-        -- Chỉ 1 lần, tween thẳng đến cửa (không bay xéo)
         local doorPos = interactPart.Position
+        
+        -- Chỉ 1 lần, tween thẳng đến cửa
         tweenToPosition(Vector3_new(doorPos.X, doorPos.Y, doorPos.Z))
         task_wait(1)
         
@@ -346,9 +359,6 @@ local function detectSpawnedRoom(bossPos)
     return nil
 end
 
--- ============================
--- CHECK OBJECT BẰNG ATTRIBUTE
--- ============================
 local function isBoss(obj)
     return obj:IsA("Model") and obj:GetAttribute("BreakableID") == "Daydream Mimic Boss2"
 end
@@ -417,10 +427,10 @@ local function farmBoss(bossData)
     
     isFarming = true
     
-    -- Tween đến boss (3 lần)
+    -- TWEEN CHẬM đến boss (chuyển room)
     for i = 1, 3 do
         if not mainFarmEnabled then isFarming = false return end
-        tweenToPosition(bossData.pos)
+        tweenToPositionSlow(bossData.pos)
         task_wait(0.3)
     end
     if not mainFarmEnabled then isFarming = false return end
