@@ -51,9 +51,9 @@ local function safeTeleport(pos)
 end
 
 -- ============================
--- HÀM TÌM SERVER ÍT NGƯỜI KHÔNG TRÙNG
+-- HÀM TÌM SERVER 3-4 NGƯỜI
 -- ============================
-local function findNewServer()
+local function findGoodServer()
     local allServers = {}
     local cursor = ""
     
@@ -81,41 +81,35 @@ local function findNewServer()
         end
     end
     
-    local bestServer = nil
-    local lowestPlayers = 999
-    
+    -- Tìm server 3-4 người, chưa ghé
     for _, server in ipairs(allServers) do
         local jobId = server.id
         local playing = server.playing
-        local maxPlayers = server.maxPlayers
         
         if not getgenv().VisitedServers[jobId] then
-            if playing < maxPlayers and playing < lowestPlayers then
-                lowestPlayers = playing
-                bestServer = server
+            if playing >= 3 and playing <= 4 then
+                return server
             end
         end
     end
     
-    if not bestServer then
-        getgenv().VisitedServers = {}
-        for _, server in ipairs(allServers) do
-            local playing = server.playing
-            if playing < server.maxPlayers and playing < lowestPlayers then
-                lowestPlayers = playing
-                bestServer = server
-            end
+    -- Nếu không tìm thấy, reset và thử lại
+    getgenv().VisitedServers = {}
+    for _, server in ipairs(allServers) do
+        local playing = server.playing
+        if playing >= 3 and playing <= 4 then
+            return server
         end
     end
     
-    return bestServer
+    return nil
 end
 
 -- ============================
 -- HÀM HOP SERVER
 -- ============================
 local function hopServer()
-    local bestServer = findNewServer()
+    local bestServer = findGoodServer()
     
     if bestServer then
         getgenv().VisitedServers[bestServer.id] = true
@@ -123,6 +117,7 @@ local function hopServer()
             TeleportService:TeleportToPlaceInstance(PLACE_ID, bestServer.id, player)
         end)
     else
+        -- Fallback: teleport thường
         pcall(function()
             TeleportService:Teleport(PLACE_ID)
         end)
@@ -203,7 +198,6 @@ task.spawn(function()
             noBossCount = noBossCount + 1
             str = str .. "\nKo boss: " .. noBossCount .. "s"
             
-            -- Sau 10s không có boss -> hop
             if noBossCount >= 10 then
                 str = str .. "\nDang hop server..."
                 label.Text = str
