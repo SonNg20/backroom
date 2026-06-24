@@ -165,6 +165,8 @@ toggleFarmBtn.Text = "FARM: OFF"
 -- ============================
 local damageRemote = ReplicatedStorage:WaitForChild("Network", 15):WaitForChild("Breakables_PlayerDealDamage")
 local farmingThisRoom = false
+local currentBossList = {}
+local currentBossIdx = 1
 
 local function isChestOnCooldown(room)
     if not room then return false end
@@ -219,7 +221,7 @@ local function detectSpawnedRoom(bossPos)
 end
 
 -- ============================
--- SCAN BOSS LIÊN TỤC
+-- SCAN BOSS LIÊN TỤC (KO BAO GIỜ DỪNG)
 -- ============================
 local function scanBosses()
     local found = {}
@@ -247,29 +249,61 @@ local function scanBosses()
 end
 
 -- ============================
+-- UPDATE UI LIÊN TỤC
+-- ============================
+task_spawn(function()
+    while task_wait(1) do
+        if mainFarmEnabled then
+            local total = #currentBossList
+            local str = string_format("[FARM] Boss %d/%d | Tong: %d\n", currentBossIdx, total, total)
+            str = str .. "-----------------------------\n"
+            
+            if total == 0 then
+                str = str .. "Dang quet tim boss..."
+            else
+                for i, b in ipairs(currentBossList) do
+                    if i <= 10 then -- Chỉ hiển thị 10 boss đầu
+                        local marker = i == currentBossIdx and ">> " or "   "
+                        local status = b.unlockStatus or "Chua mo"
+                        str = str .. string_format("%s#%d: %s\n", marker, i, status)
+                    end
+                end
+                if total > 10 then
+                    str = str .. string_format("   ... con %d boss nua\n", total - 10)
+                end
+            end
+            
+            str = str .. "-----------------------------\n"
+            str = str .. string_format("FPS: %d", workspace:GetRealPhysicsFPS())
+            
+            label.Text = str
+        end
+    end
+end)
+
+-- ============================
 -- FARM 1 BOSS
 -- ============================
-local function farmBoss(bossList, idx)
+local function farmBoss()
     if not mainFarmEnabled then return end
     
-    local total = #bossList
-    if total == 0 then return end
-    if idx > total then idx = 1 end
+    -- LUÔN QUÉT LẠI TRƯỚC KHI FARM
+    currentBossList = scanBosses()
+    local total = #currentBossList
     
-    local entry = bossList[idx]
-    if not entry then return end
-    
-    local str = string_format("[FARM] Boss %d/%d\n", idx, total)
-    str = str .. "-----------------------------\n"
-    for i, b in ipairs(bossList) do
-        local marker = i == idx and ">> " or "   "
-        local status = b.unlockStatus or "Chua mo"
-        if b.room and status ~= "Dang khoa" then
-            status = isChestOnCooldown(b.room) and "Dang hoi" or "San sang"
-        end
-        str = str .. string_format("%sBoss%d: %s\n", marker, i, status)
+    if total == 0 then
+        task_defer(farmBoss)
+        return
     end
-    label.Text = str
+    
+    if currentBossIdx > total then currentBossIdx = 1 end
+    
+    local entry = currentBossList[currentBossIdx]
+    if not entry then
+        currentBossIdx = 1
+        task_defer(farmBoss)
+        return
+    end
     
     -- Teleport
     for i = 1, 3 do
@@ -285,7 +319,8 @@ local function farmBoss(bossList, idx)
     
     if not actualRoom then
         entry.unlockStatus = "Chua spawn"
-        task_defer(function() farmBoss(bossList, idx % total + 1) end)
+        currentBossIdx = currentBossIdx % total + 1
+        task_defer(farmBoss)
         return
     end
     
@@ -320,14 +355,15 @@ local function farmBoss(bossList, idx)
     -- Check cooldown
     if isChestOnCooldown(actualRoom) then
         entry.unlockStatus = "Dang hoi"
-        task_defer(function() farmBoss(bossList, idx % total + 1) end)
+        currentBossIdx = currentBossIdx % total + 1
+        task_defer(farmBoss)
         return
     end
     
     -- Notify
     if getgenv().NOTIFY_TARGET_ROOM then
         sendToDiscord("Dang farm GameMastersStage",
-            string_format("Room %d/%d\nVi tri: (%.0f, %.0f, %.0f)", idx, total, entry.pos.X, entry.pos.Y, entry.pos.Z),
+            string_format("Room %d/%d\nVi tri: (%.0f, %.0f, %.0f)", currentBossIdx, total, entry.pos.X, entry.pos.Y, entry.pos.Z),
             65280, false)
     end
     
@@ -404,20 +440,9 @@ local function farmBoss(bossList, idx)
     
     if not mainFarmEnabled then return end
     
-    -- QUÉT LẠI BOSS MỚI
-    local newList = scanBosses()
-    
-    if #newList == 0 then
-        label.Text = "Dang tim boss moi..."
-        task_defer(function() farmBoss(scanBosses(), 1) end)
-        return
-    end
-    
-    -- Tìm boss tiếp theo (còn sống)
-    local nextIdx = idx % #newList + 1
-    
-    -- Nếu chỉ còn 1 boss thì farm nó
-    task_defer(function() farmBoss(newList, nextIdx) end)
+    -- SANG BOSS TIẾP THEO
+    currentBossIdx = currentBossIdx % total + 1
+    task_defer(farmBoss)
 end
 
 -- ============================
@@ -455,14 +480,11 @@ toggleFarmBtn.MouseButton1Click:Connect(function()
         toggleFarmBtn.Text = "FARM: ON"
         toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
         
-        local bossList = scanBosses()
-        if #bossList > 0 then
-            label.Text = string_format("Tim thay %d boss! Bat dau farm...", #bossList)
-            task_defer(function() farmBoss(bossList, 1) end)
-        else
-            label.Text = "Dang tim boss..."
-            task_defer(function() farmBoss(scanBosses(), 1) end)
-        end
+        currentBossList = scanBosses()
+        currentBossIdx = 1
+        
+        label.Text = string_format("Tim thay %d boss! Bat dau farm...", #currentBossList)
+        task_defer(farmBoss)
     else
         toggleFarmBtn.Text = "FARM: OFF"
         toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
