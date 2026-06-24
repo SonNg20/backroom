@@ -26,7 +26,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local vim = game:GetService("VirtualInputManager")
-local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -181,6 +180,21 @@ toggleClickBtn.MouseButton1Click:Connect(function()
     else
         toggleClickBtn.Text = "CLICK: OFF"
         toggleClickBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+    end
+end)
+
+-- ============================
+-- AUTO CLICK (LOOP RIÊNG - KHÔNG BỊ FARM ẢNH HƯỞNG)
+-- ============================
+task_spawn(function()
+    while task_wait(0.5) do
+        if screenClickEnabled then
+            pcall(function()
+                local vp = workspace.CurrentCamera.ViewportSize
+                vim:SendMouseButtonEvent(vp.X/2, vp.Y/2, 0, true, game, 0)
+                vim:SendMouseButtonEvent(vp.X/2, vp.Y/2, 0, false, game, 0)
+            end)
+        end
     end
 end)
 
@@ -470,35 +484,23 @@ function processQueue()
 end
 
 -- ============================
--- TICK SYSTEM (FIX AUTO CLICK)
+-- TICK SYSTEM (DỌN RÁC + INVENTORY)
 -- ============================
 local tickCount = 0
 
 task_spawn(function()
-    while task_wait(0.5) do
+    while task_wait(1) do
         tickCount = tickCount + 1
         
-        -- Auto click mỗi 0.5s khi bật
-        if screenClickEnabled then
-            pcall(function()
-                vim:SendMouseButtonEvent(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y/2, 0, true, game, 0)
-                task_wait(0.05)
-                vim:SendMouseButtonEvent(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y/2, 0, false, game, 0)
-            end)
-        end
-        
-        -- Mỗi 3s: Check inventory
-        if tickCount % 6 == 0 then
+        if tickCount % 3 == 0 then
             pcall(checkInventoryForHugeTitanic)
         end
         
-        -- Mỗi 15s: Dọn rác
-        if tickCount % 30 == 0 then
+        if tickCount % 15 == 0 then
             collectgarbage("collect")
         end
         
-        -- Mỗi 30s: Chống crash
-        if tickCount % 60 == 0 and gcinfo() > 300000 then
+        if tickCount % 30 == 0 and gcinfo() > 300000 then
             for _ = 1, 3 do
                 collectgarbage("collect")
             end
