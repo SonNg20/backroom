@@ -17,7 +17,7 @@ local Vector3_new, CFrame_new = Vector3.new, CFrame.new
 local task_wait, task_spawn, task_defer = task.wait, task.spawn, task.defer
 local string_format, pairs, ipairs = string.format, pairs, ipairs
 local table_insert, table_remove, table_sort = table.insert, table.remove, table.sort
-local pcall, tick, math_huge, math_floor = pcall, tick, math.huge, math.floor
+local pcall, tick, math_huge, math_floor, math_abs = pcall, tick, math.huge, math.floor, math.abs
 
 -- ============================
 -- SERVICES
@@ -168,6 +168,8 @@ local farmingThisRoom = false
 local bossQueue = {}
 local scannedKeys = {}
 local isFarming = false
+local lastBossFoundTime = tick()
+local restartCooldown = false
 
 local function isChestOnCooldown(room)
     if not room then return false end
@@ -221,41 +223,60 @@ local function detectSpawnedRoom(bossPos)
     return nil
 end
 
--- ============================
--- KIỂM TRA TRÙNG BOSS (DÙNG KHOẢNG CÁCH < 10 STUD)
--- ============================
 local function isBossDuplicate(pos)
-    for key, _ in pairs(scannedKeys) do
-        -- Parse key "X_Y_Z"
-        local x, y, z = key:match("([%d%-%.]+)_([%d%-%.]+)_([%d%-%.]+)")
-        if x and y and z then
-            local existingPos = Vector3_new(tonumber(x), tonumber(y), tonumber(z))
-            if (existingPos - pos).Magnitude < 10 then -- Cùng 1 boss nếu cách nhau < 10 studs
-                return true
-            end
+    for _, existingPos in pairs(scannedKeys) do
+        local diffX = math_abs(existingPos.X - pos.X)
+        local diffZ = math_abs(existingPos.Z - pos.Z)
+        if diffX < 100 and diffZ < 100 then
+            return true
         end
     end
     return false
 end
 
-local function getBossKey(pos)
-    return string_format("%.0f_%.0f_%.0f", math_floor(pos.X), math_floor(pos.Y), math_floor(pos.Z))
+-- ============================
+-- RESTART FARM (COOLDOWN 20S)
+-- ============================
+local function restartFarm()
+    if not mainFarmEnabled then return end
+    if restartCooldown then return end
+    
+    restartCooldown = true
+    
+    label.Text = "Khong tim thay boss > 10s... Dang restart farm..."
+    
+    mainFarmEnabled = false
+    farmingThisRoom = false
+    isFarming = false
+    bossQueue = {}
+    scannedKeys = {}
+    task_wait(0.5)
+    
+    mainFarmEnabled = true
+    lastBossFoundTime = tick()
+    
+    label.Text = "Da restart farm! Dang quet boss..."
+    processQueue()
+    
+    task_wait(20) -- Cooldown 20 giây
+    restartCooldown = false
 end
 
 -- ============================
--- SCAN BOSS (CHỐNG TRÙNG BẰNG KHOẢNG CÁCH)
+-- SCAN BOSS
 -- ============================
 local function scanBosses()
+    local foundNew = false
+    
     for _, breakable in ipairs(breakablesContainer:GetChildren()) do
         if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
             local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
             if part then
                 local pos = part.Position
-                local key = getBossKey(pos)
                 
-                -- Kiểm tra trùng bằng khoảng cách
-                if not scannedKeys[key] and not isBossDuplicate(pos) then
-                    scannedKeys[key] = pos -- Lưu vị trí
+                if not isBossDuplicate(pos) then
+                    local key = string_format("%.0f_%.0f_%.0f", math_floor(pos.X), math_floor(pos.Y), math_floor(pos.Z))
+                    scannedKeys[key] = pos
                     
                     table_insert(bossQueue, {
                         bossModel = breakable,
@@ -263,17 +284,21 @@ local function scanBosses()
                         key = key,
                         room = nil
                     })
+                    
+                    foundNew = true
+                    lastBossFoundTime = tick()
                 end
             end
         end
     end
     
-    -- Sort theo khoảng cách
     if #bossQueue > 1 then
         table_sort(bossQueue, function(a, b)
             return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
         end)
     end
+    
+    return foundNew
 end
 
 -- ============================
@@ -288,18 +313,36 @@ task_spawn(function()
 end)
 
 -- ============================
+-- KIỂM TRA TIMEOUT 10S
+-- ============================
+task_spawn(function()
+    while task_wait(1) do
+        if mainFarmEnabled and not isFarming then
+            local timeSinceLastBoss = tick() - lastBossFoundTime
+            
+            if timeSinceLastBoss > 10 and #bossQueue == 0 then
+                restartFarm()
+            end
+        end
+    end
+end)
+
+-- ============================
 -- UPDATE UI
 -- ============================
 task_spawn(function()
     while task_wait(0.5) do
         if mainFarmEnabled then
+            local timeSinceLastBoss = tick() - lastBossFoundTime
             local str = "[FARM]\n"
             str = str .. "-----------------------------\n"
             
             if isFarming then
                 str = str .. "Dang farm boss...\n"
+            elseif #bossQueue > 0 then
+                str = str .. string_format("Cho farm: %d boss\n", #bossQueue)
             else
-                str = str .. "Dang tim boss...\n"
+                str = str .. string_format("Dang tim boss... (%.0fs)\n", timeSinceLastBoss)
             end
             
             str = str .. string_format("Queue: %d boss\n", #bossQueue)
@@ -333,7 +376,6 @@ local function farmBoss(bossData)
     
     isFarming = true
     
-    -- Teleport
     for i = 1, 3 do
         if not mainFarmEnabled then return end
         safeTeleport(bossData.pos)
@@ -341,7 +383,6 @@ local function farmBoss(bossData)
     end
     if not mainFarmEnabled then isFarming = false return end
     
-    -- Detect room
     local actualRoom = detectSpawnedRoom(bossData.pos)
     
     if not actualRoom then
@@ -352,7 +393,6 @@ local function farmBoss(bossData)
     
     local roomUID = actualRoom:GetAttribute("RoomUID") or bossData.key
     
-    -- Unlock
     if not getgenv().UnlockedRoomsCache[roomUID] and isLocked(actualRoom) then
         local unlockStart = tick()
         while isLocked(actualRoom) and mainFarmEnabled do
@@ -366,19 +406,16 @@ local function farmBoss(bossData)
         getgenv().UnlockedRoomsCache[roomUID] = true
     end
     
-    -- Check cooldown
     if isChestOnCooldown(actualRoom) then
         isFarming = false
         processQueue()
         return
     end
     
-    -- Notify
     if getgenv().NOTIFY_TARGET_ROOM then
         sendToDiscord("Dang farm", string_format("(%.0f, %.0f, %.0f)\nQueue: %d", bossData.pos.X, bossData.pos.Y, bossData.pos.Z, #bossQueue), 65280, false)
     end
     
-    -- Farm
     safeTeleport(bossData.pos)
     
     local bz = actualRoom:FindFirstChild("BREAK_ZONE", true)
@@ -434,7 +471,6 @@ local function farmBoss(bossData)
         end
     end)
     
-    -- Đợi boss bị phá
     while mainFarmEnabled do
         if isChestOnCooldown(actualRoom) then break end
         if #pendingChests == 0 and not processing then
@@ -443,14 +479,12 @@ local function farmBoss(bossData)
         task_wait(0.5)
     end
     
-    -- Cleanup
     farmingThisRoom = false
     listenerConn:Disconnect()
     isFarming = false
     
     if not mainFarmEnabled then return end
     
-    -- Farm boss tiếp theo
     processQueue()
 end
 
@@ -460,10 +494,8 @@ end
 function processQueue()
     if not mainFarmEnabled then return end
     
-    -- Quét thêm boss mới
     scanBosses()
     
-    -- Xóa boss đã bị destroy
     local cleanQueue = {}
     for _, b in ipairs(bossQueue) do
         if b.bossModel and b.bossModel.Parent then
@@ -520,6 +552,8 @@ toggleFarmBtn.MouseButton1Click:Connect(function()
         scannedKeys = {}
         isFarming = false
         farmingThisRoom = false
+        lastBossFoundTime = tick()
+        restartCooldown = false
         
         label.Text = "Dang quet boss..."
         processQueue()
