@@ -139,9 +139,10 @@ if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() en
 local sg = Instance.new("ScreenGui", game.CoreGui)
 sg.Name = "ScanGUI"
 
+-- Status Label (Y=150)
 local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 300, 0, 220)
-label.Position = UDim2.new(0, 10, 0, 120)
+label.Size = UDim2.new(0, 300, 0, 180)
+label.Position = UDim2.new(0, 10, 0, 150)
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
 label.TextColor3 = Color3.fromRGB(0, 255, 100)
@@ -150,6 +151,7 @@ label.TextSize = 9
 label.TextWrapped = true
 label.Text = "Status: San sang..."
 
+-- NÚT FARM (Y=80)
 local mainFarmEnabled = false
 local toggleFarmBtn = Instance.new("TextButton", sg)
 toggleFarmBtn.Size = UDim2.new(0, 300, 0, 30)
@@ -160,13 +162,35 @@ toggleFarmBtn.Font = Enum.Font.GothamBold
 toggleFarmBtn.TextSize = 13
 toggleFarmBtn.Text = "FARM: OFF"
 
+-- NÚT CLICK (Y=335 - dưới status)
+local screenClickEnabled = true
+local toggleClickBtn = Instance.new("TextButton", sg)
+toggleClickBtn.Size = UDim2.new(0, 300, 0, 30)
+toggleClickBtn.Position = UDim2.new(0, 10, 0, 335)
+toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+toggleClickBtn.TextColor3 = Color3.new(1,1,1)
+toggleClickBtn.Font = Enum.Font.GothamBold
+toggleClickBtn.TextSize = 13
+toggleClickBtn.Text = "CLICK: ON"
+
+toggleClickBtn.MouseButton1Click:Connect(function()
+    screenClickEnabled = not screenClickEnabled
+    if screenClickEnabled then
+        toggleClickBtn.Text = "CLICK: ON"
+        toggleClickBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+    else
+        toggleClickBtn.Text = "CLICK: OFF"
+        toggleClickBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+    end
+end)
+
 -- ============================
 -- ROOM FUNCTIONS
 -- ============================
 local damageRemote = ReplicatedStorage:WaitForChild("Network", 15):WaitForChild("Breakables_PlayerDealDamage")
 local farmingThisRoom = false
 local bossQueue = {}
-local scannedBossObjects = {} -- Lưu object đã quét (dùng object làm key)
+local scannedBossObjects = {}
 local isFarming = false
 
 local function isChestOnCooldown(room)
@@ -222,51 +246,35 @@ local function detectSpawnedRoom(bossPos)
 end
 
 -- ============================
--- SCAN BOSS - THÊM VÀO QUEUE NẾU ĐANG FARM
+-- SCAN BOSS
 -- ============================
 local function scanBosses()
-    local newBossCount = 0
-    
     for _, breakable in ipairs(breakablesContainer:GetChildren()) do
         if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
-            -- Dùng object làm key duy nhất
             if not scannedBossObjects[breakable] then
                 scannedBossObjects[breakable] = true
                 
                 local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
                 if part then
-                    local bossData = {
+                    table_insert(bossQueue, {
                         bossModel = breakable,
                         pos = part.Position,
                         room = nil
-                    }
-                    
-                    if isFarming then
-                        -- Đang farm: thêm vào queue đợi
-                        table_insert(bossQueue, bossData)
-                    else
-                        -- Không farm: thêm vào queue để farm ngay
-                        table_insert(bossQueue, bossData)
-                    end
-                    
-                    newBossCount = newBossCount + 1
+                    })
                 end
             end
         end
     end
     
-    -- Sort queue theo khoảng cách
     if #bossQueue > 1 then
         table_sort(bossQueue, function(a, b)
             return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
         end)
     end
-    
-    return newBossCount
 end
 
 -- ============================
--- SCAN LOOP (CHẠY LIÊN TỤC)
+-- SCAN LOOP
 -- ============================
 task_spawn(function()
     while task_wait(1) do
@@ -282,28 +290,26 @@ end)
 task_spawn(function()
     while task_wait(0.5) do
         if mainFarmEnabled then
-            local str = "[FARM]\n"
+            local str = "[FARM] "
+            if screenClickEnabled then str = str .. "[CLICK] " end
+            str = str .. "\n"
             str = str .. "-----------------------------\n"
             
             if isFarming then
                 str = str .. "Dang farm boss...\n"
             elseif #bossQueue > 0 then
-                str = str .. string_format("Cho farm: %d boss\n", #bossQueue)
+                str = str .. string_format("Cho: %d boss\n", #bossQueue)
             else
                 str = str .. "Dang tim boss...\n"
             end
             
-            str = str .. string_format("Queue: %d boss dang doi\n", #bossQueue)
-            str = str .. string_format("Da quet: %d boss\n", #scannedBossObjects)
+            str = str .. string_format("Queue: %d | Da quet: %d\n", #bossQueue, #scannedBossObjects)
             
             if #bossQueue > 0 then
                 str = str .. "-----------------------------\n"
-                for i = 1, math.min(5, #bossQueue) do
+                for i = 1, math.min(3, #bossQueue) do
                     local b = bossQueue[i]
-                    str = str .. string_format("  #%d: (%.0f, %.0f, %.0f)\n", i, b.pos.X, b.pos.Y, b.pos.Z)
-                end
-                if #bossQueue > 5 then
-                    str = str .. string_format("  ... con %d boss\n", #bossQueue - 5)
+                    str = str .. string_format("  #%d: (%.0f, %.0f)\n", i, b.pos.X, b.pos.Z)
                 end
             end
             
@@ -324,7 +330,6 @@ local function farmBoss(bossData)
     
     isFarming = true
     
-    -- Teleport đến boss
     for i = 1, 3 do
         if not mainFarmEnabled then isFarming = false return end
         safeTeleport(bossData.pos)
@@ -332,11 +337,9 @@ local function farmBoss(bossData)
     end
     if not mainFarmEnabled then isFarming = false return end
     
-    -- Detect phòng GameMastersStage
     local actualRoom = detectSpawnedRoom(bossData.pos)
     
     if not actualRoom then
-        -- Xóa boss khỏi cache nếu không tìm thấy phòng
         scannedBossObjects[bossData.bossModel] = nil
         isFarming = false
         processQueue()
@@ -345,7 +348,6 @@ local function farmBoss(bossData)
     
     local roomUID = actualRoom:GetAttribute("RoomUID") or tostring(bossData.pos)
     
-    -- Unlock
     if not getgenv().UnlockedRoomsCache[roomUID] and isLocked(actualRoom) then
         local unlockStart = tick()
         while isLocked(actualRoom) and mainFarmEnabled do
@@ -359,7 +361,6 @@ local function farmBoss(bossData)
         getgenv().UnlockedRoomsCache[roomUID] = true
     end
     
-    -- Check cooldown
     if isChestOnCooldown(actualRoom) then
         scannedBossObjects[bossData.bossModel] = nil
         isFarming = false
@@ -367,12 +368,10 @@ local function farmBoss(bossData)
         return
     end
     
-    -- Notify Discord
     if getgenv().NOTIFY_TARGET_ROOM then
-        sendToDiscord("Dang farm", string_format("(%.0f, %.0f, %.0f)\nQueue: %d boss", bossData.pos.X, bossData.pos.Y, bossData.pos.Z, #bossQueue), 65280, false)
+        sendToDiscord("Dang farm", string_format("(%.0f, %.0f, %.0f)\nQueue: %d", bossData.pos.X, bossData.pos.Y, bossData.pos.Z, #bossQueue), 65280, false)
     end
     
-    -- Farm
     safeTeleport(bossData.pos)
     
     local bz = actualRoom:FindFirstChild("BREAK_ZONE", true)
@@ -428,7 +427,6 @@ local function farmBoss(bossData)
         end
     end)
     
-    -- Đợi boss bị phá
     while mainFarmEnabled do
         if isChestOnCooldown(actualRoom) then break end
         if #pendingChests == 0 and not processing then
@@ -437,17 +435,12 @@ local function farmBoss(bossData)
         task_wait(0.5)
     end
     
-    -- Cleanup
     farmingThisRoom = false
     listenerConn:Disconnect()
     isFarming = false
-    
-    -- Xóa boss đã farm khỏi cache
     scannedBossObjects[bossData.bossModel] = nil
     
     if not mainFarmEnabled then return end
-    
-    -- Farm boss tiếp theo trong queue
     processQueue()
 end
 
@@ -457,7 +450,6 @@ end
 function processQueue()
     if not mainFarmEnabled then return end
     
-    -- Dọn queue (xóa boss đã mất)
     local cleanQueue = {}
     for _, b in ipairs(bossQueue) do
         if b.bossModel and b.bossModel.Parent then
@@ -472,20 +464,26 @@ function processQueue()
         local nextBoss = table_remove(bossQueue, 1)
         farmBoss(nextBoss)
     else
-        -- Queue rỗng, đợi scan tìm thêm
         task_wait(1)
         processQueue()
     end
 end
 
 -- ============================
--- TICK SYSTEM
+-- TICK SYSTEM (1 LOOP)
 -- ============================
 local tickCount = 0
 
 task_spawn(function()
     while task_wait(1) do
         tickCount = tickCount + 1
+        
+        -- Auto click mỗi 1s (mặc định BẬT)
+        if screenClickEnabled then
+            local vp = camera.ViewportSize
+            vim:SendMouseButtonEvent(vp.X/2, vp.Y/2, 0, true, game, 0)
+            vim:SendMouseButtonEvent(vp.X/2, vp.Y/2, 0, false, game, 0)
+        end
         
         if tickCount % 3 == 0 then
             pcall(checkInventoryForHugeTitanic)
