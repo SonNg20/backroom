@@ -2,6 +2,8 @@
 -- AUTO JOIN EVENT + VÀO DEEP BACKROOMS + QUÉT BOSS + HIỂN THỊ UI + HOP SERVER
 -- ============================
 
+getgenv().TotalBoss = 3 -- Số boss tối thiểu để ở lại server
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
@@ -81,7 +83,6 @@ local function findGoodServer()
         end
     end
     
-    -- Tìm server 3-4 người, chưa ghé
     for _, server in ipairs(allServers) do
         local jobId = server.id
         local playing = server.playing
@@ -93,7 +94,6 @@ local function findGoodServer()
         end
     end
     
-    -- Nếu không tìm thấy, reset và thử lại
     getgenv().VisitedServers = {}
     for _, server in ipairs(allServers) do
         local playing = server.playing
@@ -117,7 +117,6 @@ local function hopServer()
             TeleportService:TeleportToPlaceInstance(PLACE_ID, bestServer.id, player)
         end)
     else
-        -- Fallback: teleport thường
         pcall(function()
             TeleportService:Teleport(PLACE_ID)
         end)
@@ -192,11 +191,12 @@ task.spawn(function()
         end
         
         local str = "Đang tìm boss...\n"
-        str = str .. "Boss: " .. bosses
+        str = str .. "Boss: " .. bosses .. "/" .. getgenv().TotalBoss
         
-        if bosses == 0 then
+        -- Nếu số boss < TotalBoss
+        if bosses < getgenv().TotalBoss then
             noBossCount = noBossCount + 1
-            str = str .. "\nKo boss: " .. noBossCount .. "s"
+            str = str .. "\nThiếu boss: " .. noBossCount .. "s"
             
             if noBossCount >= 10 then
                 str = str .. "\nDang hop server..."
@@ -206,9 +206,7 @@ task.spawn(function()
             end
         else
             noBossCount = 0
-            if bosses >= 3 then
-                str = str .. " 🔥"
-            end
+            str = str .. " 🔥"
         end
         
         label.Text = str
