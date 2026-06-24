@@ -64,7 +64,7 @@ enableNoclip()
 player.CharacterAdded:Connect(function() task.wait(0.5) enableNoclip() end)
 
 -- ============================
--- TWEEN (TỐC ĐỘ MẶC ĐỊNH 8)
+-- TWEEN (TỐC ĐỘ 8)
 -- ============================
 local function getTweenSpeed()
     return getgenv().TweenSpeed or 8
@@ -452,12 +452,16 @@ local function farmBoss(bossData)
     
     local listenerConn = breakablesContainer.ChildAdded:Connect(function(inst)
         task_defer(function()
-            if not inst:GetAttribute("BreakableUID") then return end
-            local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
-            if not part then return end
-            local idx2, dist = nearestSpotIndex(part.Position)
-            if idx2 and dist <= 15 then
-                table_insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
+            if inst:IsA("Model") and inst:GetAttribute("BreakableID") == "Daydream Mimic Chest2" then
+                local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
+                if part then
+                    local idx2 = nearestSpotIndex(part.Position)
+                    if idx2 then
+                        table_insert(pendingChests, {pos = miniSpots[idx2], inst = inst})
+                    else
+                        table_insert(pendingChests, {pos = center, inst = inst})
+                    end
+                end
             end
         end)
     end)
