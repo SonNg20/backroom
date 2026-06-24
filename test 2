@@ -1,48 +1,96 @@
---[[
-    SERVER HOP BYPASS (HỆ THỐNG MÃ ĐỊNH DANH API)
---]]
+-- ============================
+-- AUTO JOIN EVENT + TÌM BOSS + GỬI DISCORD + HOP SERVER KHÔNG TRÙNG
+-- ============================
 
+getgenv().WebhookURL = ""
+getgenv().WebhookUserID = ""
+
+local webhookURL = getgenv().WebhookURL
+local DiscordUserID = getgenv().WebhookUserID
+local playerName = game.Players.LocalPlayer.Name
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
-local PlaceId = game.PlaceId
-local JobId = game.JobId
+-- ============================
+-- LƯU DANH SÁCH SERVER ĐÃ GHÉ
+-- ============================
+if not getgenv().VisitedServers then
+    getgenv().VisitedServers = {}
+end
 
-print("Đang tìm kiếm server ít người...")
+-- ============================
+-- LƯU SERVER HIỆN TẠI
+-- ============================
+getgenv().VisitedServers[game.JobId] = true
 
--- Lấy danh sách server ẩn qua API trang chủ Roblox
-local url = string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100", tostring(PlaceId))
-local success, result = pcall(function()
-    return HttpService:JSONDecode(game:HttpGet(url))
-end)
-
-if success and result and result.data then
-    local servers = result.data
-    table.sort(servers, function(a, b) return a.playing < b.playing end)
+-- ============================
+-- 1. JOIN EVENT
+-- ============================
+local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
+if libraryFolder then
+    local ClientFolder = libraryFolder:WaitForChild("Client", 15)
+    local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
+    local FFlags = require(ClientFolder:WaitForChild("FFlags"))
     
-    for _, server in ipairs(servers) do
-        if server.id ~= JobId and server.playing < server.maxPlayers then
-            print(string.format("Tìm thấy server (%d người). Đang thực hiện kích hoạt Teleport Console...", server.playing))
-            
-            -- PHƯƠNG PHÁP BYPASS: Giả lập lệnh nhảy Server thông qua Client Console của Roblox
-            -- Cách này hoàn toàn bỏ qua mọi hook lặp của Hub vì nó gọi trực tiếp lệnh của Engine
-            task.spawn(function()
-                game:GetService("GuiService"):OpenBrowserWindow("https://www.roblox.com/games/" .. PlaceId) -- Giữ liên kết ổn định
-                
-                -- Thực hiện ép nhảy qua queue hệ thống
-                TeleportService:TeleportCancel() -- Reset hàng đợi bị kẹt bởi Hub
-                task.wait(0.1)
-                
-                -- Gọi hàm Teleport ở cấp độ Thấp nhất (Low-level) để tránh Anti-scam
-                local queue = (TeleportService.TeleportInit or TeleportService.TeleportToPlaceInstance)
-                pcall(queue, TeleportService, PlaceId, server.id, Players.LocalPlayer)
-            end)
-            break
-        end
+    local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
+    if joinTarget then
+        InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
+    end
+end
+
+task.wait(5)
+
+-- ============================
+-- 2. ĐẾM BOSS
+-- ============================
+local Breakables = workspace.__THINGS.Breakables
+local bosses = 0
+
+for _, breakable in ipairs(Breakables:GetChildren()) do
+    if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
+        bosses = bosses + 1
+    end
+end
+
+-- ============================
+-- 3. XỬ LÝ KẾT QUẢ
+-- ============================
+if bosses >= 3 then
+    local serverJobId = game.JobId
+    local placeId = game.PlaceId
+    local playerCount = #game.Players:GetPlayers()
+    
+    local description = "🎉 **" .. playerName .. "** đã tìm thấy server có **" .. bosses .. "** Boss!\n"
+    description = description .. "Server JobId: `" .. serverJobId .. "`\n"
+    description = description .. "Place ID: `" .. placeId .. "`\n"
+    description = description .. "Số người chơi: " .. playerCount .. "\n"
+    description = description .. "Số boss: **" .. bosses .. "**\n"
+    description = description .. "Đã hop qua: " .. #getgenv().VisitedServers .. " server"
+    
+    if webhookURL ~= "" then
+        pcall(function()
+            syn.request({
+                Url = webhookURL,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode({
+                    content = DiscordUserID ~= "" and "<@" .. DiscordUserID .. ">" or "",
+                    embeds = {{
+                        title = "🔥 TIM THAY SERVER NHIEU BOSS",
+                        description = description,
+                        color = 16711680,
+                        footer = {text = "Pet Simulator 99 - Boss Scanner"},
+                        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                    }}
+                })
+            })
+        end)
     end
 else
-    -- Nếu vẫn bị vướng, cách cuối cùng là dùng lệnh Rejoin thẳng của Roblox để load lại Client
-    print("Yêu cầu bị chặn. Đang kích hoạt chế độ Rejoin ép buộc...")
-    TeleportService:Teleport(PlaceId, Players.LocalPlayer)
+    pcall(function()
+        TeleportService:Teleport(game.PlaceId)
+    end)
 end
