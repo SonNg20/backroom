@@ -1,5 +1,5 @@
 -- ============================
--- AUTO JOIN EVENT + VÀO DEEP BACKROOMS + QUÉT BOSS + HIỂN THỊ UI + HOP SERVER
+-- AUTO JOIN EVENT + VÀO DEEP BACKROOMS + QUÉT BOSS + HIỂN THỊ UI + HOP SERVER CỰC MẠNH
 -- ============================
 
 getgenv().TotalBoss = 3
@@ -27,7 +27,7 @@ local sg = Instance.new("ScreenGui", game.CoreGui)
 sg.Name = "BossScanner"
 
 local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 300, 0, 100)
+label.Size = UDim2.new(0, 300, 0, 120)
 label.Position = UDim2.new(0, 10, 0, 10)
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
@@ -53,12 +53,11 @@ local function safeTeleport(pos)
 end
 
 -- ============================
--- HÀM TÌM SERVER MỚI (DÙNG CURSOR NGẪU NHIÊN)
+-- HÀM TÌM SERVER MỚI
 -- ============================
 local function findNewServer()
     local allServers = {}
     
-    -- Lấy nhiều page với sortOrder khác nhau để có server đa dạng
     for page = 1, 5 do
         local sortOrder = page % 2 == 0 and "Asc" or "Desc"
         local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?limit=100&sortOrder=" .. sortOrder
@@ -77,13 +76,13 @@ local function findNewServer()
         end
     end
     
-    -- Trộn ngẫu nhiên danh sách server
+    -- Trộn ngẫu nhiên
     for i = #allServers, 2, -1 do
         local j = math.random(1, i)
         allServers[i], allServers[j] = allServers[j], allServers[i]
     end
     
-    -- Tìm server 1-5 người, chưa ghé
+    -- Tìm server chưa ghé, 1-5 người
     for _, server in ipairs(allServers) do
         local jobId = server.id
         local playing = server.playing
@@ -94,7 +93,6 @@ local function findNewServer()
         end
     end
     
-    -- Reset cache nếu không tìm thấy
     getgenv().VisitedServers = {}
     for _, server in ipairs(allServers) do
         local playing = server.playing
@@ -107,17 +105,49 @@ local function findNewServer()
 end
 
 -- ============================
--- HÀM HOP SERVER
+-- HOP SERVER CỰC MẠNH (NHIỀU CÁCH)
 -- ============================
 local function hopServer()
     local bestServer = findNewServer()
     
     if bestServer then
         getgenv().VisitedServers[bestServer.id] = true
-        pcall(function()
+        
+        -- Cách 1: TeleportToPlaceInstance
+        local success, err = pcall(function()
             TeleportService:TeleportToPlaceInstance(PLACE_ID, bestServer.id, player)
         end)
+        
+        if not success then
+            -- Cách 2: Thử lại sau 2s
+            task.wait(2)
+            success, err = pcall(function()
+                TeleportService:TeleportToPlaceInstance(PLACE_ID, bestServer.id, player)
+            end)
+        end
+        
+        if not success then
+            -- Cách 3: Teleport thường
+            task.wait(2)
+            pcall(function()
+                TeleportService:Teleport(PLACE_ID)
+            end)
+        end
+        
+        if not success then
+            -- Cách 4: Dùng Http request để lấy link join
+            task.wait(2)
+            pcall(function()
+                local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?limit=1"
+                local res = game:HttpGet(url)
+                local data = HttpService:JSONDecode(res)
+                if data.data and #data.data > 0 then
+                    TeleportService:TeleportToPlaceInstance(PLACE_ID, data.data[1].id, player)
+                end
+            end)
+        end
     else
+        -- Cách cuối: Teleport thường
         pcall(function()
             TeleportService:Teleport(PLACE_ID)
         end)
