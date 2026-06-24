@@ -1,36 +1,64 @@
 -- ============================
--- AUTO JOIN EVENT + TÌM BOSS + GỬI DISCORD + HOP SERVER KHÔNG TRÙNG (ANTI-SCAM FIX)
+-- AUTO JOIN EVENT + VÀO DEEP BACKROOMS + QUÉT BOSS + HIỂN THỊ UI + HOP SERVER
 -- ============================
 
-getgenv().WebhookURL = ""
-getgenv().WebhookUserID = ""
-
-local webhookURL = getgenv().WebhookURL
-local DiscordUserID = getgenv().WebhookUserID
-local playerName = game.Players.LocalPlayer.Name
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
 local player = Players.LocalPlayer
+local PLACE_ID = 8737899170
 
 -- ============================
--- LƯU DANH SÁCH SERVER ĐÃ GHÉ
+-- LƯU SERVER ĐÃ GHÉ
 -- ============================
 if not getgenv().VisitedServers then
     getgenv().VisitedServers = {}
 end
+getgenv().VisitedServers[game.JobId] = true
 
 -- ============================
--- HÀM LẤY SERVER MỚI
+-- GUI
 -- ============================
-local function getNewServer()
-    local placeId = game.PlaceId
-    local cursor = ""
+if game.CoreGui:FindFirstChild("BossScanner") then game.CoreGui.BossScanner:Destroy() end
+local sg = Instance.new("ScreenGui", game.CoreGui)
+sg.Name = "BossScanner"
+
+local label = Instance.new("TextLabel", sg)
+label.Size = UDim2.new(0, 300, 0, 100)
+label.Position = UDim2.new(0, 10, 0, 10)
+label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+label.BackgroundTransparency = 0.3
+label.TextColor3 = Color3.fromRGB(0, 255, 100)
+label.Font = Enum.Font.Code
+label.TextSize = 12
+label.TextWrapped = true
+label.Text = "Dang vao event..."
+
+-- ============================
+-- HELPER
+-- ============================
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart", 10)
+end
+
+local function safeTeleport(pos)
+    local hrp = getHRP()
+    if hrp and pos then
+        hrp.CFrame = CFrame.new(pos.X, pos.Y + 2.5, pos.Z)
+    end
+end
+
+-- ============================
+-- HÀM TÌM SERVER ÍT NGƯỜI KHÔNG TRÙNG
+-- ============================
+local function findNewServer()
     local allServers = {}
+    local cursor = ""
     
     for page = 1, 3 do
-        local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?limit=100&sortOrder=Desc"
+        local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?limit=100&sortOrder=Desc"
         if cursor ~= "" then
             url = url .. "&cursor=" .. cursor
         end
@@ -57,12 +85,12 @@ local function getNewServer()
     local lowestPlayers = 999
     
     for _, server in ipairs(allServers) do
+        local jobId = server.id
         local playing = server.playing
         local maxPlayers = server.maxPlayers
-        local jobId = server.id
         
         if not getgenv().VisitedServers[jobId] then
-            if playing >= 1 and playing < maxPlayers and playing < lowestPlayers then
+            if playing < maxPlayers and playing < lowestPlayers then
                 lowestPlayers = playing
                 bestServer = server
             end
@@ -73,8 +101,7 @@ local function getNewServer()
         getgenv().VisitedServers = {}
         for _, server in ipairs(allServers) do
             local playing = server.playing
-            local maxPlayers = server.maxPlayers
-            if playing >= 1 and playing < maxPlayers and playing < lowestPlayers then
+            if playing < server.maxPlayers and playing < lowestPlayers then
                 lowestPlayers = playing
                 bestServer = server
             end
@@ -85,105 +112,111 @@ local function getNewServer()
 end
 
 -- ============================
--- HÀM HOP SERVER AN TOÀN (VƯỢT ANTI-SCAM)
+-- HÀM HOP SERVER
 -- ============================
-local function hopServer(targetJobId)
-    if targetJobId then
-        -- Cách 1: TeleportToPlaceInstance
-        local success, err = pcall(function()
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, targetJobId, player)
-        end)
-        
-        if not success then
-            -- Cách 2: Dùng Teleport thường
-            task.wait(1)
-            pcall(function()
-                TeleportService:Teleport(game.PlaceId)
-            end)
-        end
-    else
-        -- Cách 3: Teleport cơ bản
+local function hopServer()
+    local bestServer = findNewServer()
+    
+    if bestServer then
+        getgenv().VisitedServers[bestServer.id] = true
         pcall(function()
-            TeleportService:Teleport(game.PlaceId)
+            TeleportService:TeleportToPlaceInstance(PLACE_ID, bestServer.id, player)
+        end)
+    else
+        pcall(function()
+            TeleportService:Teleport(PLACE_ID)
         end)
     end
 end
 
 -- ============================
--- LƯU SERVER HIỆN TẠI
--- ============================
-getgenv().VisitedServers[game.JobId] = true
-
--- ============================
--- 1. JOIN EVENT
+-- AUTO JOIN EVENT
 -- ============================
 local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
-if libraryFolder then
-    local ClientFolder = libraryFolder:WaitForChild("Client", 15)
-    local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
-    local FFlags = require(ClientFolder:WaitForChild("FFlags"))
-    
-    local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
-    if joinTarget then
-        InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
+if not libraryFolder then return end
+
+local ClientFolder = libraryFolder:WaitForChild("Client", 15)
+local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
+local FFlags = require(ClientFolder:WaitForChild("FFlags"))
+
+local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
+if joinTarget then
+    InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
+end
+
+task.wait(10)
+
+-- ============================
+-- VÀO DEEP BACKROOMS
+-- ============================
+local thingsContainer = workspace:WaitForChild("__THINGS")
+local generatedBackrooms = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active"):WaitForChild("Backrooms"):WaitForChild("GeneratedBackrooms")
+
+local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
+if spawnRoomFolder then
+    local deepDoor = spawnRoomFolder:FindFirstChild("DeepDoor")
+    if deepDoor and deepDoor:FindFirstChild("Interact") then
+        local interactPart = deepDoor.Interact
+        
+        for i = 1, 5 do
+            safeTeleport(interactPart.Position)
+            task.wait(0.3)
+        end
+        
+        task.wait(2)
+        
+        local roomUID = spawnRoomFolder:GetAttribute("RoomUID")
+        if roomUID then
+            pcall(function()
+                ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer(
+                    "Backrooms", "AbstractRoom_FireServer", roomUID, "EnterDeepBackrooms"
+                )
+            end)
+        else
+            safeTeleport(interactPart.Position)
+        end
     end
 end
 
-task.wait(5)
+-- ============================
+-- QUÉT BOSS + HOP SERVER
+-- ============================
+task.wait(2)
 
--- ============================
--- 2. ĐẾM BOSS
--- ============================
-local Breakables = workspace.__THINGS.Breakables
-local bosses = 0
+local noBossCount = 0
 
-for _, breakable in ipairs(Breakables:GetChildren()) do
-    if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
-        bosses = bosses + 1
+task.spawn(function()
+    while task.wait(1) do
+        local Breakables = workspace.__THINGS.Breakables
+        local bosses = 0
+        
+        for _, breakable in ipairs(Breakables:GetChildren()) do
+            if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
+                bosses = bosses + 1
+            end
+        end
+        
+        local str = "Đang tìm boss...\n"
+        str = str .. "Boss: " .. bosses
+        
+        if bosses == 0 then
+            noBossCount = noBossCount + 1
+            str = str .. "\nKo boss: " .. noBossCount .. "s"
+            
+            -- Sau 10s không có boss -> hop
+            if noBossCount >= 10 then
+                str = str .. "\nDang hop server..."
+                label.Text = str
+                hopServer()
+                return
+            end
+        else
+            noBossCount = 0
+            if bosses >= 3 then
+                str = str .. " 🔥"
+            end
+        end
+        
+        label.Text = str
     end
-end
-
--- ============================
--- 3. XỬ LÝ KẾT QUẢ
--- ============================
-if bosses >= 3 then
-    local serverJobId = game.JobId
-    local placeId = game.PlaceId
-    local playerCount = #game.Players:GetPlayers()
-    
-    local description = "🎉 **" .. playerName .. "** đã tìm thấy server có **" .. bosses .. "** Boss!\n"
-    description = description .. "Server JobId: `" .. serverJobId .. "`\n"
-    description = description .. "Place ID: `" .. placeId .. "`\n"
-    description = description .. "Số người chơi: " .. playerCount .. "\n"
-    description = description .. "Số boss: **" .. bosses .. "**\n"
-    description = description .. "Đã hop qua: " .. #getgenv().VisitedServers .. " server"
-    
-    if webhookURL ~= "" then
-        pcall(function()
-            syn.request({
-                Url = webhookURL,
-                Method = "POST",
-                Headers = {["Content-Type"] = "application/json"},
-                Body = HttpService:JSONEncode({
-                    content = DiscordUserID ~= "" and "<@" .. DiscordUserID .. ">" or "",
-                    embeds = {{
-                        title = "🔥 TIM THAY SERVER NHIEU BOSS",
-                        description = description,
-                        color = 16711680,
-                        footer = {text = "Pet Simulator 99 - Boss Scanner"},
-                        timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
-                    }}
-                })
-            })
-        end)
-    end
-else
-    local newServer = getNewServer()
-    
-    if newServer then
-        getgenv().VisitedServers[newServer.id] = true
-        hopServer(newServer.id)
-    else
-        hopServer(nil)
-    end
-end
+end)
