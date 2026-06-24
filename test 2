@@ -1,5 +1,5 @@
 -- ============================
--- AUTO JOIN EVENT + TÌM BOSS + GỬI DISCORD + HOP SERVER KHÔNG TRÙNG
+-- AUTO JOIN EVENT + TÌM BOSS + GỬI DISCORD + HOP SERVER
 -- ============================
 
 getgenv().WebhookURL = ""
@@ -21,9 +21,6 @@ if not getgenv().VisitedServers then
     getgenv().VisitedServers = {}
 end
 
--- ============================
--- LƯU SERVER HIỆN TẠI
--- ============================
 getgenv().VisitedServers[game.JobId] = true
 
 -- ============================
@@ -41,7 +38,7 @@ if libraryFolder then
     end
 end
 
-task.wait(5)
+task.wait(7)
 
 -- ============================
 -- 2. ĐẾM BOSS
