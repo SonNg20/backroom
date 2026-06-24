@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local vim = game:GetService("VirtualInputManager")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -139,7 +140,6 @@ if game.CoreGui:FindFirstChild("ScanGUI") then game.CoreGui.ScanGUI:Destroy() en
 local sg = Instance.new("ScreenGui", game.CoreGui)
 sg.Name = "ScanGUI"
 
--- Status Label (Y=150)
 local label = Instance.new("TextLabel", sg)
 label.Size = UDim2.new(0, 300, 0, 180)
 label.Position = UDim2.new(0, 10, 0, 150)
@@ -151,7 +151,7 @@ label.TextSize = 9
 label.TextWrapped = true
 label.Text = "Status: San sang..."
 
--- NÚT FARM (Y=80)
+-- NÚT FARM
 local mainFarmEnabled = false
 local toggleFarmBtn = Instance.new("TextButton", sg)
 toggleFarmBtn.Size = UDim2.new(0, 300, 0, 30)
@@ -162,7 +162,7 @@ toggleFarmBtn.Font = Enum.Font.GothamBold
 toggleFarmBtn.TextSize = 13
 toggleFarmBtn.Text = "FARM: OFF"
 
--- NÚT CLICK (Y=335 - dưới status)
+-- NÚT CLICK
 local screenClickEnabled = true
 local toggleClickBtn = Instance.new("TextButton", sg)
 toggleClickBtn.Size = UDim2.new(0, 300, 0, 30)
@@ -470,30 +470,35 @@ function processQueue()
 end
 
 -- ============================
--- TICK SYSTEM (1 LOOP)
+-- TICK SYSTEM (FIX AUTO CLICK)
 -- ============================
 local tickCount = 0
 
 task_spawn(function()
-    while task_wait(1) do
+    while task_wait(0.5) do
         tickCount = tickCount + 1
         
-        -- Auto click mỗi 1s (mặc định BẬT)
+        -- Auto click mỗi 0.5s khi bật
         if screenClickEnabled then
-            local vp = camera.ViewportSize
-            vim:SendMouseButtonEvent(vp.X/2, vp.Y/2, 0, true, game, 0)
-            vim:SendMouseButtonEvent(vp.X/2, vp.Y/2, 0, false, game, 0)
+            pcall(function()
+                vim:SendMouseButtonEvent(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y/2, 0, true, game, 0)
+                task_wait(0.05)
+                vim:SendMouseButtonEvent(workspace.CurrentCamera.ViewportSize.X/2, workspace.CurrentCamera.ViewportSize.Y/2, 0, false, game, 0)
+            end)
         end
         
-        if tickCount % 3 == 0 then
+        -- Mỗi 3s: Check inventory
+        if tickCount % 6 == 0 then
             pcall(checkInventoryForHugeTitanic)
         end
         
-        if tickCount % 15 == 0 then
+        -- Mỗi 15s: Dọn rác
+        if tickCount % 30 == 0 then
             collectgarbage("collect")
         end
         
-        if tickCount % 30 == 0 and gcinfo() > 300000 then
+        -- Mỗi 30s: Chống crash
+        if tickCount % 60 == 0 and gcinfo() > 300000 then
             for _ = 1, 3 do
                 collectgarbage("collect")
             end
