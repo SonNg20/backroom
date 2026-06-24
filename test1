@@ -64,14 +64,20 @@ enableNoclip()
 player.CharacterAdded:Connect(function() task.wait(0.5) enableNoclip() end)
 
 -- ============================
--- TWEEN (TỐC ĐỘ 8)
+-- TWEEN
 -- ============================
 local function getTweenSpeed()
     return getgenv().TweenSpeed or 8
 end
 
-local function getTweenInfo()
+-- Tween chậm (đến boss, chuyển room, về center)
+local function getSlowTweenInfo()
     return TweenInfo.new(60 / getTweenSpeed(), Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+end
+
+-- Tween nhanh (mini chest)
+local function getFastTweenInfo()
+    return TweenInfo.new(20 / 20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 end
 
 local currentTween = nil
@@ -85,7 +91,18 @@ local function tweenToPosition(pos)
     local hrp = getHRP()
     if not hrp or not pos then return end
     if currentTween then currentTween:Cancel() currentTween = nil end
-    local tween = TweenService:Create(hrp, getTweenInfo(), {CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)})
+    local tween = TweenService:Create(hrp, getSlowTweenInfo(), {CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)})
+    currentTween = tween
+    tween:Play()
+    tween.Completed:Wait()
+    currentTween = nil
+end
+
+local function tweenToMiniChest(pos)
+    local hrp = getHRP()
+    if not hrp or not pos then return end
+    if currentTween then currentTween:Cancel() currentTween = nil end
+    local tween = TweenService:Create(hrp, getFastTweenInfo(), {CFrame = CFrame_new(pos.X, pos.Y + 2.5, pos.Z)})
     currentTween = tween
     tween:Play()
     tween.Completed:Wait()
@@ -473,7 +490,7 @@ local function farmBoss(bossData)
             if #pendingChests > 0 and not processing then
                 processing = true
                 local chestEntry = table_remove(pendingChests, 1)
-                tweenToPosition(chestEntry.pos)
+                tweenToMiniChest(chestEntry.pos)
                 
                 while mainFarmEnabled do
                     if not chestEntry.inst or not chestEntry.inst.Parent then break end
