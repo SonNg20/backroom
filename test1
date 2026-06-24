@@ -65,10 +65,10 @@ enableNoclip()
 player.CharacterAdded:Connect(function() task.wait(0.5) enableNoclip() end)
 
 -- ============================
--- TWEEN
+-- TWEEN (TỐC ĐỘ 8)
 -- ============================
 local function getTweenSpeed()
-    return getgenv().TweenSpeed or 20
+    return getgenv().TweenSpeed or 8
 end
 
 local function getTweenInfo()
@@ -253,7 +253,7 @@ task_spawn(function()
 end)
 
 -- ============================
--- ENTER DEEP BACKROOMS
+-- ENTER DEEP BACKROOMS (FIX - 1 LẦN, KHÔNG BAY XÉO)
 -- ============================
 task.wait(10)
 
@@ -265,18 +265,17 @@ if spawnRoomFolder then
     local deepDoor = spawnRoomFolder:WaitForChild("DeepDoor", 15)
     if deepDoor and deepDoor:FindFirstChild("Interact") then
         local interactPart = deepDoor.Interact
-        for i = 1, 5 do
-            tweenToPosition(interactPart.Position)
-            task_wait(0.3)
-        end
-        task_wait(2)
+        
+        -- Chỉ 1 lần, tween thẳng đến cửa (không bay xéo)
+        local doorPos = interactPart.Position
+        tweenToPosition(Vector3_new(doorPos.X, doorPos.Y, doorPos.Z))
+        task_wait(1)
+        
         local roomUID = spawnRoomFolder:GetAttribute("RoomUID")
         if roomUID then
             pcall(function()
                 ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer("Backrooms", "AbstractRoom_FireServer", roomUID, "EnterDeepBackrooms")
             end)
-        else
-            tweenToPosition(interactPart.Position)
         end
     end
 end
@@ -418,6 +417,7 @@ local function farmBoss(bossData)
     
     isFarming = true
     
+    -- Tween đến boss (3 lần)
     for i = 1, 3 do
         if not mainFarmEnabled then isFarming = false return end
         tweenToPosition(bossData.pos)
@@ -513,21 +513,22 @@ local function farmBoss(bossData)
     -- Lắng nghe mini chest BỊ XÓA
     local removedListener = breakablesContainer.ChildRemoved:Connect(function(inst)
         task_defer(function()
-            if not isMiniChest(inst) then return end
             if currentChest and currentChest.inst == inst then
                 currentChest = nil
                 processing = false
                 miniChestTimer = tick()
             end
-            for i, chest in ipairs(pendingChests) do
-                if chest.inst == inst then table_remove(pendingChests, i) break end
+            for i = #pendingChests, 1, -1 do
+                if pendingChests[i].inst == inst then
+                    table_remove(pendingChests, i)
+                end
             end
         end)
     end)
     
     farmingThisRoom = true
     
-    -- Xử lý mini chest
+    -- Xử lý mini chest (KHÔNG TIMEOUT)
     task_spawn(function()
         while farmingThisRoom and mainFarmEnabled do
             if not processing then
@@ -539,14 +540,12 @@ local function farmBoss(bossData)
                     tweenToPositionFast(currentChest.pos)
                     miniChestTimer = tick()
                     
-                    local waitStart = tick()
                     while mainFarmEnabled do
                         if not currentChest.inst or not currentChest.inst.Parent then
                             currentChest = nil
                             break
                         end
                         if isChestOnCooldown(actualRoom) then break end
-                        if tick() - waitStart > 15 then currentChest = nil break end
                         task_wait(0.2)
                     end
                     
