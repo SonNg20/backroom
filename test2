@@ -1,268 +1,91 @@
--- ============ PHẦN 1: AUTO JOIN EVENT ============
-local ClientFolder = libraryFolder:WaitForChild("Client", 15)
-local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
-local FFlags = require(ClientFolder:WaitForChild("FFlags"))
-
--- Tạo UI hiển thị
+-- Tạo UI hiển thị số boss
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
+-- Tạo Frame chính
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "AutoJoinBossCounter"
+screenGui.Name = "BossCounterUI"
 screenGui.Parent = playerGui
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 280, 0, 100)
-mainFrame.Position = UDim2.new(0.5, -140, 0, 10)
-mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-mainFrame.BackgroundTransparency = 0.3
+mainFrame.Size = UDim2.new(0, 200, 0, 50)
+mainFrame.Position = UDim2.new(1, -220, 0, 10) -- Góc phải trên
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BackgroundTransparency = 0.2
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
 
+-- Thêm hiệu ứng bo góc
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
+corner.CornerRadius = UDim.new(0, 8)
 corner.Parent = mainFrame
 
--- Label trạng thái event
-local eventStatusLabel = Instance.new("TextLabel")
-eventStatusLabel.Size = UDim2.new(1, 0, 0.5, 0)
-eventStatusLabel.Position = UDim2.new(0, 0, 0, 0)
-eventStatusLabel.BackgroundTransparency = 1
-eventStatusLabel.Text = "⏳ Đang chờ event..."
-eventStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
-eventStatusLabel.TextScaled = true
-eventStatusLabel.Font = Enum.Font.GothamBold
-eventStatusLabel.Parent = mainFrame
+-- Label hiển thị số boss
+local bossLabel = Instance.new("TextLabel")
+bossLabel.Size = UDim2.new(1, 0, 1, 0)
+bossLabel.BackgroundTransparency = 1
+bossLabel.Text = "🔄 Đang quét..."
+bossLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+bossLabel.TextScaled = true
+bossLabel.Font = Enum.Font.GothamBold
+bossLabel.Parent = mainFrame
 
--- Label số boss
-local bossCountLabel = Instance.new("TextLabel")
-bossCountLabel.Size = UDim2.new(1, 0, 0.5, 0)
-bossCountLabel.Position = UDim2.new(0, 0, 0.5, 0)
-bossCountLabel.BackgroundTransparency = 1
-bossCountLabel.Text = "👾 Đang quét boss..."
-bossCountLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-bossCountLabel.TextScaled = true
-bossCountLabel.Font = Enum.Font.GothamBold
-bossCountLabel.Parent = mainFrame
-
--- ============ PHẦN 2: QUÉT BOSS ============
+-- Hàm quét và cập nhật UI
 local function scanBosses()
-    -- Kiểm tra xem đã join event chưa (check workspace có Breakables không)
-    local success, breakables = pcall(function()
-        return workspace.__THINGS.Breakables
-    end)
-    
-    if not success or not breakables then
-        bossCountLabel.Text = "⏳ Chưa vào event..."
-        bossCountLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
-        return 0
-    end
-    
+    local Breakables = workspace.__THINGS.Breakables
     local bosses = 0
-    local bossNames = {}
     
-    for _, breakable in ipairs(breakables:GetChildren()) do
+    for _, breakable in ipairs(Breakables:GetChildren()) do
         if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
             bosses += 1
-            table.insert(bossNames, breakable.Name or "Unknown")
         end
     end
     
     -- Cập nhật UI
     if bosses >= 3 then
-        bossCountLabel.Text = string.format("⚠️ %d BOSSES PHÁT HIỆN!", bosses)
-        bossCountLabel.TextColor3 = Color3.fromRGB(255, 50, 50) -- Đỏ cảnh báo
-        print(string.format("⚠️ [BOSS ALERT] %d bosses detected!", bosses))
-        for i, name in ipairs(bossNames) do
-            print(string.format("  - Boss %d: %s", i, name))
-        end
-    elseif bosses > 0 then
-        bossCountLabel.Text = string.format("👾 Số Boss: %d", bosses)
-        bossCountLabel.TextColor3 = Color3.fromRGB(100, 255, 100) -- Xanh
-        print(string.format("📊 %d boss(es) detected in event", bosses))
+        bossLabel.Text = string.format("⚠️ %d Bosses phát hiện!", bosses)
+        bossLabel.TextColor3 = Color3.fromRGB(255, 50, 50) -- Màu đỏ cảnh báo
+        print("3 or more bosses detected:", bosses)
     else
-        bossCountLabel.Text = "✅ Không có boss nào"
-        bossCountLabel.TextColor3 = Color3.fromRGB(100, 200, 255) -- Xanh dương
+        bossLabel.Text = string.format("👾 Số Boss: %d", bosses)
+        bossLabel.TextColor3 = Color3.fromRGB(100, 255, 100) -- Màu xanh
     end
     
     return bosses
 end
 
--- ============ PHẦN 3: AUTO JOIN + QUÉT BOSS ============
-local isInEvent = false
-local joinAttempts = 0
-local maxJoinAttempts = 3
+-- Quét lần đầu
+scanBosses()
 
-local function autoJoinAndScan()
-    local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
-    
-    if joinTarget and not isInEvent then
-        joinAttempts = joinAttempts + 1
-        
-        if joinAttempts > maxJoinAttempts then
-            eventStatusLabel.Text = "❌ Không thể join event!"
-            eventStatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-            return
-        end
-        
-        eventStatusLabel.Text = "🎮 Đang join event..."
-        eventStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-        
-        local success, err = pcall(function()
-            InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
-        end)
-        
-        if success then
-            isInEvent = true
-            eventStatusLabel.Text = "✅ Đã vào event!"
-            eventStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-            joinAttempts = 0
-            
-            -- Đợi 1 giây để event load xong rồi quét boss
-            task.wait(1)
-            scanBosses()
-            
-            -- Bắt đầu quét boss liên tục
-            startBossScanning()
-        else
-            eventStatusLabel.Text = "❌ Join thất bại: " .. tostring(err):sub(1, 30)
-            eventStatusLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
-            warn("Join failed:", err)
-        end
-    elseif not joinTarget then
-        eventStatusLabel.Text = "⏳ Chưa có event..."
-        eventStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
-        isInEvent = false
-        joinAttempts = 0
-        bossCountLabel.Text = "👾 Đợi vào event..."
-        bossCountLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    end
+-- Tự động cập nhật khi có thay đổi trong Breakables
+local connection
+connection = Breakables.ChildAdded:Connect(function()
+    scanBosses()
+end)
+
+-- Thêm cả khi child bị xóa
+local function onChildRemoved()
+    scanBosses()
 end
 
--- ============ PHẦN 4: QUÉT BOSS LIÊN TỤC ============
-local scanConnection = nil
-local isScanning = false
-
-local function startBossScanning()
-    if isScanning then return end
-    isScanning = true
-    
-    -- Quét boss mỗi 2 giây
-    scanConnection = game:GetService("RunService").Heartbeat:Connect(function(deltaTime)
-        if tick() % 2 < deltaTime then
-            scanBosses()
-        end
-    end)
-end
-
-local function stopBossScanning()
-    if scanConnection then
-        scanConnection:Disconnect()
-        scanConnection = nil
-        isScanning = false
-    end
-end
-
--- ============ PHẦN 5: THEO DÕI THAY ĐỔI ============
--- Quét tự động mỗi 1 giây để bắt event
-local autoJoinConnection
-autoJoinConnection = game:GetService("RunService").Heartbeat:Connect(function(deltaTime)
-    if tick() % 1 < deltaTime then
-        autoJoinAndScan()
+-- Lưu ý: Roblox không có sẵn ChildRemoved cho Instance, 
+-- nhưng có thể dùng DescendantRemoving hoặc loop check
+-- Cách đơn giản: Dùng timer check mỗi giây
+game:GetService("RunService").Heartbeat:Connect(function()
+    -- Check mỗi 1 giây để tiết kiệm performance
+    if tick() % 1 < 0.1 then
+        scanBosses()
     end
 end)
 
--- Theo dõi khi Breakables xuất hiện (vào event)
-local breakablesConnection
-local function setupBreakablesWatcher()
-    local success, breakables = pcall(function()
-        return workspace.__THINGS.Breakables
-    end)
-    
-    if success and breakables then
-        if breakablesConnection then
-            breakablesConnection:Disconnect()
-        end
-        
-        breakablesConnection = breakables.ChildAdded:Connect(function()
-            scanBosses()
-        end)
-        
-        breakablesConnection = breakables.ChildRemoved:Connect(function()
-            scanBosses()
-        end)
-    end
-end
-
--- Thử thiết lập watcher mỗi 3 giây
-game:GetService("RunService").Heartbeat:Connect(function(deltaTime)
-    if tick() % 3 < deltaTime then
-        setupBreakablesWatcher()
-    end
-end)
-
--- ============ PHẦN 6: NÚT ĐIỀU KHIỂN ============
-local toggleButton = Instance.new("TextButton")
-toggleButton.Size = UDim2.new(0, 120, 0, 25)
-toggleButton.Position = UDim2.new(0.5, -60, 1, -30)
-toggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
-toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleButton.Text = "🔴 TẮT"
-toggleButton.TextScaled = true
-toggleButton.Font = Enum.Font.GothamBold
-toggleButton.Parent = mainFrame
-
-local corner2 = Instance.new("UICorner")
-corner2.CornerRadius = UDim.new(0, 8)
-corner2.Parent = toggleButton
-
-local isEnabled = true
-
-toggleButton.MouseButton1Click:Connect(function()
-    isEnabled = not isEnabled
-    
-    if isEnabled then
-        toggleButton.Text = "🔴 TẮT"
-        toggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
-        eventStatusLabel.Text = "✅ Đã bật"
-        eventStatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-        -- Bật lại auto join
-        if not autoJoinConnection then
-            autoJoinConnection = game:GetService("RunService").Heartbeat:Connect(function(deltaTime)
-                if tick() % 1 < deltaTime and isEnabled then
-                    autoJoinAndScan()
-                end
-            end)
-        end
-    else
-        toggleButton.Text = "🟢 BẬT"
-        toggleButton.BackgroundColor3 = Color3.fromRGB(80, 50, 50)
-        eventStatusLabel.Text = "⏸️ Đã tắt"
-        eventStatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-        -- Tắt auto join
-        if autoJoinConnection then
-            autoJoinConnection:Disconnect()
-            autoJoinConnection = nil
-        end
-        stopBossScanning()
-    end
-end)
-
--- ============ PHẦN 7: CLEANUP ============
+-- Nếu muốn tối ưu hơn, có thể dùng signal khi Breakables thay đổi
+-- Tạo hàm hủy khi cần
 local function cleanup()
-    if autoJoinConnection then
-        autoJoinConnection:Disconnect()
-    end
-    if scanConnection then
-        scanConnection:Disconnect()
-    end
-    if breakablesConnection then
-        breakablesConnection:Disconnect()
+    if connection then
+        connection:Disconnect()
     end
     screenGui:Destroy()
 end
 
-player.OnTeleport:Connect(cleanup)
-game:BindToClose(cleanup)
-
-print("✅ Auto Join + Boss Counter system loaded!")
+-- Tự động cleanup khi game kết thúc
+game:GetService("Players").LocalPlayer.OnTeleport:Connect(cleanup)
