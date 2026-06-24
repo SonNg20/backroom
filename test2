@@ -1,15 +1,86 @@
--- Debug: In ra tất cả Attribute của object mới spawn
-workspace.__THINGS.Breakables.ChildAdded:Connect(function(inst)
-    if inst:IsA("Model") then
-        print("=== Mini Chest Spawned ===")
-        print("Name:", inst.Name)
-        print("Class:", inst.ClassName)
-        
-        -- In tất cả Attributes
-        local attrs = inst:GetAttributes()
-        for k, v in pairs(attrs) do
-            print("Attribute:", k, "=", v)
+-- ============================
+-- HOP QUA LẠI 2 PRIVATE SERVER - TÌM BOSS (ĐỢI 18S + 7S)
+-- ============================
+
+getgenv().PrivateServerCode1 = "92884917368738392535007079413789"
+getgenv().PrivateServerCode2 = "85951203710875663196976345559936"
+getgenv().TotalBoss = 3
+
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+local PLACE_ID = 8737899170
+
+if not getgenv().CurrentServer then
+    getgenv().CurrentServer = 1
+end
+
+local function getJobIdFromCode(code)
+    local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/private-servers?privateServerLinkCode=" .. code
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
+    
+    if success and result then
+        local data = HttpService:JSONDecode(result)
+        if data.data and #data.data > 0 then
+            return data.data[1].id
         end
-        print("=========================")
     end
-end)
+    
+    return nil
+end
+
+local function hopToPrivateServer(code)
+    local jobId = getJobIdFromCode(code)
+    if jobId then
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(PLACE_ID, jobId, player)
+        end)
+    end
+end
+
+local function joinEvent()
+    local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
+    if libraryFolder then
+        local ClientFolder = libraryFolder:WaitForChild("Client", 15)
+        local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
+        local FFlags = require(ClientFolder:WaitForChild("FFlags"))
+        
+        local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
+        if joinTarget then
+            InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
+        end
+    end
+end
+
+local function checkAndHop()
+    task.wait(18)
+    joinEvent()
+    task.wait(7)
+    
+    local Breakables = workspace.__THINGS.Breakables
+    local bosses = 0
+    
+    for _, breakable in ipairs(Breakables:GetChildren()) do
+        if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
+            bosses = bosses + 1
+        end
+    end
+    
+    if bosses >= getgenv().TotalBoss then
+        print("Tim thay " .. bosses .. " boss! O lai server " .. getgenv().CurrentServer)
+    else
+        if getgenv().CurrentServer == 1 then
+            getgenv().CurrentServer = 2
+            hopToPrivateServer(getgenv().PrivateServerCode2)
+        else
+            getgenv().CurrentServer = 1
+            hopToPrivateServer(getgenv().PrivateServerCode1)
+        end
+    end
+end
+
+checkAndHop()
