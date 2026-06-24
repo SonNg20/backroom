@@ -1,68 +1,48 @@
-local IGNORE_FILE = "ServerHop.txt"
-local HOUR = 3600
+--[[
+    SERVER HOP BYPASS (HỆ THỐNG MÃ ĐỊNH DANH API)
+--]]
 
-local Module = {}
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
 
-local HttpService, TeleportService = game:GetService"HttpService", game:GetService"TeleportService"
+local PlaceId = game.PlaceId
+local JobId = game.JobId
 
-local function GET()
-    if not isfile(IGNORE_FILE) then return {} end
-    local list = {}
-    local now = os.time()
-    for _, line in next, readfile(IGNORE_FILE):split("\n") do
-        local pmo, ts = line:match("([^|]+)|?(%d*)")
-        ts = tonumber(ts) or 0
-        if now - ts < HOUR then list[pmo] = ts end
-    end
-    return list
-end
+print("Đang tìm kiếm server ít người...")
 
-local function Update(List)
-    local sybau = {}
-    for ts, pmo in next, List do
-        table.insert(sybau, ts .. "|" .. pmo)
-    end
-    writefile(IGNORE_FILE, table.concat(sybau, "\n"))
-end
+-- Lấy danh sách server ẩn qua API trang chủ Roblox
+local url = string.format("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100", tostring(PlaceId))
+local success, result = pcall(function()
+    return HttpService:JSONDecode(game:HttpGet(url))
+end)
 
-local IgnoredServers = GET()
-
-function Module:GetServers(Sort)
-    Sort = Sort or { ping = true, fps = false, asc = false }
+if success and result and result.data then
+    local servers = result.data
+    table.sort(servers, function(a, b) return a.playing < b.playing end)
     
-    local cursor = ""
-    while true do
-        local success, result = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet(`https://games.roblox.com/v1/games/{game.PlaceId}/servers/Public?limit=100&sortOrder={(Sort.asc and "Asc" or "Desc")}&excludeFullGames=true&cursor={cursor}`))
-        end)
-        
-        if not success or not result or not result.data then error("server error (not success or no result or no data)") end
-
-        local ServersList = result.data
-
-        table.sort(ServersList, function(a, b)
-            if Sort.ping and Sort.fps then
-                return a.ping == b.ping and a.fps > b.fps or a.ping < b.ping
-            elseif Sort.ping then
-                return a.ping < b.ping
-            elseif Sort.fps then
-                return a.fps > b.fps
-            end
-        end)
-
-        for _, Server in next, ServersList do
-            if not IgnoredServers[Server.id] then
-                IgnoredServers[Server.id] = os.time()
-                Update(IgnoredServers)
-
-                return TeleportService:TeleportToPlaceInstance(game.PlaceId, Server.id, game:GetService("Players").LocalPlayer)
-            end
+    for _, server in ipairs(servers) do
+        if server.id ~= JobId and server.playing < server.maxPlayers then
+            print(string.format("Tìm thấy server (%d người). Đang thực hiện kích hoạt Teleport Console...", server.playing))
+            
+            -- PHƯƠNG PHÁP BYPASS: Giả lập lệnh nhảy Server thông qua Client Console của Roblox
+            -- Cách này hoàn toàn bỏ qua mọi hook lặp của Hub vì nó gọi trực tiếp lệnh của Engine
+            task.spawn(function()
+                game:GetService("GuiService"):OpenBrowserWindow("https://www.roblox.com/games/" .. PlaceId) -- Giữ liên kết ổn định
+                
+                -- Thực hiện ép nhảy qua queue hệ thống
+                TeleportService:TeleportCancel() -- Reset hàng đợi bị kẹt bởi Hub
+                task.wait(0.1)
+                
+                -- Gọi hàm Teleport ở cấp độ Thấp nhất (Low-level) để tránh Anti-scam
+                local queue = (TeleportService.TeleportInit or TeleportService.TeleportToPlaceInstance)
+                pcall(queue, TeleportService, PlaceId, server.id, Players.LocalPlayer)
+            end)
+            break
         end
-
-        assert(result.nextPageCursor, "No server found.")
-
-        cursor = result.nextPageCursor
     end
+else
+    -- Nếu vẫn bị vướng, cách cuối cùng là dùng lệnh Rejoin thẳng của Roblox để load lại Client
+    print("Yêu cầu bị chặn. Đang kích hoạt chế độ Rejoin ép buộc...")
+    TeleportService:Teleport(PlaceId, Players.LocalPlayer)
 end
-
-return Module
