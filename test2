@@ -1,5 +1,5 @@
 -- ============================
--- AUTO JOIN EVENT + QUÉT BOSS + HIỂN THỊ UI
+-- AUTO JOIN EVENT + VÀO DEEP BACKROOMS + QUÉT BOSS + HIỂN THỊ UI
 -- ============================
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,7 +14,7 @@ local sg = Instance.new("ScreenGui", game.CoreGui)
 sg.Name = "BossScanner"
 
 local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 250, 0, 100)
+label.Size = UDim2.new(0, 250, 0, 80)
 label.Position = UDim2.new(0, 10, 0, 10)
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
@@ -25,31 +25,75 @@ label.TextWrapped = true
 label.Text = "Dang vao event..."
 
 -- ============================
--- AUTO JOIN EVENT
+-- HELPER
 -- ============================
-local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
-if libraryFolder then
-    local ClientFolder = libraryFolder:WaitForChild("Client", 15)
-    local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
-    local FFlags = require(ClientFolder:WaitForChild("FFlags"))
-    
-    local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
-    if joinTarget then
-        InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
+local function getHRP()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart", 10)
+end
+
+local function safeTeleport(pos)
+    local hrp = getHRP()
+    if hrp and pos then
+        hrp.CFrame = CFrame.new(pos.X, pos.Y + 2.5, pos.Z)
     end
 end
 
 -- ============================
--- ĐẾM BOSS & HIỂN THỊ LIÊN TỤC
+-- AUTO JOIN EVENT
 -- ============================
-task_spawn(function()
-    -- Đợi event load
-    for i = 10, 1, -1 do
-        label.Text = "Dang vao event... (" .. i .. "s)"
-        task.wait(1)
+local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
+if not libraryFolder then return end
+
+local ClientFolder = libraryFolder:WaitForChild("Client", 15)
+local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
+local FFlags = require(ClientFolder:WaitForChild("FFlags"))
+
+local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
+if joinTarget then
+    InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
+end
+
+task.wait(10)
+
+-- ============================
+-- VÀO DEEP BACKROOMS
+-- ============================
+local thingsContainer = workspace:WaitForChild("__THINGS")
+local generatedBackrooms = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active"):WaitForChild("Backrooms"):WaitForChild("GeneratedBackrooms")
+
+local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
+if spawnRoomFolder then
+    local deepDoor = spawnRoomFolder:FindFirstChild("DeepDoor")
+    if deepDoor and deepDoor:FindFirstChild("Interact") then
+        local interactPart = deepDoor.Interact
+        
+        for i = 1, 5 do
+            safeTeleport(interactPart.Position)
+            task.wait(0.3)
+        end
+        
+        task.wait(2)
+        
+        local roomUID = spawnRoomFolder:GetAttribute("RoomUID")
+        if roomUID then
+            pcall(function()
+                ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer(
+                    "Backrooms", "AbstractRoom_FireServer", roomUID, "EnterDeepBackrooms"
+                )
+            end)
+        else
+            safeTeleport(interactPart.Position)
+        end
     end
-    
-    -- Quét boss liên tục
+end
+
+-- ============================
+-- QUÉT BOSS SAU 2S
+-- ============================
+task.wait(2)
+
+task.spawn(function()
     while task.wait(1) do
         local Breakables = workspace.__THINGS.Breakables
         local bosses = 0
@@ -60,15 +104,10 @@ task_spawn(function()
             end
         end
         
-        local str = "🔍 Boss Scanner\n"
-        str = str .. "-------------------\n"
-        str = str .. "Số Boss: " .. bosses .. "\n"
-        str = str .. "Server: " .. game.JobId .. "\n"
-        
+        local str = "Đang tìm boss...\n"
+        str = str .. "Boss: " .. bosses
         if bosses >= 3 then
-            str = str .. "🔥 SERVER NHIEU BOSS!"
-        else
-            str = str .. "Đang tìm..."
+            str = str .. " 🔥"
         end
         
         label.Text = str
