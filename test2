@@ -1,103 +1,15 @@
--- ============================
--- HÀM TÌM SERVER MỚI (TỐI ƯU CHO PET SIMULATOR 99)
--- ============================
-local function findNewServer()
-    local allServers = {}
-    local cursor = ""
-    
-    -- Chạy vòng lặp lấy server sâu hơn bằng cursor (Tối ưu cho game lượng người chơi lớn như PS99)
-    for page = 1, 5 do
-        -- Đổi qua lại giữa Desc và Asc để lấy cả server mới tinh lẫn server cũ vắng người
-        local sortOrder = (page % 2 == 0) and "Asc" or "Desc"
-        local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?limit=100&sortOrder=" .. sortOrder
+-- Debug: In ra tất cả Attribute của object mới spawn
+workspace.__THINGS.Breakables.ChildAdded:Connect(function(inst)
+    if inst:IsA("Model") then
+        print("=== Mini Chest Spawned ===")
+        print("Name:", inst.Name)
+        print("Class:", inst.ClassName)
         
-        if cursor ~= "" then
-            url = url .. "&cursor=" .. cursor
+        -- In tất cả Attributes
+        local attrs = inst:GetAttributes()
+        for k, v in pairs(attrs) do
+            print("Attribute:", k, "=", v)
         end
-        
-        local success, result = pcall(function()
-            return game:HttpGet(url)
-        end)
-        
-        if success and result then
-            local data = HttpService:JSONDecode(result)
-            if data and data.data then
-                for _, server in ipairs(data.data) do
-                    -- Lọc server hợp lệ: có người chơi và chưa bị đầy slot
-                    if server.id and server.playing and server.maxPlayers and server.playing < server.maxPlayers then
-                        table.insert(allServers, server)
-                    end
-                end
-                cursor = data.nextPageCursor or ""
-                if cursor == "" then break end
-            else
-                break
-            end
-        else
-            break
-        end
-        task.wait(0.05) -- Delay siêu nhỏ để tránh bị chặn HTTP request
+        print("=========================")
     end
-    
-    -- Trộn ngẫu nhiên danh sách (Fisher-Yates Shuffle) để không bị trùng lặp lộ trình
-    for i = #allServers, 2, -1 do
-        local j = math.random(1, i)
-        allServers[i], allServers[j] = allServers[j], allServers[i]
-    end
-    
-    -- Ưu tiên 1: Server vắng (1 -> 5 người), chưa từng ghé qua (Lý tưởng để farm boss Daydream Mimic)
-    for _, server in ipairs(allServers) do
-        if not getgenv().VisitedServers[server.id] and server.playing >= 1 and server.playing <= 5 then
-            return server.id
-        end
-    end
-    
-    -- Ưu tiên 2: Server chưa ghé qua (Bất kể số người, miễn là chưa đầy)
-    for _, server in ipairs(allServers) do
-        if not getgenv().VisitedServers[server.id] then
-            return server.id
-        end
-    end
-    
-    -- Ưu tiên 3: Nếu đã đi hết sạch tất cả server quét được, tự động xóa bộ nhớ để đi lại vòng mới
-    getgenv().VisitedServers = {}
-    if #allServers > 0 then
-        return allServers[math.random(1, #allServers)].id
-    end
-    
-    return nil
-end
-
--- ============================
--- HOP SERVER CỰC MẠNH (DÙNG API TELEPORTASYNC THẾ HỆ MỚI)
--- ============================
-local function hopServer()
-    local targetServerId = findNewServer()
-    
-    if targetServerId then
-        getgenv().VisitedServers[targetServerId] = true
-        
-        -- Sử dụng cấu trúc TeleportOptions mới nhất của Roblox, giảm thiểu tối đa lỗi bẻ lái thất bại
-        local teleportOptions = Instance.new("TeleportOptions")
-        teleportOptions.ServerInstanceId = targetServerId
-        
-        -- Cơ chế Ép buộc Teleport (Thử lại tối đa 3 lần nếu server đó bị lỗi/sập giữa chừng)
-        for attempt = 1, 3 do
-            local success, err = pcall(function()
-                TeleportService:TeleportAsync(PLACE_ID, {player}, teleportOptions)
-            end)
-            
-            if success then 
-                break 
-            else
-                warn("Hop server that bai lan " .. attempt .. ". Thu lai sau 2 giay... Loi: " .. tostring(err))
-                task.wait(2)
-            end
-        end
-    else
-        -- Phương án dự phòng cuối cùng: Nhảy vào một server ngẫu nhiên do Roblox sắp xếp
-        pcall(function()
-            TeleportService:Teleport(PLACE_ID, player)
-        end)
-    end
-end
+end)
