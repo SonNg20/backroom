@@ -1,5 +1,5 @@
 -- ============================
--- AUTO JOIN EVENT + TÌM BOSS + GỬI DISCORD + HOP SERVER KHÔNG TRÙNG
+-- AUTO JOIN EVENT + TÌM BOSS + GỬI DISCORD + HOP SERVER KHÔNG TRÙNG (ANTI-SCAM FIX)
 -- ============================
 
 getgenv().WebhookURL = ""
@@ -11,23 +11,24 @@ local playerName = game.Players.LocalPlayer.Name
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
 -- ============================
--- LƯU DANH SÁCH SERVER ĐÃ GHÉ (CHỐNG TRÙNG)
+-- LƯU DANH SÁCH SERVER ĐÃ GHÉ
 -- ============================
 if not getgenv().VisitedServers then
     getgenv().VisitedServers = {}
 end
 
 -- ============================
--- HÀM LẤY SERVER MỚI (KHÔNG TRÙNG)
+-- HÀM LẤY SERVER MỚI
 -- ============================
 local function getNewServer()
     local placeId = game.PlaceId
     local cursor = ""
     local allServers = {}
     
-    -- Lấy 300 server
     for page = 1, 3 do
         local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?limit=100&sortOrder=Desc"
         if cursor ~= "" then
@@ -52,7 +53,6 @@ local function getNewServer()
         end
     end
     
-    -- Lọc server: ít người + chưa từng ghé
     local bestServer = nil
     local lowestPlayers = 999
     
@@ -61,7 +61,6 @@ local function getNewServer()
         local maxPlayers = server.maxPlayers
         local jobId = server.id
         
-        -- Bỏ qua server đã ghé
         if not getgenv().VisitedServers[jobId] then
             if playing >= 1 and playing < maxPlayers and playing < lowestPlayers then
                 lowestPlayers = playing
@@ -70,7 +69,6 @@ local function getNewServer()
         end
     end
     
-    -- Nếu không tìm thấy server mới, reset danh sách đã ghé và thử lại
     if not bestServer then
         getgenv().VisitedServers = {}
         for _, server in ipairs(allServers) do
@@ -87,7 +85,32 @@ local function getNewServer()
 end
 
 -- ============================
--- LƯU SERVER HIỆN TẠI VÀO DANH SÁCH ĐÃ GHÉ
+-- HÀM HOP SERVER AN TOÀN (VƯỢT ANTI-SCAM)
+-- ============================
+local function hopServer(targetJobId)
+    if targetJobId then
+        -- Cách 1: TeleportToPlaceInstance
+        local success, err = pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, targetJobId, player)
+        end)
+        
+        if not success then
+            -- Cách 2: Dùng Teleport thường
+            task.wait(1)
+            pcall(function()
+                TeleportService:Teleport(game.PlaceId)
+            end)
+        end
+    else
+        -- Cách 3: Teleport cơ bản
+        pcall(function()
+            TeleportService:Teleport(game.PlaceId)
+        end)
+    end
+end
+
+-- ============================
+-- LƯU SERVER HIỆN TẠI
 -- ============================
 getgenv().VisitedServers[game.JobId] = true
 
@@ -106,7 +129,7 @@ if libraryFolder then
     end
 end
 
-task.wait(10)
+task.wait(5)
 
 -- ============================
 -- 2. ĐẾM BOSS
@@ -159,12 +182,8 @@ else
     
     if newServer then
         getgenv().VisitedServers[newServer.id] = true
-        pcall(function()
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, newServer.id, game.Players.LocalPlayer)
-        end)
+        hopServer(newServer.id)
     else
-        pcall(function()
-            TeleportService:Teleport(game.PlaceId)
-        end)
+        hopServer(nil)
     end
 end
