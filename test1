@@ -17,7 +17,7 @@ local Vector3_new, CFrame_new = Vector3.new, CFrame.new
 local task_wait, task_spawn, task_defer = task.wait, task.spawn, task.defer
 local string_format, pairs, ipairs = string.format, pairs, ipairs
 local table_insert, table_remove, table_sort = table.insert, table.remove, table.sort
-local pcall, tick, math_huge = pcall, tick, math.huge
+local pcall, tick, math_huge, math_floor = pcall, tick, math.huge, math.floor
 
 -- ============================
 -- SERVICES
@@ -221,26 +221,46 @@ local function detectSpawnedRoom(bossPos)
     return nil
 end
 
+-- ============================
+-- KIỂM TRA TRÙNG BOSS (DÙNG KHOẢNG CÁCH < 10 STUD)
+-- ============================
+local function isBossDuplicate(pos)
+    for key, _ in pairs(scannedKeys) do
+        -- Parse key "X_Y_Z"
+        local x, y, z = key:match("([%d%-%.]+)_([%d%-%.]+)_([%d%-%.]+)")
+        if x and y and z then
+            local existingPos = Vector3_new(tonumber(x), tonumber(y), tonumber(z))
+            if (existingPos - pos).Magnitude < 10 then -- Cùng 1 boss nếu cách nhau < 10 studs
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local function getBossKey(pos)
-    return string_format("%d_%d_%d", math.floor(pos.X), math.floor(pos.Y), math.floor(pos.Z))
+    return string_format("%.0f_%.0f_%.0f", math_floor(pos.X), math_floor(pos.Y), math_floor(pos.Z))
 end
 
 -- ============================
--- SCAN BOSS (DÙNG BREAKABLE OBJECT, KHÔNG TRÙNG)
+-- SCAN BOSS (CHỐNG TRÙNG BẰNG KHOẢNG CÁCH)
 -- ============================
 local function scanBosses()
     for _, breakable in ipairs(breakablesContainer:GetChildren()) do
         if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
             local part = breakable:IsA("BasePart") and breakable or breakable:FindFirstChildWhichIsA("BasePart", true)
             if part then
-                local key = tostring(breakable) -- Dùng chính object làm key (duy nhất)
+                local pos = part.Position
+                local key = getBossKey(pos)
                 
-                if not scannedKeys[key] then
-                    scannedKeys[key] = true
+                -- Kiểm tra trùng bằng khoảng cách
+                if not scannedKeys[key] and not isBossDuplicate(pos) then
+                    scannedKeys[key] = pos -- Lưu vị trí
                     
                     table_insert(bossQueue, {
                         bossModel = breakable,
-                        pos = part.Position,
+                        pos = pos,
+                        key = key,
                         room = nil
                     })
                 end
@@ -330,7 +350,7 @@ local function farmBoss(bossData)
         return
     end
     
-    local roomUID = actualRoom:GetAttribute("RoomUID") or getBossKey(bossData.pos)
+    local roomUID = actualRoom:GetAttribute("RoomUID") or bossData.key
     
     -- Unlock
     if not getgenv().UnlockedRoomsCache[roomUID] and isLocked(actualRoom) then
@@ -430,7 +450,7 @@ local function farmBoss(bossData)
     
     if not mainFarmEnabled then return end
     
-    -- QUAN TRỌNG: Gọi processQueue để farm boss tiếp theo
+    -- Farm boss tiếp theo
     processQueue()
 end
 
@@ -440,10 +460,10 @@ end
 function processQueue()
     if not mainFarmEnabled then return end
     
-    -- Quét thêm boss mới trước khi lấy
+    -- Quét thêm boss mới
     scanBosses()
     
-    -- Xóa boss đã farm khỏi queue (nếu bossModel đã bị destroy)
+    -- Xóa boss đã bị destroy
     local cleanQueue = {}
     for _, b in ipairs(bossQueue) do
         if b.bossModel and b.bossModel.Parent then
@@ -456,7 +476,6 @@ function processQueue()
         local nextBoss = table_remove(bossQueue, 1)
         farmBoss(nextBoss)
     else
-        -- Không có boss, đợi 2s rồi thử lại
         task_wait(2)
         processQueue()
     end
