@@ -57,30 +57,6 @@ if joinTarget then
     InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
 end
 
-task_wait(10)
-
-local thingsContainer = workspace:WaitForChild("__THINGS")
-local breakablesContainer = thingsContainer:WaitForChild("Breakables")
-local generatedBackrooms = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active"):WaitForChild("Backrooms"):WaitForChild("GeneratedBackrooms")
-
-local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
-if spawnRoomFolder then
-    local deepDoor = spawnRoomFolder:FindFirstChild("DeepDoor")
-    if deepDoor and deepDoor:FindFirstChild("Interact") then
-        for i = 1, 5 do
-            safeTeleport(deepDoor.Interact.Position)
-            task_wait(0.3)
-        end
-        task_wait(2)
-        local roomUID = spawnRoomFolder:GetAttribute("RoomUID")
-        if roomUID then
-            pcall(function()
-                ReplicatedStorage.Network.Instancing_FireCustomFromClient:FireServer("Backrooms", "AbstractRoom_FireServer", roomUID, "EnterDeepBackrooms")
-            end)
-        end
-    end
-end
-
 -- ============================
 -- DISCORD WEBHOOK
 -- ============================
@@ -127,11 +103,6 @@ local function checkInventoryForHugeTitanic()
     previousPetCounts = current
 end
 
-if not spawnRoomFolder then return end
-local origin = spawnRoomFolder:FindFirstChildWhichIsA("BasePart", true)
-if not origin then return end
-local originPos = origin.Position
-
 -- ============================
 -- GUI
 -- ============================
@@ -148,18 +119,19 @@ label.TextColor3 = Color3.fromRGB(0, 255, 100)
 label.Font = Enum.Font.Code
 label.TextSize = 9
 label.TextWrapped = true
-label.Text = "Status: San sang..."
+label.Text = "Dang vao event..."
 
--- NÚT FARM
+-- NÚT FARM (MẶC ĐỊNH ON)
 local mainFarmEnabled = false
+local farmStarted = false
 local toggleFarmBtn = Instance.new("TextButton", sg)
 toggleFarmBtn.Size = UDim2.new(0, 300, 0, 30)
 toggleFarmBtn.Position = UDim2.new(0, 10, 0, 80)
-toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
+toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 toggleFarmBtn.TextColor3 = Color3.new(1,1,1)
 toggleFarmBtn.Font = Enum.Font.GothamBold
 toggleFarmBtn.TextSize = 13
-toggleFarmBtn.Text = "FARM: OFF"
+toggleFarmBtn.Text = "FARM: ON"
 
 -- NÚT CLICK
 local screenClickEnabled = true
@@ -184,10 +156,10 @@ toggleClickBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ============================
--- AUTO CLICK (LOOP RIÊNG - KHÔNG BỊ FARM ẢNH HƯỞNG)
+-- AUTO CLICK
 -- ============================
 task_spawn(function()
-    while task_wait(0.5) do
+    while task.wait(0.3) do
         if screenClickEnabled then
             pcall(function()
                 local vp = workspace.CurrentCamera.ViewportSize
@@ -201,6 +173,18 @@ end)
 -- ============================
 -- ROOM FUNCTIONS
 -- ============================
+local thingsContainer = workspace:WaitForChild("__THINGS")
+local breakablesContainer = thingsContainer:WaitForChild("Breakables")
+local generatedBackrooms = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active"):WaitForChild("Backrooms"):WaitForChild("GeneratedBackrooms")
+local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
+
+local origin = nil
+local originPos = nil
+if spawnRoomFolder then
+    origin = spawnRoomFolder:FindFirstChildWhichIsA("BasePart", true)
+    if origin then originPos = origin.Position end
+end
+
 local damageRemote = ReplicatedStorage:WaitForChild("Network", 15):WaitForChild("Breakables_PlayerDealDamage")
 local farmingThisRoom = false
 local bossQueue = {}
@@ -280,7 +264,7 @@ local function scanBosses()
         end
     end
     
-    if #bossQueue > 1 then
+    if #bossQueue > 1 and originPos then
         table_sort(bossQueue, function(a, b)
             return (a.pos - originPos).Magnitude < (b.pos - originPos).Magnitude
         end)
@@ -484,7 +468,7 @@ function processQueue()
 end
 
 -- ============================
--- TICK SYSTEM (DỌN RÁC + INVENTORY)
+-- TICK SYSTEM
 -- ============================
 local tickCount = 0
 
@@ -518,19 +502,43 @@ toggleFarmBtn.MouseButton1Click:Connect(function()
         toggleFarmBtn.Text = "FARM: ON"
         toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
         
-        bossQueue = {}
-        scannedBossObjects = {}
-        isFarming = false
-        farmingThisRoom = false
-        
-        label.Text = "Dang quet boss..."
-        processQueue()
+        if farmStarted then
+            bossQueue = {}
+            scannedBossObjects = {}
+            isFarming = false
+            farmingThisRoom = false
+            processQueue()
+        end
     else
         toggleFarmBtn.Text = "FARM: OFF"
         toggleFarmBtn.BackgroundColor3 = Color3.fromRGB(150, 30, 30)
         farmingThisRoom = false
         isFarming = false
         bossQueue = {}
-        label.Text = "Da tat farm."
     end
+end)
+
+-- ============================
+-- AUTO START FARM SAU 10S VÀO EVENT
+-- ============================
+task_spawn(function()
+    label.Text = "Dang vao event... (10s)"
+    
+    -- Đợi event load
+    for i = 10, 1, -1 do
+        label.Text = "Dang vao event... (" .. i .. "s)"
+        task_wait(1)
+    end
+    
+    label.Text = "Bat dau farm!"
+    
+    -- Bắt đầu farm
+    mainFarmEnabled = true
+    farmStarted = true
+    bossQueue = {}
+    scannedBossObjects = {}
+    isFarming = false
+    farmingThisRoom = false
+    
+    processQueue()
 end)
