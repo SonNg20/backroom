@@ -79,25 +79,69 @@ local function sendToDiscord(title, description, color, mention)
 end
 
 -- ============================
--- INVENTORY CHECK
+-- INVENTORY CHECK (FIX)
 -- ============================
-local SaveModule = pcall(function() return require(ClientFolder:WaitForChild("Save")) end)
+local SaveModule = nil
+local saveLoadAttempt = 0
+
+-- Thử load Save module nhiều lần
+task_spawn(function()
+    while not SaveModule and saveLoadAttempt < 10 do
+        saveLoadAttempt = saveLoadAttempt + 1
+        local ok, mod = pcall(function()
+            return require(ClientFolder:WaitForChild("Save"))
+        end)
+        if ok and mod then
+            SaveModule = mod
+        else
+            task_wait(2)
+        end
+    end
+end)
+
 local previousPetCounts = {}
 local firstCheck = true
 
 local function checkInventoryForHugeTitanic()
     if not SaveModule then return end
+    
     local ok, data = pcall(function() return SaveModule.Get() end)
-    if not ok or not data or not data.Inventory or not data.Inventory.Pet then return end
-    local current = {}
-    for _, pet in pairs(data.Inventory.Pet) do
-        if pet.id then current[pet.id] = (current[pet.id] or 0) + (pet._am or 1) end
+    if not ok or not data then return end
+    
+    -- PS99 lưu inventory trong data.Inventory.Pet hoặc data.Pets
+    local petData = nil
+    if data.Inventory and data.Inventory.Pet then
+        petData = data.Inventory.Pet
+    elseif data.Pets then
+        petData = data.Pets
+    else
+        return
     end
-    if firstCheck then previousPetCounts = current firstCheck = false return end
+    
+    local current = {}
+    for _, pet in pairs(petData) do
+        if pet.id then
+            current[pet.id] = (current[pet.id] or 0) + (pet._am or 1)
+        end
+    end
+    
+    if firstCheck then
+        previousPetCounts = current
+        firstCheck = false
+        return
+    end
+    
     for name, count in pairs(current) do
         local prev = previousPetCounts[name] or 0
         if count > prev and (name:find("Huge") or name:find("Titanic")) then
-            sendToDiscord(name:find("Titanic") and "TITANIC!" or "HUGE!", string_format("**%s** +%d", name, count - prev), name:find("Titanic") and 16711680 or 65280, true)
+            local isTitanic = name:find("Titanic") ~= nil
+            sendToDiscord(
+                isTitanic and "💎 TITANIC PET MOI!" or "🔥 HUGE PET MOI!",
+                string_format("**%s** vua nhan **%s** (x%d)\nTong: **%d**",
+                    player.Name, name, count - prev, count),
+                isTitanic and 16711680 or 65280,
+                true
+            )
         end
     end
     previousPetCounts = current
@@ -519,12 +563,11 @@ toggleFarmBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ============================
--- AUTO START FARM SAU 10S VÀO EVENT
+-- AUTO START FARM SAU 10S
 -- ============================
 task_spawn(function()
     label.Text = "Dang vao event... (10s)"
     
-    -- Đợi event load
     for i = 10, 1, -1 do
         label.Text = "Dang vao event... (" .. i .. "s)"
         task_wait(1)
@@ -532,7 +575,6 @@ task_spawn(function()
     
     label.Text = "Bat dau farm!"
     
-    -- Bắt đầu farm
     mainFarmEnabled = true
     farmStarted = true
     bossQueue = {}
