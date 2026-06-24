@@ -3,6 +3,8 @@
 -- ============================
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
 -- ============================
 -- GUI
@@ -12,7 +14,7 @@ local sg = Instance.new("ScreenGui", game.CoreGui)
 sg.Name = "BossScanner"
 
 local label = Instance.new("TextLabel", sg)
-label.Size = UDim2.new(0, 250, 0, 80)
+label.Size = UDim2.new(0, 250, 0, 100)
 label.Position = UDim2.new(0, 10, 0, 10)
 label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 label.BackgroundTransparency = 0.3
@@ -20,7 +22,7 @@ label.TextColor3 = Color3.fromRGB(0, 255, 100)
 label.Font = Enum.Font.Code
 label.TextSize = 12
 label.TextWrapped = true
-label.Text = "Dang quet boss..."
+label.Text = "Dang vao event..."
 
 -- ============================
 -- AUTO JOIN EVENT
@@ -38,11 +40,16 @@ if libraryFolder then
 end
 
 -- ============================
--- QUÉT BOSS LIÊN TỤC
+-- ĐẾM BOSS & HIỂN THỊ LIÊN TỤC
 -- ============================
 task_spawn(function()
-    task.wait(10)
+    -- Đợi event load
+    for i = 10, 1, -1 do
+        label.Text = "Dang vao event... (" .. i .. "s)"
+        task.wait(1)
+    end
     
+    -- Quét boss liên tục
     while task.wait(1) do
         local Breakables = workspace.__THINGS.Breakables
         local bosses = 0
@@ -53,9 +60,15 @@ task_spawn(function()
             end
         end
         
-        local str = "Boss: " .. bosses
+        local str = "🔍 Boss Scanner\n"
+        str = str .. "-------------------\n"
+        str = str .. "Số Boss: " .. bosses .. "\n"
+        str = str .. "Server: " .. game.JobId .. "\n"
+        
         if bosses >= 3 then
-            str = str .. " 🔥"
+            str = str .. "🔥 SERVER NHIEU BOSS!"
+        else
+            str = str .. "Đang tìm..."
         end
         
         label.Text = str
