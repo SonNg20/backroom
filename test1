@@ -10,7 +10,7 @@ getgenv().DiscordUserID = "989895037406044200"
 getgenv().NOTIFY_TARGET_ROOM = false
 getgenv().NOTIFY_HUGE_TITANIC = true
 getgenv().UNLOCK_TIMEOUT = 5
-getgenv().TweenSpeed = 8
+getgenv().TweenSpeed = 12
 
 if not getgenv().UnlockedRoomsCache then getgenv().UnlockedRoomsCache = {} end
 if not game:IsLoaded() then game.Loaded:Wait() end
