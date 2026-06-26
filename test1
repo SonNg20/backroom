@@ -1,25 +1,24 @@
 -- =======================================================
--- CODE THÔNG BÁO PET MỚI (Đã chèn Webhook của bạn)
+-- CODE THEO DÕI INVENTORY (PET SIM 99)
 -- =======================================================
 
--- 1. Link Webhook của bạn (Đã chèn chính xác)
+-- 1. Link Webhook của bạn
 local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 
--- 2. Hàm gửi Discord (Code cốt lõi)
+-- 2. Hàm gửi thông báo Discord
 local function sendToDiscord(petName, rarity)
     local HttpService = game:GetService("HttpService")
     
-    -- Tạo nội dung tin nhắn Embed
     local data = {
         embeds = {{
             title = "🐣 NEW PET CAUGHT!",
-            description = "**Tên Pet:** `" .. tostring(petName) .. "`\n**Độ hiếm:** `" .. tostring(rarity) .. "`",
-            color = 5763719, -- Màu xanh lá
-            footer = { text = "Auto Script | " .. os.date("%H:%M:%S") }
+            description = "**Pet:** `" .. tostring(petName) .. "`\n**Rarity:** `" .. tostring(rarity) .. "`",
+            color = 5763719,
+            footer = { text = "Inventory Monitor | " .. os.date("%H:%M:%S") }
         }}
     }
 
-    -- Bắt lỗi khi gửi (dùng pcall để không bị crash script)
+    -- Dùng pcall để bắt lỗi nếu không gửi được
     local success, err = pcall(function()
         request({
             Url = WebhookURL,
@@ -30,49 +29,68 @@ local function sendToDiscord(petName, rarity)
     end)
 
     if success then
-        print("✅ Đã gửi thông báo lên Discord: " .. tostring(petName))
+        print("✅ Đã gửi: " .. tostring(petName))
     else
-        warn("❌ Gửi thất bại! Lỗi: " .. tostring(err))
-        -- Nếu lỗi là "attempt to call a nil value", Executor bạn đang dùng đã chặn hàm request()
+        warn("❌ Gửi thất bại (Lỗi Request): " .. tostring(err))
     end
 end
 
--- 3. Bắt sự kiện Hatch (Cách an toàn cho mọi game Pet Sim)
-print("🟢 Script đang chạy, đang chờ bạn nở trứng...")
+-- 3. BẮT ĐẦU THEO DÕI INVENTORY
+print("🟢 Đang chờ game tải Inventory...")
 
--- Dùng RemoteEvent (Cách chính xác nhất)
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local remote = ReplicatedStorage:WaitForChild("Remotes", 10) 
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
 
-if remote then
-    -- Sự kiện này kích hoạt mỗi lần nở trứng
-    remote.HatchEvent.OnClientEvent:Connect(function(petData)
-        local name = "Unknown Pet"
-        local rarity = "Unknown"
+-- Chờ cho Inventory của game xuất hiện
+local inventoryFolder = localPlayer:WaitForChild("PetInventory", 15)
 
-        -- Xử lý dữ liệu game trả về
-        if type(petData) == "table" then
-            name = petData.Name or petData._id or "Unknown"
-            rarity = petData.Rarity or "Common"
-        elseif type(petData) == "string" then
-            name = petData
+if inventoryFolder then
+    print("✅ Đã tìm thấy thư mục PetInventory!")
+    
+    -- Biến để lưu số lượng pet hiện tại
+    local currentPetCount = #inventoryFolder:GetChildren()
+
+    -- Tạo vòng lặp kiểm tra (Check mỗi 1.5 giây 1 lần)
+    spawn(function()
+        while task.wait(1.5) do
+            -- Kiểm tra xem Inventory có sự thay đổi số lượng không
+            local newPetCount = #inventoryFolder:GetChildren()
+            
+            if newPetCount > currentPetCount then
+                -- Đã có pet mới!
+                local newPet = inventoryFolder:GetChildren()[newPetCount]
+                local petName = "Unknown Pet"
+                local petRarity = "Unknown"
+
+                if newPet then
+                    petName = newPet.Name
+                    
+                    -- Thử lấy độ hiếm (Rarity) nếu game có lưu trong thuộc tính của Pet
+                    local successGet, rarityVal = pcall(function()
+                        return newPet:FindFirstChild("Rarity") and newPet.Rarity.Value or "Unknown"
+                    end)
+                    
+                    if successGet and rarityVal then
+                        petRarity = rarityVal
+                    else
+                        -- Nếu không lấy được rarity, thử lấy bằng tên của Model
+                        local successFind, foundRarity = pcall(function()
+                            return newPet:FindFirstChild("Configuration") and newPet.Configuration.Rarity.Value or "Unknown"
+                        end)
+                        if successFind then petRarity = foundRarity end
+                    end
+
+                    -- Gửi thông báo
+                    sendToDiscord(petName, petRarity)
+                end
+
+                -- Cập nhật lại số lượng để lần sau so sánh tiếp
+                currentPetCount = newPetCount
+            end
         end
-        
-        -- Gửi webhook
-        sendToDiscord(name, rarity)
     end)
-    print("✅ Đã tìm thấy Remote HatchEvent, sẵn sàng hoạt động!")
+    
+    print("🟢 Bắt đầu theo dõi! Cứ nở trứng là sẽ báo.")
 else
-    warn("❌ KHÔNG TÌM THẤY REMOTE. Thử dùng cách quan sát Inventory...")
-    -- (Dự phòng) Nếu không bắt được remote, thử quan sát inventory
-    local Players = game:GetService("Players")
-    local inv = Players.LocalPlayer:WaitForChild("PetInventory", 5)
-    if inv then
-        local oldCount = #inv:GetChildren()
-        inv.ChildAdded:Connect(function(newPet)
-            task.wait(0.2) -- Chờ game load xong pet
-            sendToDiscord(newPet.Name, "Unknown (Inventory)")
-        end)
-        print("✅ Đã dùng cách dự phòng Inventory!")
-    end
+    warn("❌ LỖI NẶNG: Không tìm thấy PetInventory. Bạn đang chơi Pet Simulator 99 đúng không?")
 end
