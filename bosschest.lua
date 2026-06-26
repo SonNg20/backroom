@@ -423,6 +423,7 @@ local function farmBoss(bossData)
     
     local roomUID = actualRoom:GetAttribute("RoomUID") or tostring(bossData.pos)
     
+    -- UNLOCK (THỬ LẠI MỖI LẦN NẾU CHƯA MỞ)
     if not getgenv().UnlockedRoomsCache[roomUID] and isLocked(actualRoom) then
         local unlockStart = tick()
         while isLocked(actualRoom) and mainFarmEnabled do
@@ -430,10 +431,11 @@ local function farmBoss(bossData)
             task_wait(1)
             if tick() - unlockStart > getgenv().UNLOCK_TIMEOUT then break end
         end
-        getgenv().UnlockedRoomsCache[roomUID] = true
+        -- Chỉ lưu cache nếu mở thành công
+        if not isLocked(actualRoom) then
+            getgenv().UnlockedRoomsCache[roomUID] = true
+        end
         if not mainFarmEnabled then isFarming = false return end
-    else
-        getgenv().UnlockedRoomsCache[roomUID] = true
     end
     
     if isChestOnCooldown(actualRoom) then
