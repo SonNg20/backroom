@@ -1,52 +1,66 @@
-print("START HOOK")
-print("Hay no 1 qua trung bat ky de xem du lieu!")
+print("🟢 BẮT ĐẦU HOOK REMOTE FUNCTION...")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Network = ReplicatedStorage:WaitForChild("Network", 10)
 
+-- Danh sách tên Remote cần Hook
 local eventsToHook = {
     "CustomEggs_Hatch",
     "VL_Hatch", 
-    "Exclusive Eggs: Open",
-    "Hatch"
+    "Exclusive Eggs: Open"
 }
-
-local hookedCount = 0
-
-local function inspectData(data, depth)
-    depth = depth or 0
-    local prefix = string.rep("  ", depth)
-    
-    if type(data) == "table" then
-        for k, v in pairs(data) do
-            if type(v) == "table" then
-                print(prefix .. tostring(k) .. " = (Table)")
-                inspectData(v, depth + 1)
-            else
-                print(prefix .. tostring(k) .. " = " .. tostring(v))
-            end
-        end
-    else
-        print(prefix .. tostring(data))
-    end
-end
 
 for _, evName in ipairs(eventsToHook) do
     local ev = Network:FindFirstChild(evName)
-    if ev then
+    
+    -- Kiểm tra xem nó có phải là RemoteFunction không
+    if ev and ev:IsA("RemoteFunction") then
+        
+        -- Hook hàm FireServer của nó
+        local oldFunction = ev.FireServer
+        ev.FireServer = function(self, ...)
+            local args = {...}
+            print("==========================================")
+            print("🔔 ĐÃ BẮT ĐƯỢC FIRE SERVER: " .. evName)
+            
+            -- In dữ liệu thô ra Console
+            for i, arg in ipairs(args) do
+                print("📦 Argument " .. i .. ":")
+                if type(arg) == "table" then
+                    for k, v in pairs(arg) do
+                        if type(v) == "table" then
+                            print("  - " .. tostring(k) .. " = (Bảng con)")
+                            for k2, v2 in pairs(v) do
+                                print("      " .. tostring(k2) .. " = " .. tostring(v2))
+                            end
+                        else
+                            print("  - " .. tostring(k) .. " = " .. tostring(v))
+                        end
+                    end
+                else
+                    print("  " .. tostring(arg))
+                end
+            end
+            print("==========================================")
+            
+            -- Gọi lại hàm gốc để game vẫn chạy bình thường
+            return oldFunction(self, ...)
+        end
+        
+        print("✅ Đã Hook thành công: " .. evName)
+    elseif ev and ev:IsA("RemoteEvent") then
+        -- Nếu lỡ nó là RemoteEvent thì dùng cách cũ
         ev.OnClientEvent:Connect(function(...)
-            print("=============================")
-            print("BAT DUOC EVENT: " .. evName)
+            print("🔔 BẮT ĐƯỢC REMOTE EVENT: " .. evName)
             local args = {...}
             for i, arg in ipairs(args) do
-                print("--- ARGUMENT " .. i .. " ---")
-                inspectData(arg)
+                print("📦 Arg " .. i .. ": " .. tostring(arg))
             end
-            print("=============================")
         end)
-        hookedCount = hookedCount + 1
-        print("Da Hook vao: " .. evName)
+        print("✅ Đã Hook (Event): " .. evName)
+    else
+        print("⚠️ Không tìm thấy hoặc không thể Hook: " .. evName)
     end
 end
 
-print("Da hook xong " .. hookedCount .. " su kien. Hay no trung di!")
+print("🟢 Đã Hook xong các sự kiện nở trứng. Hãy nở 1 quả trứng bất kỳ!")
