@@ -2,25 +2,25 @@
 --  ⚙️  CẤU HÌNH CỦA BẠN
 -- =============================================
 local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-local HubName = "SonNg" -- Tên hiển thị dưới chân thông báo
+local HubName = "SonNg"
 
 -- =============================================
---  HÀM GỬI WEBHOOK (Format theo mẫu Bảng)
+--  HÀM GỬI WEBHOOK (FORMAT BẢNG)
 -- =============================================
 local HttpService = game:GetService("HttpService")
 local reqFunc = syn and syn.request or (http and http.request) or request
 
-local function sendToDiscord(petName, petType, totalCount, color, emoji)
+local function sendToDiscord(petName, totalCount)
     local playerName = game.Players.LocalPlayer.Name
     
     local data = {
         ["embeds"] = {{
-            ["title"] = emoji .. "  " .. petType:upper() .. " HATCHED!",
-            ["color"] = color, -- Màu sắc cho từng loại pet
+            ["title"] = "🐣  NEW PET HATCHED!",
+            ["color"] = 5763719, -- Màu xanh lá cây cho pet thường
             ["fields"] = {
                 {
                     ["name"] = "🐾 Pet",
-                    ["value"] = "```" .. petName .. "```", -- Dùng code block để thẳng hàng
+                    ["value"] = "```" .. petName .. "```",
                     ["inline"] = true
                 },
                 {
@@ -30,7 +30,7 @@ local function sendToDiscord(petName, petType, totalCount, color, emoji)
                 },
                 {
                     ["name"] = "🎮 Total",
-                    ["value"] = "```" .. tostring(totalCount) .. "```", -- Tổng số pet trong inv
+                    ["value"] = "```" .. tostring(totalCount) .. "```",
                     ["inline"] = true
                 }
             },
@@ -52,7 +52,7 @@ local function sendToDiscord(petName, petType, totalCount, color, emoji)
 end
 
 -- =============================================
---  CỐT LÕI: ĐỌC DỮ LIỆU PET & LẤY TỔNG SỐ LƯỢNG
+--  CỐT LÕI: LẤY DỮ LIỆU TỪ GAME
 -- =============================================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SaveModule
@@ -72,7 +72,7 @@ local firstRun = true
 
 print("🟢 Đang tải dữ liệu Pet hiện tại...")
 
-local function checkForHugeTitanic()
+local function checkForNewPet()
     local currentPetCounts = {}
     
     local success, data = pcall(function() return SaveModule.Get() end)
@@ -80,7 +80,7 @@ local function checkForHugeTitanic()
         return 
     end
 
-    -- Đếm số lượng từng loại Pet
+    -- Đếm số lượng từng loại Pet trong Inventory
     for _, petData in pairs(data.Inventory.Pet) do
         if petData.id then
             local name = petData.id
@@ -89,48 +89,24 @@ local function checkForHugeTitanic()
         end
     end
 
-    -- Lần chạy đầu tiên: Ghi nhận số liệu
+    -- Lần chạy đầu tiên: Chỉ ghi nhận, chưa báo
     if firstRun then
         previousPetCounts = currentPetCounts
         firstRun = false
-        print("✅ Đã lưu dữ liệu Pet. Bắt đầu theo dõi Huge/Titanic...")
+        print("✅ Đã lưu dữ liệu Pet. Bắt đầu theo dõi TẤT CẢ Pet mới...")
         return
     end
 
     -- So sánh sự thay đổi số lượng
     for petName, currentCount in pairs(currentPetCounts) do
-        local lowerName = petName:lower()
+        local prevCount = previousPetCounts[petName] or 0
         
-        -- Chỉ lọc Huge / Titanic
-        if lowerName:find("huge") or lowerName:find("titanic") then
-            local prevCount = previousPetCounts[petName] or 0
+        -- Nếu số lượng tăng lên => Vừa mới nở (KHÔNG CÒN LỌC NỮA)
+        if currentCount > prevCount then
             
-            -- Nếu số lượng tăng lên => Vừa mới nở
-            if currentCount > prevCount then
-                
-                -- Xác định loại Pet (Golden, Rainbow, Titanic, Huge)
-                local petType = "Huge"
-                local color = 16753920 -- Màu cam mặc định cho Huge
-                local emoji = "🎉"
-                
-                if lowerName:find("titanic") then 
-                    petType = "Titanic"
-                    color = 9699539 -- Màu tím
-                    emoji = "💎"
-                elseif lowerName:find("golden") then
-                    petType = "Golden Huge"
-                    color = 16766720 -- Màu vàng
-                    emoji = "✨"
-                elseif lowerName:find("rainbow") then
-                    petType = "Rainbow Huge"
-                    color = 16711935 -- Màu hồng
-                    emoji = "🌈"
-                end
-
-                -- Gửi thông báo kèm theo TỔNG SỐ LƯỢNG hiện có (currentCount)
-                print("🎉 Phát hiện: " .. petName)
-                sendToDiscord(petName, petType, currentCount, color, emoji)
-            end
+            -- Gửi thông báo bảng kèm tổng số lượng
+            print("🎉 Phát hiện Pet mới: " .. petName)
+            sendToDiscord(petName, currentCount)
         end
     end
 
@@ -139,13 +115,13 @@ local function checkForHugeTitanic()
 end
 
 -- =============================================
---  BẮT ĐẦU VÒNG LẶP GIÁM SÁT
+--  VÒNG LẶP GIÁM SÁT
 -- =============================================
 task.spawn(function()
     while true do
-        pcall(checkForHugeTitanic)
+        pcall(checkForNewPet)
         task.wait(3) -- 3 giây check 1 lần
     end
 end)
 
-print("🟢 Script đang chạy...")
+print("🟢 Script theo dõi MỌI PET đang chạy nền...")
