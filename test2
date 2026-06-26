@@ -1,66 +1,128 @@
-print("🟢 BẮT ĐẦU HOOK REMOTE FUNCTION...")
+-- ============================
+-- JOIN EVENT + QUÉT BOSS
+-- ============================
+
+getgenv().TotalBoss = 3
+
+if not game:IsLoaded() then game.Loaded:Wait() end
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Network = ReplicatedStorage:WaitForChild("Network", 10)
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
--- Danh sách tên Remote cần Hook
-local eventsToHook = {
-    "CustomEggs_Hatch",
-    "VL_Hatch", 
-    "Exclusive Eggs: Open"
-}
+-- ============================
+-- GUI
+-- ============================
+if game.CoreGui:FindFirstChild("BossScanner") then
+    game.CoreGui.BossScanner:Destroy()
+end
 
-for _, evName in ipairs(eventsToHook) do
-    local ev = Network:FindFirstChild(evName)
-    
-    -- Kiểm tra xem nó có phải là RemoteFunction không
-    if ev and ev:IsA("RemoteFunction") then
-        
-        -- Hook hàm FireServer của nó
-        local oldFunction = ev.FireServer
-        ev.FireServer = function(self, ...)
-            local args = {...}
-            print("==========================================")
-            print("🔔 ĐÃ BẮT ĐƯỢC FIRE SERVER: " .. evName)
-            
-            -- In dữ liệu thô ra Console
-            for i, arg in ipairs(args) do
-                print("📦 Argument " .. i .. ":")
-                if type(arg) == "table" then
-                    for k, v in pairs(arg) do
-                        if type(v) == "table" then
-                            print("  - " .. tostring(k) .. " = (Bảng con)")
-                            for k2, v2 in pairs(v) do
-                                print("      " .. tostring(k2) .. " = " .. tostring(v2))
-                            end
-                        else
-                            print("  - " .. tostring(k) .. " = " .. tostring(v))
-                        end
-                    end
-                else
-                    print("  " .. tostring(arg))
-                end
-            end
-            print("==========================================")
-            
-            -- Gọi lại hàm gốc để game vẫn chạy bình thường
-            return oldFunction(self, ...)
-        end
-        
-        print("✅ Đã Hook thành công: " .. evName)
-    elseif ev and ev:IsA("RemoteEvent") then
-        -- Nếu lỡ nó là RemoteEvent thì dùng cách cũ
-        ev.OnClientEvent:Connect(function(...)
-            print("🔔 BẮT ĐƯỢC REMOTE EVENT: " .. evName)
-            local args = {...}
-            for i, arg in ipairs(args) do
-                print("📦 Arg " .. i .. ": " .. tostring(arg))
-            end
-        end)
-        print("✅ Đã Hook (Event): " .. evName)
-    else
-        print("⚠️ Không tìm thấy hoặc không thể Hook: " .. evName)
+local sg = Instance.new("ScreenGui")
+sg.Name = "BossScanner"
+sg.Parent = game.CoreGui
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(0, 300, 0, 80)
+label.Position = UDim2.new(0, 10, 0, 10)
+label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+label.BackgroundTransparency = 0.3
+label.TextColor3 = Color3.fromRGB(0, 255, 100)
+label.Font = Enum.Font.Code
+label.TextSize = 12
+label.TextWrapped = true
+label.Text = "Dang vao event..."
+label.Parent = sg
+
+-- ============================
+-- HELPER
+-- ============================
+local function getHRP()
+    local char = player.Character
+    if not char then
+        char = player.CharacterAdded:Wait()
+    end
+    return char:WaitForChild("HumanoidRootPart", 10)
+end
+
+local function safeTeleport(pos)
+    local hrp = getHRP()
+    if hrp and pos then
+        hrp.CFrame = CFrame.new(pos.X, pos.Y + 2.5, pos.Z)
     end
 end
 
-print("🟢 Đã Hook xong các sự kiện nở trứng. Hãy nở 1 quả trứng bất kỳ!")
+-- ============================
+-- AUTO JOIN EVENT
+-- ============================
+local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
+if not libraryFolder then return end
+
+local ClientFolder = libraryFolder:WaitForChild("Client", 15)
+local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
+local FFlags = require(ClientFolder:WaitForChild("FFlags"))
+
+local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
+if joinTarget then
+    InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
+end
+
+task.wait(10)
+
+-- ============================
+-- VÀO DEEP BACKROOMS
+-- ============================
+local thingsContainer = workspace:WaitForChild("__THINGS")
+local generatedBackrooms = thingsContainer:WaitForChild("__INSTANCE_CONTAINER"):WaitForChild("Active"):WaitForChild("Backrooms"):WaitForChild("GeneratedBackrooms")
+
+local spawnRoomFolder = generatedBackrooms:WaitForChild("SpawnRoom", 30)
+if spawnRoomFolder then
+    local deepDoor = spawnRoomFolder:FindFirstChild("DeepDoor")
+    if deepDoor and deepDoor:FindFirstChild("Interact") then
+        local interactPart = deepDoor.Interact
+        
+        for i = 1, 5 do
+            safeTeleport(interactPart.Position)
+            task.wait(0.3)
+        end
+        
+        task.wait(2)
+        
+        local roomUID = spawnRoomFolder:GetAttribute("RoomUID")
+        if roomUID then
+            pcall(function()
+                ReplicatedStorage:WaitForChild("Network"):WaitForChild("Instancing_FireCustomFromClient"):FireServer(
+                    "Backrooms", "AbstractRoom_FireServer", roomUID, "EnterDeepBackrooms"
+                )
+            end)
+        else
+            safeTeleport(interactPart.Position)
+        end
+    end
+end
+
+-- ============================
+-- QUÉT BOSS
+-- ============================
+task.wait(2)
+
+task.spawn(function()
+    while task.wait(1) do
+        local Breakables = workspace.__THINGS.Breakables
+        local bosses = 0
+        
+        for _, breakable in ipairs(Breakables:GetChildren()) do
+            if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
+                bosses = bosses + 1
+            end
+        end
+        
+        local str = "Dang tim boss...\n"
+        str = str .. "Boss: " .. bosses .. "/" .. getgenv().TotalBoss
+        
+        if bosses >= getgenv().TotalBoss then
+            str = str .. " 🔥"
+        end
+        
+        label.Text = str
+    end
+end)
