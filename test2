@@ -2,7 +2,7 @@
 --  ⚙️  CẤU HÌNH CỦA BẠN
 -- =============================================
 local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-local HubName = "RLWSCRIPTS" -- Tên hiển thị dưới cùng
+local HubName = "SonNg" -- Tên hiển thị dưới cùng
 
 -- =============================================
 --  HÀM GỬI WEBHOOK (CÓ ICON & MÀU SẮC)
@@ -14,9 +14,9 @@ local function sendToDiscord(petName, totalCount, isHuge, isTitanic)
     local playerName = game.Players.LocalPlayer.Name
     local currentTime = os.date("%H:%M:%S")
     
-    -- Xác định màu sắc và tiêu đề dựa vào loại pet
+    -- Xác định màu sắc và tiêu đề
     local title = "🎉 HUGE PET CAUGHT! 🔥"
-    local color = 16766720 -- Màu vàng mặc định cho Huge
+    local color = 16766720 -- Màu vàng
     
     if isTitanic then
         title = "💎 TITANIC PET CAUGHT! ✨"
@@ -34,8 +34,9 @@ local function sendToDiscord(petName, totalCount, isHuge, isTitanic)
                     ["inline"] = true
                 },
                 {
+                    -- 👇 ĐÃ ẨN TÊN PLAYER BẰNG DẤU || (SPOILER) 👇
                     ["name"] = "👤 **User:**",
-                    ["value"] = "**" .. playerName .. "**",
+                    ["value"] = "||**" .. playerName .. "**||", 
                     ["inline"] = true
                 },
                 {
@@ -143,4 +144,4 @@ task.spawn(function()
     end
 end)
 
-print("🟢 Script lọc Huge/Titanic đã sẵn sàng!")
+print("🟢 Script lọc Huge/Titanic (đã ẩn tên) đã sẵn sàng!")
