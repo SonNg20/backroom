@@ -1,62 +1,127 @@
 -- =============================================
---  BƯỚC 1: DÒ TÌM PET SERVICE TRONG PS99
+--  ⚙️  CẤU HÌNH CỦA BẠN
 -- =============================================
-print("🟢 Bắt đầu dò tìm PetService...")
+local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+local DiscordUserID = "" -- Đã xóa Ping User để tránh spam quá mức
 
-local Players = game:GetService("Players")
-local localPlayer = Players.LocalPlayer
+-- =============================================
+--  HÀM GỬI WEBHOOK
+-- =============================================
+local HttpService = game:GetService("HttpService")
+local reqFunc = syn and syn.request or (http and http.request) or request
 
--- 1. Tìm PetService (Nơi chứa toàn bộ Pet thật sự trong PS99)
-local petService = localPlayer:FindFirstChild("PetService")
-
-if petService then
-    print("✅ Đã tìm thấy PetService!")
-    
-    -- 2. Liệt kê các con Pet hiện có (Để xem cấu trúc nó ra sao)
-    local allPets = petService:GetChildren()
-    print("📊 Tổng số Pet bạn đang có: " .. #allPets)
-    
-    -- In ra tên 5 con pet đầu tiên để kiểm tra
-    print("📋 5 con pet đầu tiên trong danh sách:")
-    for i = 1, math.min(5, #allPets) do
-        local pet = allPets[i]
-        -- In ra tên thật của Pet (Không phải tên hiển thị)
-        print("  - Pet " .. i .. ": " .. tostring(pet))
-    end
-    
-    -- 3. Kiểm tra xem khi nở trứng, PetService có tự động thêm Pet mới không
-    print("🟡 (Đang chờ bạn nở trứng để xem PetService thay đổi...)")
-    
-    -- Đếm số lượng Pet hiện tại
-    local currentCount = #petService:GetChildren()
-    
-    -- Vòng lặp chờ đợi sự thay đổi (Cứ 1 giây check 1 lần)
-    spawn(function()
-        while task.wait(1) do
-            local newCount = #petService:GetChildren()
-            if newCount > currentCount then
-                print("🎉 PHÁT HIỆN THAY ĐỔI! Số Pet đã tăng từ " .. currentCount .. " lên " .. newCount)
-                
-                -- Lấy con Pet mới nhất (Thường là con vừa nở)
-                local newPet = petService:GetChildren()[newCount]
-                print("👉 Tên Pet vừa thêm vào Service: " .. tostring(newPet))
-                
-                -- Cập nhật lại số lượng mới để so sánh lần sau
-                currentCount = newCount
-            end
-        end
+local function sendToDiscord(title, description, color)
+    local data = {
+        ["content"] = "",
+        ["embeds"] = {{
+            ["title"] = title,
+            ["description"] = description,
+            ["color"] = color,
+            ["footer"] = { text = "PS99 Scanner | " .. os.date("%H:%M:%S") }
+        }}
+    }
+    pcall(function()
+        reqFunc({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
     end)
+end
+
+-- =============================================
+--  CỐT LÕI: ĐỌC DỮ LIỆU PET TỪ MODULE GAME
+-- =============================================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SaveModule
+
+local ok, mod = pcall(function()
+    return require(ReplicatedStorage.Library.Client.Save)
+end)
+if ok then SaveModule = mod end
+
+if not SaveModule then
+    warn("❌ Lỗi: Không tìm thấy module Save.")
+    return
+end
+
+local previousPetCounts = {}
+local firstRun = true
+
+print("🟢 Đang tải dữ liệu Pet hiện tại...")
+
+local function checkForNewPet()
+    local currentPetCounts = {}
     
-else
-    warn("❌ KHÔNG TÌM THẤY PetService!")
-    warn("👉 Hãy thử tìm các tên khác như: localPlayer:FindFirstChild('Pets') hoặc localPlayer:FindFirstChild('PetInventoryService')")
-    
-    -- Thử tìm các tên dự phòng
-    local backupNames = {"Pets", "PetInventoryService", "InventoryService", "OwnedPets"}
-    for _, name in ipairs(backupNames) do
-        local found = localPlayer:FindFirstChild(name)
-        if found then
-            print("✅ Tìm thấy tên dự phòng: " .. name)
+    local success, data = pcall(function() return SaveModule.Get() end)
+    if not success or not data or not data.Inventory or not data.Inventory.Pet then
+        return 
+    end
+
+    -- Đếm số lượng từng loại Pet
+    for _, petData in pairs(data.Inventory.Pet) do
+        if petData.id then
+            local name = petData.id
+            local amount = petData._am or 1
+            currentPetCounts[name] = (currentPetCounts[name] or 0) + amount
         end
     end
+
+    -- Lần chạy đầu tiên: Ghi nhận số liệu
+    if firstRun then
+        previousPetCounts = currentPetCounts
+        firstRun = false
+        print("✅ Đã lưu dữ liệu Pet. Bắt đầu theo dõi...")
+        return
+    end
+
+    -- So sánh sự thay đổi số lượng
+    local playerName = game.Players.LocalPlayer.Name
+    for petName, currentCount in pairs(currentPetCounts) do
+        
+        local prevCount = previousPetCounts[petName] or 0
+        
+        -- Nếu số lượng tăng lên => Vừa mới nở (Bỏ điều kiện lọc ở đây)
+        if currentCount > prevCount then
+            local gained = currentCount - prevCount
+            
+            -- Xác định màu dựa trên tên để nhìn cho vui (Nếu là Huge/Titanic sẽ có màu riêng)
+            local lowerName = petName:lower()
+            local color = 5763719 -- Màu xanh lá mặc định cho pet thường
+            local prefix = "🐣"
+            
+            if lowerName:find("titanic") then 
+                color = 16711680 -- Đỏ
+                prefix = "💎"
+            elseif lowerName:find("huge") then
+                color = 16766720 -- Vàng
+                prefix = "🔥"
+            end
+            
+            -- Gửi thông báo (Tất cả các loại pet đều gửi)
+            local description = string.format(
+                "👤 **%s** vừa nhận được **`%s`** (x%d)!\n📦 Tổng hiện có: **%d**",
+                playerName, petName, gained, currentCount
+            )
+
+            sendToDiscord(prefix .. " New Pet Hatched!", description, color)
+            print("✅ Đã gửi thông báo: " .. petName)
+        end
+    end
+
+    -- Cập nhật lại danh sách cũ
+    previousPetCounts = currentPetCounts
 end
+
+-- =============================================
+--  BẮT ĐẦU VÒNG LẶP GIÁM SÁT
+-- =============================================
+task.spawn(function()
+    while true do
+        pcall(checkForNewPet)
+        task.wait(3) 
+    end
+end)
+
+print("🟢 Script giám sát TẤT CẢ PET đang chạy nền.")
