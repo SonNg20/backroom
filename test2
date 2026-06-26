@@ -1,137 +1,62 @@
--- ============================
--- HOP QUA LẠI 2 PRIVATE SERVER - TÌM BOSS (FIX)
--- ============================
+-- =============================================
+--  BƯỚC 1: DÒ TÌM PET SERVICE TRONG PS99
+-- =============================================
+print("🟢 Bắt đầu dò tìm PetService...")
 
-getgenv().PrivateServerCode1 = "92884917368738392535007079413789"
-getgenv().PrivateServerCode2 = "85951203710875663196976345559936"
-getgenv().TotalBoss = 3
-
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local player = Players.LocalPlayer
-local PLACE_ID = 8737899170
+local localPlayer = Players.LocalPlayer
 
-if not getgenv().CurrentServer then
-    getgenv().CurrentServer = 1
-end
+-- 1. Tìm PetService (Nơi chứa toàn bộ Pet thật sự trong PS99)
+local petService = localPlayer:FindFirstChild("PetService")
 
--- ============================
--- GUI
--- ============================
-if game.CoreGui:FindFirstChild("HopUI") then game.CoreGui.HopUI:Destroy() end
-local sg = Instance.new("ScreenGui")
-sg.Name = "HopUI"
-sg.Parent = game.CoreGui
-
-local label = Instance.new("TextLabel")
-label.Size = UDim2.new(0, 250, 0, 80)
-label.Position = UDim2.new(0, 10, 0, 10)
-label.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-label.BackgroundTransparency = 0.3
-label.TextColor3 = Color3.fromRGB(0, 255, 100)
-label.Font = Enum.Font.Code
-label.TextSize = 14
-label.TextWrapped = true
-label.Text = "Dang vao server..."
-label.Parent = sg
-
--- ============================
--- HÀM
--- ============================
-local function updateUI(text)
-    pcall(function()
-        label.Text = text
-    end)
-end
-
-local function getJobIdFromCode(code)
-    local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/private-servers?privateServerLinkCode=" .. code
-    local success, result = pcall(function()
-        return game:HttpGet(url)
-    end)
+if petService then
+    print("✅ Đã tìm thấy PetService!")
     
-    if success and result then
-        local data = HttpService:JSONDecode(result)
-        if data.data and #data.data > 0 then
-            return data.data[1].id
-        end
+    -- 2. Liệt kê các con Pet hiện có (Để xem cấu trúc nó ra sao)
+    local allPets = petService:GetChildren()
+    print("📊 Tổng số Pet bạn đang có: " .. #allPets)
+    
+    -- In ra tên 5 con pet đầu tiên để kiểm tra
+    print("📋 5 con pet đầu tiên trong danh sách:")
+    for i = 1, math.min(5, #allPets) do
+        local pet = allPets[i]
+        -- In ra tên thật của Pet (Không phải tên hiển thị)
+        print("  - Pet " .. i .. ": " .. tostring(pet))
     end
     
-    return nil
-end
-
-local function hopToPrivateServer(code)
-    local jobId = getJobIdFromCode(code)
-    if jobId then
-        pcall(function()
-            TeleportService:TeleportToPlaceInstance(PLACE_ID, jobId, player)
-        end)
-    end
-end
-
-local function joinEvent()
-    local libraryFolder = ReplicatedStorage:WaitForChild("Library", 30)
-    if libraryFolder then
-        local ClientFolder = libraryFolder:WaitForChild("Client", 15)
-        local InstancingCmds = require(ClientFolder:WaitForChild("InstancingCmds"))
-        local FFlags = require(ClientFolder:WaitForChild("FFlags"))
-        
-        local joinTarget = FFlags.Get(FFlags.Keys.SideJoinEventTarget)
-        if joinTarget then
-            InstancingCmds.Enter(joinTarget, nil, true, "You are joining the minigame!")
-        end
-    end
-end
-
-local function countBosses()
-    local Breakables = workspace:FindFirstChild("__THINGS")
-    if Breakables then
-        Breakables = Breakables:FindFirstChild("Breakables")
-        if Breakables then
-            local bosses = 0
-            for _, breakable in ipairs(Breakables:GetChildren()) do
-                if breakable:IsA("Model") and breakable:GetAttribute("BreakableID") == "Daydream Mimic Boss2" then
-                    bosses = bosses + 1
-                end
+    -- 3. Kiểm tra xem khi nở trứng, PetService có tự động thêm Pet mới không
+    print("🟡 (Đang chờ bạn nở trứng để xem PetService thay đổi...)")
+    
+    -- Đếm số lượng Pet hiện tại
+    local currentCount = #petService:GetChildren()
+    
+    -- Vòng lặp chờ đợi sự thay đổi (Cứ 1 giây check 1 lần)
+    spawn(function()
+        while task.wait(1) do
+            local newCount = #petService:GetChildren()
+            if newCount > currentCount then
+                print("🎉 PHÁT HIỆN THAY ĐỔI! Số Pet đã tăng từ " .. currentCount .. " lên " .. newCount)
+                
+                -- Lấy con Pet mới nhất (Thường là con vừa nở)
+                local newPet = petService:GetChildren()[newCount]
+                print("👉 Tên Pet vừa thêm vào Service: " .. tostring(newPet))
+                
+                -- Cập nhật lại số lượng mới để so sánh lần sau
+                currentCount = newCount
             end
-            return bosses
         end
-    end
-    return 0
-end
-
-local function checkAndHop()
-    updateUI("Server " .. getgenv().CurrentServer .. " - Dang doi 18s...")
-    task.wait(18)
+    end)
     
-    updateUI("Server " .. getgenv().CurrentServer .. " - Dang vao event...")
-    joinEvent()
+else
+    warn("❌ KHÔNG TÌM THẤY PetService!")
+    warn("👉 Hãy thử tìm các tên khác như: localPlayer:FindFirstChild('Pets') hoặc localPlayer:FindFirstChild('PetInventoryService')")
     
-    -- Quét boss liên tục trong lúc chờ
-    for i = 7, 1, -1 do
-        local bosses = countBosses()
-        updateUI("Server " .. getgenv().CurrentServer .. " - Event: " .. i .. "s\nBoss: " .. bosses)
-        task.wait(1)
-    end
-    
-    local bosses = countBosses()
-    
-    if bosses >= getgenv().TotalBoss then
-        updateUI("🔥 TIM THAY " .. bosses .. " BOSS!\nServer " .. getgenv().CurrentServer .. " - O LAI")
-    else
-        updateUI("❌ " .. bosses .. "/" .. getgenv().TotalBoss .. " boss\nDang chuyen server...")
-        task.wait(2)
-        
-        if getgenv().CurrentServer == 1 then
-            getgenv().CurrentServer = 2
-            hopToPrivateServer(getgenv().PrivateServerCode2)
-        else
-            getgenv().CurrentServer = 1
-            hopToPrivateServer(getgenv().PrivateServerCode1)
+    -- Thử tìm các tên dự phòng
+    local backupNames = {"Pets", "PetInventoryService", "InventoryService", "OwnedPets"}
+    for _, name in ipairs(backupNames) do
+        local found = localPlayer:FindFirstChild(name)
+        if found then
+            print("✅ Tìm thấy tên dự phòng: " .. name)
         end
     end
 end
-
-checkAndHop()
