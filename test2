@@ -1,43 +1,56 @@
 -- =============================================
---  ⚙️  CẤU HÌNH
+--  ⚙️  CẤU HÌNH CỦA BẠN
 -- =============================================
 local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-local HubName = "SonNg" -- Bạn muốn tên gì ở dòng dưới cùng thì đổi chỗ này
+local HubName = "RLWSCRIPTS" -- Tên hiển thị dưới cùng
 
 -- =============================================
---  HÀM GỬI WEBHOOK (FORMAT GIỐNG ẢNH)
+--  HÀM GỬI WEBHOOK (CÓ ICON & MÀU SẮC)
 -- =============================================
 local HttpService = game:GetService("HttpService")
 local reqFunc = syn and syn.request or (http and http.request) or request
 
-local function sendToDiscord(petName)
+local function sendToDiscord(petName, totalCount, isHuge, isTitanic)
     local playerName = game.Players.LocalPlayer.Name
-    local currentTime = os.date("%H:%M:%S") -- Lấy giờ phút giây hiện tại
+    local currentTime = os.date("%H:%M:%S")
     
-    -- Tạo cấu trúc tin nhắn y hệt ảnh
+    -- Xác định màu sắc và tiêu đề dựa vào loại pet
+    local title = "🎉 HUGE PET CAUGHT! 🔥"
+    local color = 16766720 -- Màu vàng mặc định cho Huge
+    
+    if isTitanic then
+        title = "💎 TITANIC PET CAUGHT! ✨"
+        color = 9699539 -- Màu tím
+    end
+    
     local data = {
         ["embeds"] = {{
-            ["title"] = "🐣 NEW PET HATCHED! 🎉",
-            ["color"] = 5763719, -- Màu xanh lá (giống các tin nhắn pet thường)
+            ["title"] = title,
+            ["color"] = color,
             ["fields"] = {
                 {
-                    ["name"] = "**Pet:**",
+                    ["name"] = "🐾 **Pet:**",
                     ["value"] = "**" .. petName .. "**",
-                    ["inline"] = false -- Để xuống dòng cho đẹp
+                    ["inline"] = true
                 },
                 {
-                    ["name"] = "**User:**",
+                    ["name"] = "👤 **User:**",
                     ["value"] = "**" .. playerName .. "**",
                     ["inline"] = true
                 },
                 {
-                    ["name"] = "**Time:**",
-                    ["value"] = "```" .. currentTime .. "```", -- Dùng khung code để giống ảnh
+                    ["name"] = "⏰ **Time:**",
+                    ["value"] = "`" .. currentTime .. "`",
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "📦 **Total:**",
+                    ["value"] = "`" .. tostring(totalCount) .. "`",
                     ["inline"] = true
                 }
             },
             ["footer"] = { 
-                ["text"] = "powered by " .. HubName .. " - Hôm nay lúc " .. currentTime
+                ["text"] = "⚡ powered by " .. HubName .. " - " .. os.date("%H:%M ngày %d/%m")
             }
         }}
     }
@@ -50,11 +63,11 @@ local function sendToDiscord(petName)
             Body = HttpService:JSONEncode(data)
         })
     end)
-    print("✅ Đã gửi thông báo pet: " .. petName)
+    print("✅ Đã gửi " .. (isTitanic and "TITANIC" or "HUGE") .. ": " .. petName)
 end
 
 -- =============================================
---  CỐT LÕI: LẤY DỮ LIỆU TỪ GAME
+--  CỐT LÕI: LẤY DỮ LIỆU TỪ GAME & LỌC HUGE/TITANIC
 -- =============================================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SaveModule
@@ -82,7 +95,7 @@ local function checkForNewPet()
         return 
     end
 
-    -- Đếm số lượng từng loại Pet trong Inventory
+    -- Đếm số lượng
     for _, petData in pairs(data.Inventory.Pet) do
         if petData.id then
             local name = petData.id
@@ -91,11 +104,11 @@ local function checkForNewPet()
         end
     end
 
-    -- Lần chạy đầu tiên: Chỉ ghi nhận số liệu
+    -- Lần chạy đầu
     if firstRun then
         previousPetCounts = currentPetCounts
         firstRun = false
-        print("✅ Đã lưu dữ liệu Pet. Bắt đầu theo dõi MỌI Pet...")
+        print("✅ Đã lưu dữ liệu Pet. Chỉ theo dõi Huge/Titanic...")
         return
     end
 
@@ -103,24 +116,31 @@ local function checkForNewPet()
     for petName, currentCount in pairs(currentPetCounts) do
         local prevCount = previousPetCounts[petName] or 0
         
-        -- Nếu số lượng tăng lên => Có pet mới (Không lọc gì cả)
+        -- Nếu có pet mới
         if currentCount > prevCount then
-            sendToDiscord(petName)
+            local lowerName = petName:lower()
+            
+            -- ĐIỀU KIỆN LỌC: Chỉ gửi nếu là Huge hoặc Titanic
+            local isHuge = lowerName:find("huge") 
+            local isTitanic = lowerName:find("titanic")
+            
+            if isHuge or isTitanic then
+                sendToDiscord(petName, currentCount, isHuge, isTitanic)
+            end
         end
     end
 
-    -- Cập nhật danh sách cũ
     previousPetCounts = currentPetCounts
 end
 
 -- =============================================
---  VÒNG LẶP CHẠY
+--  VÒNG LẶP
 -- =============================================
 task.spawn(function()
     while true do
         pcall(checkForNewPet)
-        task.wait(3) -- Cứ 3 giây check 1 lần
+        task.wait(2) 
     end
 end)
 
-print("🟢 Script đã chạy xong! Nở trứng là Discord báo y hệt ảnh.")
+print("🟢 Script lọc Huge/Titanic đã sẵn sàng!")
