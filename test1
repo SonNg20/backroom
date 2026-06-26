@@ -200,5 +200,8 @@ print("  Song Hub — Huge Notifier")
 print("  Đã hook " .. hooked .. "/" .. #eventNames .. " events")
 print("━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-    task.delay(2, function() handlePet("Rainbow Huge Faceling Owl") end)
+--[[
+    TEST THỬ WEBHOOK — bỏ comment để kiểm tra:
+    task.delay(2, function() handlePet("Golden Huge Gamemaster Cat") end)
     task.delay(5, function() handlePet("Titanic Cat") end)
+]]
