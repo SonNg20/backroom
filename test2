@@ -2,7 +2,7 @@
 --  ⚙️  CẤU HÌNH CỦA BẠN
 -- =============================================
 local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-local HubName = "RLWSCRIPTS" -- Tên hiển thị dưới cùng
+local HubName = "RLWSCRIPTS"
 
 -- =============================================
 --  HÀM GỬI WEBHOOK
@@ -14,11 +14,10 @@ local function sendToDiscord(petName, totalCount, petType, color)
     local playerName = game.Players.LocalPlayer.Name
     local currentTime = os.date("%H:%M:%S")
     
-    -- Tạo tiêu đề dựa trên loại pet
     local titles = {
         Titanic = "💎 TITANIC PET CAUGHT! ✨",
-        Rainbow = "🌈 RAINBOW HUGE CAUGHT! 🌈",
         Golden = "✨ GOLDEN HUGE CAUGHT! ✨",
+        Rainbow = "🌈 RAINBOW HUGE CAUGHT! 🌈",
         Huge = "🎉 HUGE PET CAUGHT! 🔥"
     }
     
@@ -27,30 +26,12 @@ local function sendToDiscord(petName, totalCount, petType, color)
             ["title"] = titles[petType] or "🎉 HUGE PET CAUGHT! 🔥",
             ["color"] = color,
             ["fields"] = {
-                {
-                    ["name"] = "🐾 **Pet:**",
-                    ["value"] = "**" .. petName .. "**",
-                    ["inline"] = true
-                },
-                {
-                    ["name"] = "👤 **User:**",
-                    ["value"] = "||**" .. playerName .. "**||", -- Ẩn tên
-                    ["inline"] = true
-                },
-                {
-                    ["name"] = "⏰ **Time:**",
-                    ["value"] = "`" .. currentTime .. "`",
-                    ["inline"] = true
-                },
-                {
-                    ["name"] = "📦 **Total:**",
-                    ["value"] = "`" .. tostring(totalCount) .. "`",
-                    ["inline"] = true
-                }
+                { ["name"] = "🐾 **Pet:**", ["value"] = "**" .. petName .. "**", ["inline"] = true },
+                { ["name"] = "👤 **User:**", ["value"] = "||**" .. playerName .. "**||", ["inline"] = true },
+                { ["name"] = "⏰ **Time:**", ["value"] = "`" .. currentTime .. "`", ["inline"] = true },
+                { ["name"] = "📦 **Total:**", ["value"] = "`" .. tostring(totalCount) .. "`", ["inline"] = true }
             },
-            ["footer"] = { 
-                ["text"] = "⚡ powered by " .. HubName .. " - " .. os.date("%H:%M ngày %d/%m")
-            }
+            ["footer"] = { ["text"] = "⚡ powered by " .. HubName .. " - " .. os.date("%H:%M ngày %d/%m") }
         }}
     }
 
@@ -66,7 +47,7 @@ local function sendToDiscord(petName, totalCount, petType, color)
 end
 
 -- =============================================
---  BẮT ĐẦU LẤY DỮ LIỆU GAME
+--  LẤY DỮ LIỆU GAME & PHÂN LOẠI PET (BẢN NÂNG CẤP)
 -- =============================================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SaveModule
@@ -86,29 +67,35 @@ local firstRun = true
 
 print("🟢 Đang tải dữ liệu Pet hiện tại...")
 
--- Hàm phân loại chính xác Huge/Golden/Rainbow/Titanic
-local function checkPetType(name)
+local function classifyPet(name)
+    if not name then return nil, nil end
     local lower = name:lower()
     
-    -- Ưu tiên kiểm tra Titanic trước
+    -- 1. Kiểm tra Titanic trước
     if lower:find("titanic") then
-        return "Titanic", 9699539 -- Màu Tím
+        return "Titanic", 9699539 -- Tím
     end
     
-    -- Kiểm tra các loại Huge
-    if lower:find("golden") and lower:find("huge") then
-        return "Golden", 16766720 -- Màu Vàng óng
+    -- 2. Kiểm tra MÀU SẮC đặc trưng trước
+    local isGolden = lower:find("golden")
+    local isRainbow = lower:find("rainbow")
+    local isHuge = lower:find("huge")
+    
+    -- Nếu có màu sắc + Huge => Trả về đúng loại
+    if isGolden and isHuge then
+        return "Golden", 16766720 -- Vàng
     end
     
-    if lower:find("rainbow") and lower:find("huge") then
-        return "Rainbow", 16711935 -- Màu Hồng
+    if isRainbow and isHuge then
+        return "Rainbow", 16711935 -- Hồng
     end
     
-    if lower:find("huge") then
-        return "Huge", 16753920 -- Màu Cam
+    -- 3. Nếu không có màu sắc nhưng có Huge (Huge thường)
+    if isHuge then
+        return "Huge", 16753920 -- Cam
     end
     
-    return nil, nil -- Không phải Huge/Titanic
+    return nil, nil
 end
 
 local function checkForNewPet()
@@ -119,7 +106,6 @@ local function checkForNewPet()
         return 
     end
 
-    -- Đếm số lượng pet hiện tại
     for _, petData in pairs(data.Inventory.Pet) do
         if petData.id then
             local name = petData.id
@@ -128,7 +114,6 @@ local function checkForNewPet()
         end
     end
 
-    -- Lần chạy đầu: Ghi nhận số liệu
     if firstRun then
         previousPetCounts = currentPetCounts
         firstRun = false
@@ -136,17 +121,13 @@ local function checkForNewPet()
         return
     end
 
-    -- So sánh sự thay đổi
     for petName, currentCount in pairs(currentPetCounts) do
         local prevCount = previousPetCounts[petName] or 0
         
-        -- Nếu số pet tăng lên
         if currentCount > prevCount then
+            -- Gọi hàm phân loại an toàn hơn
+            local petType, color = classifyPet(petName)
             
-            -- Gọi hàm phân loại
-            local petType, color = checkPetType(petName)
-            
-            -- Nếu là 1 trong các loại Huge/Titanic thì gửi thông báo
             if petType then
                 sendToDiscord(petName, currentCount, petType, color)
             end
@@ -157,7 +138,7 @@ local function checkForNewPet()
 end
 
 -- =============================================
---  VÒNG LẶP GIÁM SÁT (Mỗi 2 giây)
+--  VÒNG LẶP GIÁM SÁT
 -- =============================================
 task.spawn(function()
     while true do
@@ -166,4 +147,4 @@ task.spawn(function()
     end
 end)
 
-print("🟢 Script lọc Huge/Titanic (Chuẩn xác) đã sẵn sàng!")
+print("🟢 Script lọc Huge/Titanic/Gold/Rainbow (Chuẩn xác) đã sẵn sàng!")
