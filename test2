@@ -1,43 +1,44 @@
 -- =============================================
---  ⚙️  CẤU HÌNH CỦA BẠN
+--  ⚙️  CẤU HÌNH
 -- =============================================
 local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-local HubName = "SonNg"
+local HubName = "RLWSCRIPTS" -- Bạn muốn tên gì ở dòng dưới cùng thì đổi chỗ này
 
 -- =============================================
---  HÀM GỬI WEBHOOK (FORMAT BẢNG)
+--  HÀM GỬI WEBHOOK (FORMAT GIỐNG ẢNH)
 -- =============================================
 local HttpService = game:GetService("HttpService")
 local reqFunc = syn and syn.request or (http and http.request) or request
 
-local function sendToDiscord(petName, totalCount)
+local function sendToDiscord(petName)
     local playerName = game.Players.LocalPlayer.Name
+    local currentTime = os.date("%H:%M:%S") -- Lấy giờ phút giây hiện tại
     
+    -- Tạo cấu trúc tin nhắn y hệt ảnh
     local data = {
         ["embeds"] = {{
-            ["title"] = "🐣  NEW PET HATCHED!",
-            ["color"] = 5763719, -- Màu xanh lá cây cho pet thường
+            ["title"] = "🐣 NEW PET HATCHED! 🎉",
+            ["color"] = 5763719, -- Màu xanh lá (giống các tin nhắn pet thường)
             ["fields"] = {
                 {
-                    ["name"] = "🐾 Pet",
-                    ["value"] = "```" .. petName .. "```",
+                    ["name"] = "**Pet:**",
+                    ["value"] = "**" .. petName .. "**",
+                    ["inline"] = false -- Để xuống dòng cho đẹp
+                },
+                {
+                    ["name"] = "**User:**",
+                    ["value"] = "**" .. playerName .. "**",
                     ["inline"] = true
                 },
                 {
-                    ["name"] = "👤 Player",
-                    ["value"] = "```" .. playerName .. "```",
-                    ["inline"] = true
-                },
-                {
-                    ["name"] = "🎮 Total",
-                    ["value"] = "```" .. tostring(totalCount) .. "```",
+                    ["name"] = "**Time:**",
+                    ["value"] = "```" .. currentTime .. "```", -- Dùng khung code để giống ảnh
                     ["inline"] = true
                 }
             },
             ["footer"] = { 
-                ["text"] = HubName .. "  •  Pet Simulator 99"
-            },
-            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
+                ["text"] = "powered by " .. SonNg .. " - Hôm nay lúc " .. currentTime
+            }
         }}
     }
 
@@ -49,6 +50,7 @@ local function sendToDiscord(petName, totalCount)
             Body = HttpService:JSONEncode(data)
         })
     end)
+    print("✅ Đã gửi thông báo pet: " .. petName)
 end
 
 -- =============================================
@@ -89,39 +91,36 @@ local function checkForNewPet()
         end
     end
 
-    -- Lần chạy đầu tiên: Chỉ ghi nhận, chưa báo
+    -- Lần chạy đầu tiên: Chỉ ghi nhận số liệu
     if firstRun then
         previousPetCounts = currentPetCounts
         firstRun = false
-        print("✅ Đã lưu dữ liệu Pet. Bắt đầu theo dõi TẤT CẢ Pet mới...")
+        print("✅ Đã lưu dữ liệu Pet. Bắt đầu theo dõi MỌI Pet...")
         return
     end
 
-    -- So sánh sự thay đổi số lượng
+    -- So sánh sự thay đổi
     for petName, currentCount in pairs(currentPetCounts) do
         local prevCount = previousPetCounts[petName] or 0
         
-        -- Nếu số lượng tăng lên => Vừa mới nở (KHÔNG CÒN LỌC NỮA)
+        -- Nếu số lượng tăng lên => Có pet mới (Không lọc gì cả)
         if currentCount > prevCount then
-            
-            -- Gửi thông báo bảng kèm tổng số lượng
-            print("🎉 Phát hiện Pet mới: " .. petName)
-            sendToDiscord(petName, currentCount)
+            sendToDiscord(petName)
         end
     end
 
-    -- Cập nhật lại danh sách cũ
+    -- Cập nhật danh sách cũ
     previousPetCounts = currentPetCounts
 end
 
 -- =============================================
---  VÒNG LẶP GIÁM SÁT
+--  VÒNG LẶP CHẠY
 -- =============================================
 task.spawn(function()
     while true do
         pcall(checkForNewPet)
-        task.wait(3) -- 3 giây check 1 lần
+        task.wait(3) -- Cứ 3 giây check 1 lần
     end
 end)
 
-print("🟢 Script theo dõi MỌI PET đang chạy nền...")
+print("🟢 Script đã chạy xong! Nở trứng là Discord báo y hệt ảnh.")
