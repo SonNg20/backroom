@@ -1,71 +1,174 @@
--- 1. Link Webhook của bạn
-local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
+-- =============================================
+--   SONG HUB - PS99 NOTIFIER (CHUYỂN SANG INVENTORY)
+--   Hook chính xác vào PetInventory của PS99
+-- =============================================
 
--- 2. Hàm gửi thông báo tổng quát (Hỗ trợ mọi Executor)
-local function sendToDiscord(petName, rarity)
-    local HttpService = game:GetService("HttpService")
-    
+-- =============================================
+--  ⚙️  CẤU HÌNH
+-- =============================================
+local CONFIG = {
+    WebhookURL  = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os",
+    PingUserID  = "989895037406044200",
+
+    -- Từ khoá để nhận ra Huge/Titanic trong tên pet
+    Keywords = {"huge", "titanic"},
+
+    Colors = {
+        Titanic = 9699539,   -- Tím
+        Golden  = 16766720,  -- Vàng
+        Rainbow = 16711935,  -- Hồng
+        Huge    = 16753920,  -- Cam
+    },
+    Emojis = {
+        Titanic = "💎",
+        Golden  = "✨",
+        Rainbow = "🌈",
+        Huge    = "🎉",
+    },
+
+    HubName = "Song Hub (Inventory)",
+}
+
+-- =============================================
+--  KHÔNG CẦN CHỈNH BÊN DƯỚI
+-- =============================================
+local Players           = game:GetService("Players")
+local HttpService       = game:GetService("HttpService")
+local localPlayer       = Players.LocalPlayer
+
+local notifiedCache = {}
+local lastPetCount = 0
+
+-- =============================================
+--  XÁC ĐỊNH LOẠI PET
+-- =============================================
+local function getPetInfo(name)
+    local lower = name:lower()
+    if lower:find("titanic") then
+        return "Titanic",     CONFIG.Colors.Titanic, CONFIG.Emojis.Titanic
+    elseif lower:find("golden") then
+        return "Golden Huge", CONFIG.Colors.Golden,  CONFIG.Emojis.Golden
+    elseif lower:find("rainbow") then
+        return "Rainbow Huge",CONFIG.Colors.Rainbow, CONFIG.Emojis.Rainbow
+    elseif lower:find("huge") then
+        return "Huge",        CONFIG.Colors.Huge,    CONFIG.Emojis.Huge
+    end
+    return nil
+end
+
+local function isHugeOrTitanic(name)
+    local lower = name:lower()
+    for _, kw in ipairs(CONFIG.Keywords) do
+        if lower:find(kw) then return true end
+    end
+    return false
+end
+
+-- =============================================
+--  GỬI WEBHOOK VỀ DISCORD (Đã fix lỗi request cho mọi executor)
+-- =============================================
+local function sendWebhook(petName, petType, color, emoji)
+    local ping = CONFIG.PingUserID ~= "" and ("<@" .. CONFIG.PingUserID .. ">") or ""
+    local timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+
     local payload = {
-        content = "**🎉 New Pet Hatched! 🎉**",
+        content = ping,
         embeds = {{
-            title = "Pet Simulator 99",
-            description = "**Pet:** `" .. tostring(petName) .. "`\n**Rarity:** `" .. tostring(rarity) .. "`",
-            color = 5763719,
-            footer = { text = "Auto Noti | " .. os.date("%H:%M:%S") }
+            title  = emoji .. "  " .. petType:upper() .. " HATCHED!",
+            color  = color,
+            fields = {
+                { name = "🐾  Pet",          value = "```" .. petName             .. "```", inline = true },
+                { name = "👤  Player",       value = "```" .. localPlayer.Name    .. "```", inline = true },
+                { name = "🎮  Display Name", value = "```" .. localPlayer.DisplayName .. "```", inline = true },
+            },
+            footer    = { text = CONFIG.HubName .. "  •  Pet Simulator 99" },
+            timestamp = timestamp,
         }}
     }
 
-    local jsonData = HttpService:JSONEncode(payload)
-
-    -- Thử tất cả các cách gửi có thể (Tự động chọn cái nào chạy được)
-    local sent = false
-    if not sent then
-        local s, e = pcall(function()
-            request({Url = WebhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = jsonData})
-        end)
-        if s then sent = true else print("❌ Cách 1 (request) thất bại.") end
-    end
+    local jsonBody = HttpService:JSONEncode(payload)
     
-    if not sent then
-        local s, e = pcall(function()
-            syn.request({Url = WebhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = jsonData})
-        end)
-        if s then sent = true else print("❌ Cách 2 (syn.request) thất bại.") end
-    end
-    
-    if not sent then
-        local s, e = pcall(function()
-            http_request({Url = WebhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = jsonData})
-        end)
-        if s then sent = true else print("❌ Cách 3 (http_request) thất bại.") end
-    end
+    -- Tự động thử các hàm gửi khác nhau để tránh lỗi nil
+    local ok, err = pcall(function()
+        local reqFunc = syn and syn.request
+                     or (http and http.request)
+                     or request
+                     or game:GetService("HttpService").RequestAsync -- Cách dự phòng mới nhất
+        
+        -- Nếu vẫn không gọi được, dùng PostAsync dự phòng
+        if type(reqFunc) ~= "function" then
+             game:GetService("HttpService"):PostAsync(CONFIG.WebhookURL, jsonBody, Enum.HttpContentType.ApplicationJson)
+        else
+             reqFunc({
+                Url     = CONFIG.WebhookURL,
+                Method  = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body    = jsonBody,
+            })
+        end
+    end)
 
-    if sent then
-        print("✅ Gửi Discord thành công: " .. petName)
+    if ok then
+        print("[Song Hub] ✅ Đã gửi Discord: " .. petName)
     else
-        warn("❌ THẤT BẠI HOÀN TOÀN. Executor bạn dùng không hỗ trợ gửi Webhook!") 
+        warn("[Song Hub] ❌ Webhook lỗi: " .. tostring(err))
     end
 end
 
--- 3. Bắt sự kiện nở trứng chuẩn PS99
-print("🟢 Đang tìm PetInventory của PS99...")
-local Players = game:GetService("Players")
-local inv = Players.LocalPlayer:WaitForChild("PetInventory", 10)
+-- =============================================
+--  XỬ LÝ KHI PHÁT HIỆN PET MỚI TRONG INVENTORY
+-- =============================================
+local function handlePet(petName)
+    if type(petName) ~= "string" or petName == "" then return end
+    if not isHugeOrTitanic(petName) then return end
+    if notifiedCache[petName] then return end
 
-if inv then
-    print("✅ Đã tìm thấy Inventory! Bắt đầu theo dõi mỗi 2 giây...")
-    local count = #inv:GetChildren()
+    notifiedCache[petName] = true
+    local petType, color, emoji = getPetInfo(petName)
+    if petType then
+        print("[Song Hub] 🎉 " .. petType .. ": " .. petName)
+        sendWebhook(petName, petType, color, emoji)
+    end
+
+    -- Reset cache sau 15 giây để có thể báo lại nếu nở tiếp con trùng tên
+    task.delay(15, function() notifiedCache[petName] = nil end)
+end
+
+-- =============================================
+--  BẮT ĐẦU THEO DÕI INVENTORY (Thay thế RemoteEvent)
+-- =============================================
+print("🟢 [Song Hub] Đang tìm PetInventory của PS99...")
+
+local inventoryFolder = localPlayer:WaitForChild("PetInventory", 15)
+
+if inventoryFolder then
+    print("✅ [Song Hub] Đã tìm thấy Inventory! Bắt đầu quét mỗi 1.5 giây...")
     
-    while task.wait(2) do -- Cứ 2 giây check 1 lần
-        local newCount = #inv:GetChildren()
-        if newCount > count then
-            local newPet = inv:GetChildren()[newCount]
-            if newPet then
-                sendToDiscord(newPet.Name, "Unknown (Inventory)")
-                count = newCount -- Cập nhật số lượng mới
+    -- Khởi tạo số lượng pet ban đầu
+    lastPetCount = #inventoryFolder:GetChildren()
+
+    -- Bắt đầu vòng lặp vô hạn để quét
+    spawn(function()
+        while task.wait(1.5) do -- Cứ 1.5 giây kiểm tra 1 lần
+            local currentPetCount = #inventoryFolder:GetChildren()
+            
+            -- Nếu số lượng pet tăng lên => Có pet mới
+            if currentPetCount > lastPetCount then
+                
+                -- Lấy con pet vừa mới thêm vào (ở vị trí cuối cùng)
+                local newPet = inventoryFolder:GetChildren()[currentPetCount]
+                
+                if newPet then
+                    local petName = newPet.Name
+                    -- Gọi hàm xử lý nếu là Huge/Titanic
+                    handlePet(petName)
+                end
+                
+                -- Cập nhật lại số lượng mới nhất
+                lastPetCount = currentPetCount
             end
         end
-    end
+    end)
 else
-    warn("❌ Không tìm thấy Inventory.")
+    warn("❌ [Song Hub] KHÔNG TÌM THẤY INVENTORY. Hãy đảm bảo bạn đang ở trong game Pet Simulator 99!")
 end
