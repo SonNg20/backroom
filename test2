@@ -1,13 +1,9 @@
--- =============================================
---  CODE HOOK DỮ LIỆU PET (DÙNG ĐỂ XEM CẤU TRÚC)
--- =============================================
-print("🟢 BẮT ĐẦU HOOK DỮ LIỆU PET. HÃY NỞ 1 QUẢ TRỨNG BẤT KỲ!")
-print("👉 Nhìn vào Console (màn hình đen) để xem dữ liệu thô của con Pet vừa nở.")
+print("START HOOK")
+print("Hay no 1 qua trung bat ky de xem du lieu!")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Network = ReplicatedStorage:WaitForChild("Network", 10)
 
--- Danh sách các RemoteEvent thường dùng để nở trứng trong PS99
 local eventsToHook = {
     "CustomEggs_Hatch",
     "VL_Hatch", 
@@ -16,48 +12,41 @@ local eventsToHook = {
 }
 
 local hookedCount = 0
+
+local function inspectData(data, depth)
+    depth = depth or 0
+    local prefix = string.rep("  ", depth)
+    
+    if type(data) == "table" then
+        for k, v in pairs(data) do
+            if type(v) == "table" then
+                print(prefix .. tostring(k) .. " = (Table)")
+                inspectData(v, depth + 1)
+            else
+                print(prefix .. tostring(k) .. " = " .. tostring(v))
+            end
+        end
+    else
+        print(prefix .. tostring(data))
+    end
+end
+
 for _, evName in ipairs(eventsToHook) do
     local ev = Network:FindFirstChild(evName)
     if ev then
         ev.OnClientEvent:Connect(function(...)
+            print("=============================")
+            print("BAT DUOC EVENT: " .. evName)
             local args = {...}
-            print("==========================================")
-            print("🔔 BẮT ĐƯỢC SỰ KIỆN NỞ TRỨNG: " .. evName)
-            
-            -- In toàn bộ dữ liệu thô ra Console để bạn xem
             for i, arg in ipairs(args) do
-                print("📦 Argument thứ " .. i .. ":")
-                
-                -- Dùng hàm in sâu để xem cấu trúc bảng (Table)
-                if type(arg) == "table" then
-                    -- In ra dạng JSON để dễ đọc
-                    local success, json = pcall(function()
-                        return game:GetService("HttpService"):JSONEncode(arg)
-                    end)
-                    if success then
-                        print(json)
-                    else
-                        -- Nếu không encode được JSON, in từng phần tử
-                        for key, val in pairs(arg) do
-                            if type(val) == "table" then
-                                print("  - " .. tostring(key) .. " = (Bảng con)")
-                                for k2, v2 in pairs(val) do
-                                    print("      " .. tostring(k2) .. " = " .. tostring(v2))
-                                end
-                            else
-                                print("  - " .. tostring(key) .. " = " .. tostring(val))
-                            end
-                        end
-                    end
-                else
-                    print(tostring(arg))
-                end
+                print("--- ARGUMENT " .. i .. " ---")
+                inspectData(arg)
             end
-            print("==========================================")
+            print("=============================")
         end)
         hookedCount = hookedCount + 1
-        print("✅ Đã Hook vào: " .. evName)
+        print("Da Hook vao: " .. evName)
     end
 end
 
-print("🟢 Đã hook xong " .. hookedCount .. " sự kiện. Vào game NỞ TRỨNG đi!")
+print("Da hook xong " .. hookedCount .. " su kien. Hay no trung di!")
