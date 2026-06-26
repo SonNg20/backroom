@@ -1,207 +1,78 @@
--- =============================================
---   SONG HUB - PS99 HUGE/TITANIC NOTIFIER
---   Hook chính xác vào RemoteEvent của PS99
--- =============================================
+-- =======================================================
+-- CODE THÔNG BÁO PET MỚI (Đã chèn Webhook của bạn)
+-- =======================================================
 
--- =============================================
---  ⚙️  CẤU HÌNH
--- =============================================
-local CONFIG = {
-    WebhookURL  = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os",
-    PingUserID  = "989895037406044200",
+-- 1. Link Webhook của bạn (Đã chèn chính xác)
+local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
 
-    -- Từ khoá để nhận ra Huge/Titanic trong tên pet
-        Keywords = {"huge", "titanic", "dog", "corgi", "axolotl", "cat"},
-
-    Colors = {
-        Titanic = 9699539,   -- Tím
-        Golden  = 16766720,  -- Vàng
-        Rainbow = 16711935,  -- Hồng
-        Huge    = 16753920,  -- Cam
-    },
-    Emojis = {
-        Titanic = "💎",
-        Golden  = "✨",
-        Rainbow = "🌈",
-        Huge    = "🎉",
-    },
-
-    HubName = "SonNg",
-}
-
--- =============================================
---  KHÔNG CẦN CHỈNH BÊN DƯỚI
--- =============================================
-local Players           = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local HttpService       = game:GetService("HttpService")
-local localPlayer       = Players.LocalPlayer
-
-local notifiedCache = {}
-
--- =============================================
---  XÁC ĐỊNH LOẠI PET
--- =============================================
-local function getPetInfo(name)
-    local lower = name:lower()
-    if lower:find("titanic") then
-        return "Titanic",     CONFIG.Colors.Titanic, CONFIG.Emojis.Titanic
-    elseif lower:find("golden") then
-        return "Golden Huge", CONFIG.Colors.Golden,  CONFIG.Emojis.Golden
-    elseif lower:find("rainbow") then
-        return "Rainbow Huge",CONFIG.Colors.Rainbow, CONFIG.Emojis.Rainbow
-    elseif lower:find("huge") then
-        return "Huge",        CONFIG.Colors.Huge,    CONFIG.Emojis.Huge
-    end
-    return nil
-end
-
-local function isHugeOrTitanic(name)
-    local lower = name:lower()
-    for _, kw in ipairs(CONFIG.Keywords) do
-        if lower:find(kw) then return true end
-    end
-    return false
-end
-
--- =============================================
---  GỬI WEBHOOK VỀ DISCORD
--- =============================================
-local function sendWebhook(petName, petType, color, emoji)
-    local ping = CONFIG.PingUserID ~= "" and ("<@" .. CONFIG.PingUserID .. ">") or ""
-    local timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
-
-    local payload = {
-        content = ping,
+-- 2. Hàm gửi Discord (Code cốt lõi)
+local function sendToDiscord(petName, rarity)
+    local HttpService = game:GetService("HttpService")
+    
+    -- Tạo nội dung tin nhắn Embed
+    local data = {
         embeds = {{
-            title  = emoji .. "  " .. petType:upper() .. " HATCHED!",
-            color  = color,
-            fields = {
-                { name = "🐾  Pet",          value = "```" .. petName             .. "```", inline = true },
-                { name = "👤  Player",       value = "```" .. localPlayer.Name    .. "```", inline = true },
-                { name = "🎮  Display Name", value = "```" .. localPlayer.DisplayName .. "```", inline = true },
-            },
-            footer    = { text = CONFIG.HubName .. "  •  Pet Simulator 99" },
-            timestamp = timestamp,
+            title = "🐣 NEW PET CAUGHT!",
+            description = "**Tên Pet:** `" .. tostring(petName) .. "`\n**Độ hiếm:** `" .. tostring(rarity) .. "`",
+            color = 5763719, -- Màu xanh lá
+            footer = { text = "Auto Script | " .. os.date("%H:%M:%S") }
         }}
     }
 
-    local ok, err = pcall(function()
-        local reqFunc = syn and syn.request
-                     or (http and http.request)
-                     or request
-        reqFunc({
-            Url     = CONFIG.WebhookURL,
-            Method  = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body    = HttpService:JSONEncode(payload),
+    -- Bắt lỗi khi gửi (dùng pcall để không bị crash script)
+    local success, err = pcall(function()
+        request({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
         })
     end)
 
-    if ok then
-        print("[Song Hub] ✅ Đã gửi Discord: " .. petName)
+    if success then
+        print("✅ Đã gửi thông báo lên Discord: " .. tostring(petName))
     else
-        warn("[Song Hub] ❌ Webhook lỗi: " .. tostring(err))
+        warn("❌ Gửi thất bại! Lỗi: " .. tostring(err))
+        -- Nếu lỗi là "attempt to call a nil value", Executor bạn đang dùng đã chặn hàm request()
     end
 end
 
--- =============================================
---  XỬ LÝ KHI PHÁT HIỆN PET
--- =============================================
-local function handlePet(petName)
-    if type(petName) ~= "string" or petName == "" then return end
-    if not isHugeOrTitanic(petName) then return end
-    if notifiedCache[petName] then return end
+-- 3. Bắt sự kiện Hatch (Cách an toàn cho mọi game Pet Sim)
+print("🟢 Script đang chạy, đang chờ bạn nở trứng...")
 
-    notifiedCache[petName] = true
-    local petType, color, emoji = getPetInfo(petName)
-    if petType then
-        print("[Song Hub] 🎉 " .. petType .. ": " .. petName)
-        sendWebhook(petName, petType, color, emoji)
-    end
+-- Dùng RemoteEvent (Cách chính xác nhất)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local remote = ReplicatedStorage:WaitForChild("Remotes", 10) 
 
-    task.delay(15, function() notifiedCache[petName] = nil end)
-end
+if remote then
+    -- Sự kiện này kích hoạt mỗi lần nở trứng
+    remote.HatchEvent.OnClientEvent:Connect(function(petData)
+        local name = "Unknown Pet"
+        local rarity = "Unknown"
 
--- =============================================
---  ĐỌC DATA TỪ EVENT (PS99 gửi nhiều kiểu)
--- =============================================
-local function extractPetName(data)
-    -- Thử các kiểu data PS99 hay gửi về
-    if type(data) == "string" then
-        return data
-
-    elseif type(data) == "table" then
-        -- Dạng array: { {Name="Huge Cat", ...}, {Name="Dog",...} }
-        for _, item in ipairs(data) do
-            if type(item) == "table" then
-                local n = item.Name or item.PetName or item.Pet or item.Type or item.Id
-                if n then return tostring(n) end
-            elseif type(item) == "string" then
-                return item
-            end
+        -- Xử lý dữ liệu game trả về
+        if type(petData) == "table" then
+            name = petData.Name or petData._id or "Unknown"
+            rarity = petData.Rarity or "Common"
+        elseif type(petData) == "string" then
+            name = petData
         end
-        -- Dạng dict: { Name="Huge Cat", Rarity="Huge" }
-        local n = data.Name or data.PetName or data.Pet or data.Type or data.Id
-        if n then return tostring(n) end
-    end
-    return nil
-end
-
--- =============================================
---  HOOK VÀO CÁC REMOTE EVENT CỦA PS99
--- =============================================
-local Network = ReplicatedStorage:WaitForChild("Network", 15)
-
-if not Network then
-    warn("[Song Hub] Không tìm thấy ReplicatedStorage.Network!")
-    return
-end
-
--- Danh sách event cần hook (từ kết quả scan của bạn)
-local eventNames = {
-    "CustomEggs_Hatch",       -- hatch trứng thường
-    "VL_Hatch",               -- hatch VIP/Limited
-    "Exclusive Eggs: Open",   -- hatch trứng Exclusive
-    "Eggs_PlayOpenAnimation", -- animation hatch (backup)
-}
-
-local hooked = 0
-
-for _, evName in ipairs(eventNames) do
-    local ev = Network:FindFirstChild(evName)
-    if ev and (ev:IsA("RemoteEvent") or ev:IsA("BindableEvent")) then
-        ev.OnClientEvent:Connect(function(...)
-            local args = {...}
-            -- Thử từng argument được gửi về
-            for _, arg in ipairs(args) do
-                if type(arg) == "string" then
-                    handlePet(arg)
-                elseif type(arg) == "table" then
-                    -- Có thể là array nhiều pet (hatch nhiều cùng lúc)
-                    for _, item in ipairs(arg) do
-                        local name = extractPetName(item)
-                        if name then handlePet(name) end
-                    end
-                    local name = extractPetName(arg)
-                    if name then handlePet(name) end
-                end
-            end
+        
+        -- Gửi webhook
+        sendToDiscord(name, rarity)
+    end)
+    print("✅ Đã tìm thấy Remote HatchEvent, sẵn sàng hoạt động!")
+else
+    warn("❌ KHÔNG TÌM THẤY REMOTE. Thử dùng cách quan sát Inventory...")
+    -- (Dự phòng) Nếu không bắt được remote, thử quan sát inventory
+    local Players = game:GetService("Players")
+    local inv = Players.LocalPlayer:WaitForChild("PetInventory", 5)
+    if inv then
+        local oldCount = #inv:GetChildren()
+        inv.ChildAdded:Connect(function(newPet)
+            task.wait(0.2) -- Chờ game load xong pet
+            sendToDiscord(newPet.Name, "Unknown (Inventory)")
         end)
-        hooked = hooked + 1
-        print("[Song Hub] ✅ Hooked: " .. evName)
-    else
-        warn("[Song Hub] ⚠️  Không tìm thấy event: " .. evName)
+        print("✅ Đã dùng cách dự phòng Inventory!")
     end
 end
-
-print("━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-print("  Song Hub — Huge Notifier")
-print("  Đã hook " .. hooked .. "/" .. #eventNames .. " events")
-print("━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
---[[
-    TEST THỬ WEBHOOK — bỏ comment để kiểm tra:
-    task.delay(2, function() handlePet("Golden Huge Gamemaster Cat") end)
-    task.delay(5, function() handlePet("Titanic Cat") end)
-]]
