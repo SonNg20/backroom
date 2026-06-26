@@ -11,7 +11,7 @@ local CONFIG = {
     PingUserID  = "989895037406044200",
 
     -- Từ khoá để nhận ra Huge/Titanic trong tên pet
-    Keywords = {"huge", "titanic"},
+        Keywords = {"huge", "titanic", "dog", "corgi", "axolotl", "cat"},
 
     Colors = {
         Titanic = 9699539,   -- Tím
