@@ -5,7 +5,7 @@ local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9
 local HubName = "RLWSCRIPTS"
 
 -- =============================================
---  HÀM GỬI WEBHOOK
+--  HÀM GỬI WEBHOOK (MÀU SẮC THEO SKIN)
 -- =============================================
 local HttpService = game:GetService("HttpService")
 local reqFunc = syn and syn.request or (http and http.request) or request
@@ -47,7 +47,7 @@ local function sendToDiscord(petName, totalCount, petType, color)
 end
 
 -- =============================================
---  LẤY DỮ LIỆU GAME & PHÂN LOẠI PET (BẢN NÂNG CẤP)
+--  CỐT LÕI MỚI: LẤY DỮ LIỆU & PHÂN LOẠI TỪ CONFIG (SKIN)
 -- =============================================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SaveModule
@@ -67,74 +67,84 @@ local firstRun = true
 
 print("🟢 Đang tải dữ liệu Pet hiện tại...")
 
-local function classifyPet(name)
-    if not name then return nil, nil end
-    local lower = name:lower()
+-- Hàm phân loại dựa trên Config của Pet (Không dựa vào tên)
+local function classifyPet(petID, petData)
+    local lowerName = petID:lower()
     
-    -- 1. Kiểm tra Titanic trước
-    if lower:find("titanic") then
-        return "Titanic", 9699539 -- Tím
+    -- 1. Dùng tên để bắt Titanic trước (Cái này tên nó vẫn giữ chữ Titanic)
+    if lowerName:find("titanic") then
+        return "Titanic", 9699539 -- Màu Tím
     end
     
-    -- 2. Kiểm tra MÀU SẮC đặc trưng trước
-    local isGolden = lower:find("golden")
-    local isRainbow = lower:find("rainbow")
-    local isHuge = lower:find("huge")
-    
-    -- Nếu có màu sắc + Huge => Trả về đúng loại
-    if isGolden and isHuge then
-        return "Golden", 16766720 -- Vàng
-    end
-    
-    if isRainbow and isHuge then
-        return "Rainbow", 16711935 -- Hồng
-    end
-    
-    -- 3. Nếu không có màu sắc nhưng có Huge (Huge thường)
-    if isHuge then
-        return "Huge", 16753920 -- Cam
+    -- 2. Nếu không phải Titanic, bắt đầu kiểm tra các loại Huge
+    if lowerName:find("huge") then
+        
+        -- Đọc màu sắc từ thuộc tính trong dữ liệu game
+        local skinData = petData.skin or petData.Config or {}
+        local colorID = skinData.Color or "Default"
+        
+        -- Nếu có thuộc tính Golden (Màu vàng đặc trưng)
+        if colorID == "Golden" or lowerName:find("golden") then
+            return "Golden", 16766720 -- Vàng óng
+            
+        -- Nếu có thuộc tính Rainbow (Màu ảo giác)
+        elseif colorID == "Rainbow" or lowerName:find("rainbow") then
+            return "Rainbow", 16711935 -- Hồng cánh sen
+            
+        -- Còn lại là Huge thường
+        else
+            return "Huge", 16753920 -- Màu Cam
+        end
     end
     
     return nil, nil
 end
 
 local function checkForNewPet()
-    local currentPetCounts = {}
+    local currentPetData = {} -- Lưu cả tên và config để phân biệt màu
     
     local success, data = pcall(function() return SaveModule.Get() end)
     if not success or not data or not data.Inventory or not data.Inventory.Pet then
         return 
     end
 
+    -- Đếm số lượng và lưu cấu hình pet
     for _, petData in pairs(data.Inventory.Pet) do
         if petData.id then
             local name = petData.id
             local amount = petData._am or 1
-            currentPetCounts[name] = (currentPetCounts[name] or 0) + amount
+            if not currentPetData[name] then
+                currentPetData[name] = { count = 0, config = petData }
+            end
+            currentPetData[name].count = currentPetData[name].count + amount
         end
     end
 
+    -- Lần chạy đầu
     if firstRun then
-        previousPetCounts = currentPetCounts
+        previousPetCounts = currentPetData
         firstRun = false
-        print("✅ Đã lưu dữ liệu Pet. Chỉ theo dõi Huge/Titanic...")
+        print("✅ Đã lưu dữ liệu Pet. Bắt đầu theo dõi...")
         return
     end
 
-    for petName, currentCount in pairs(currentPetCounts) do
-        local prevCount = previousPetCounts[petName] or 0
+    -- So sánh sự thay đổi
+    for petName, currentInfo in pairs(currentPetData) do
+        local prevInfo = previousPetCounts[petName]
+        local prevCount = prevInfo and prevInfo.count or 0
         
-        if currentCount > prevCount then
-            -- Gọi hàm phân loại an toàn hơn
-            local petType, color = classifyPet(petName)
+        if currentInfo.count > prevCount then
+            
+            -- Gọi hàm phân loại bằng Config 
+            local petType, color = classifyPet(petName, currentInfo.config)
             
             if petType then
-                sendToDiscord(petName, currentCount, petType, color)
+                sendToDiscord(petName, currentInfo.count, petType, color)
             end
         end
     end
 
-    previousPetCounts = currentPetCounts
+    previousPetCounts = currentPetData
 end
 
 -- =============================================
@@ -147,4 +157,4 @@ task.spawn(function()
     end
 end)
 
-print("🟢 Script lọc Huge/Titanic/Gold/Rainbow (Chuẩn xác) đã sẵn sàng!")
+print("🟢 Script phân biệt Gold/Rainbow thực tế đã sẵn sàng!")
