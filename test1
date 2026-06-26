@@ -1,174 +1,107 @@
 -- =============================================
---   SONG HUB - PS99 NOTIFIER (CHUYỂN SANG INVENTORY)
---   Hook chính xác vào PetInventory của PS99
--- =============================================
-
--- =============================================
---  ⚙️  CẤU HÌNH
+--  ⚙️  CẤU HÌNH (Giữ nguyên webhook của bạn)
 -- =============================================
 local CONFIG = {
     WebhookURL  = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os",
-    PingUserID  = "989895037406044200",
-
-    -- Từ khoá để nhận ra Huge/Titanic trong tên pet
+    PingUserID  = "989895037406044200", -- Nếu muốn ping thì để số ID, ko ping thì để ""
     Keywords = {"huge", "titanic"},
-
-    Colors = {
-        Titanic = 9699539,   -- Tím
-        Golden  = 16766720,  -- Vàng
-        Rainbow = 16711935,  -- Hồng
-        Huge    = 16753920,  -- Cam
-    },
-    Emojis = {
-        Titanic = "💎",
-        Golden  = "✨",
-        Rainbow = "🌈",
-        Huge    = "🎉",
-    },
-
-    HubName = "Song Hub (Inventory)",
+    HubName = "Song Hub (Inventory Fix)"
 }
 
 -- =============================================
---  KHÔNG CẦN CHỈNH BÊN DƯỚI
+--  HÀM GỬI WEBHOOK
 -- =============================================
-local Players           = game:GetService("Players")
-local HttpService       = game:GetService("HttpService")
-local localPlayer       = Players.LocalPlayer
-
-local notifiedCache = {}
-local lastPetCount = 0
-
--- =============================================
---  XÁC ĐỊNH LOẠI PET
--- =============================================
-local function getPetInfo(name)
-    local lower = name:lower()
-    if lower:find("titanic") then
-        return "Titanic",     CONFIG.Colors.Titanic, CONFIG.Emojis.Titanic
-    elseif lower:find("golden") then
-        return "Golden Huge", CONFIG.Colors.Golden,  CONFIG.Emojis.Golden
-    elseif lower:find("rainbow") then
-        return "Rainbow Huge",CONFIG.Colors.Rainbow, CONFIG.Emojis.Rainbow
-    elseif lower:find("huge") then
-        return "Huge",        CONFIG.Colors.Huge,    CONFIG.Emojis.Huge
-    end
-    return nil
-end
-
-local function isHugeOrTitanic(name)
-    local lower = name:lower()
-    for _, kw in ipairs(CONFIG.Keywords) do
-        if lower:find(kw) then return true end
-    end
-    return false
-end
-
--- =============================================
---  GỬI WEBHOOK VỀ DISCORD (Đã fix lỗi request cho mọi executor)
--- =============================================
-local function sendWebhook(petName, petType, color, emoji)
-    local ping = CONFIG.PingUserID ~= "" and ("<@" .. CONFIG.PingUserID .. ">") or ""
-    local timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
-
-    local payload = {
-        content = ping,
+local function sendToDiscord(petName, petType)
+    local HttpService = game:GetService("HttpService")
+    
+    local data = {
+        content = (CONFIG.PingUserID ~= "" and "<@" .. CONFIG.PingUserID .. ">") or "",
         embeds = {{
-            title  = emoji .. "  " .. petType:upper() .. " HATCHED!",
-            color  = color,
+            title  = "🎉 " .. petType .. " HATCHED!",
+            color  = (petType == "Titanic" and 9699539) or (petType == "Huge" and 16753920) or 16766720,
             fields = {
-                { name = "🐾  Pet",          value = "```" .. petName             .. "```", inline = true },
-                { name = "👤  Player",       value = "```" .. localPlayer.Name    .. "```", inline = true },
-                { name = "🎮  Display Name", value = "```" .. localPlayer.DisplayName .. "```", inline = true },
+                { name = "🐾 Pet", value = "```" .. petName .. "```", inline = true },
+                { name = "👤 Player", value = "```" .. game.Players.LocalPlayer.Name .. "```", inline = true },
             },
-            footer    = { text = CONFIG.HubName .. "  •  Pet Simulator 99" },
-            timestamp = timestamp,
+            footer = { text = CONFIG.HubName .. " | " .. os.date("%H:%M") }
         }}
     }
 
-    local jsonBody = HttpService:JSONEncode(payload)
-    
-    -- Tự động thử các hàm gửi khác nhau để tránh lỗi nil
-    local ok, err = pcall(function()
-        local reqFunc = syn and syn.request
-                     or (http and http.request)
-                     or request
-                     or game:GetService("HttpService").RequestAsync -- Cách dự phòng mới nhất
-        
-        -- Nếu vẫn không gọi được, dùng PostAsync dự phòng
-        if type(reqFunc) ~= "function" then
-             game:GetService("HttpService"):PostAsync(CONFIG.WebhookURL, jsonBody, Enum.HttpContentType.ApplicationJson)
-        else
-             reqFunc({
-                Url     = CONFIG.WebhookURL,
-                Method  = "POST",
-                Headers = { ["Content-Type"] = "application/json" },
-                Body    = jsonBody,
-            })
-        end
+    local success, err = pcall(function()
+        local reqFunc = syn and syn.request or (http and http.request) or request
+        reqFunc({
+            Url = CONFIG.WebhookURL,
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = HttpService:JSONEncode(data)
+        })
     end)
-
-    if ok then
-        print("[Song Hub] ✅ Đã gửi Discord: " .. petName)
-    else
-        warn("[Song Hub] ❌ Webhook lỗi: " .. tostring(err))
-    end
+    if success then print("✅ Đã báo: " .. petName) else warn("❌ Lỗi gửi webhook: " .. err) end
 end
 
 -- =============================================
---  XỬ LÝ KHI PHÁT HIỆN PET MỚI TRONG INVENTORY
+--  HÀM KIỂM TRA Huge/Titanic
 -- =============================================
-local function handlePet(petName)
-    if type(petName) ~= "string" or petName == "" then return end
-    if not isHugeOrTitanic(petName) then return end
-    if notifiedCache[petName] then return end
-
-    notifiedCache[petName] = true
-    local petType, color, emoji = getPetInfo(petName)
-    if petType then
-        print("[Song Hub] 🎉 " .. petType .. ": " .. petName)
-        sendWebhook(petName, petType, color, emoji)
-    end
-
-    -- Reset cache sau 15 giây để có thể báo lại nếu nở tiếp con trùng tên
-    task.delay(15, function() notifiedCache[petName] = nil end)
+local function checkPetName(name)
+    if not name then return false end
+    local lower = tostring(name):lower()
+    return lower:find("huge") or lower:find("titanic")
 end
 
 -- =============================================
---  BẮT ĐẦU THEO DÕI INVENTORY (Thay thế RemoteEvent)
+--  CỐT LÕI: BẮT ĐẦU GIÁM SÁT INVENTORY BẰNG CÁCH SO SÁNH DANH SÁCH
 -- =============================================
-print("🟢 [Song Hub] Đang tìm PetInventory của PS99...")
+print("🟢 Bắt đầu khởi tạo trình giám sát Inventory...")
 
-local inventoryFolder = localPlayer:WaitForChild("PetInventory", 15)
+local Players = game:GetService("Players")
+local inv = Players.LocalPlayer:WaitForChild("PetInventory", 5)
 
-if inventoryFolder then
-    print("✅ [Song Hub] Đã tìm thấy Inventory! Bắt đầu quét mỗi 1.5 giây...")
-    
-    -- Khởi tạo số lượng pet ban đầu
-    lastPetCount = #inventoryFolder:GetChildren()
+if not inv then
+    warn("❌ Không tìm thấy PetInventory. Bạn có đang ở game Pet Simulator 99 không?")
+    return
+end
 
-    -- Bắt đầu vòng lặp vô hạn để quét
-    spawn(function()
-        while task.wait(1.5) do -- Cứ 1.5 giây kiểm tra 1 lần
-            local currentPetCount = #inventoryFolder:GetChildren()
-            
-            -- Nếu số lượng pet tăng lên => Có pet mới
-            if currentPetCount > lastPetCount then
-                
-                -- Lấy con pet vừa mới thêm vào (ở vị trí cuối cùng)
-                local newPet = inventoryFolder:GetChildren()[currentPetCount]
-                
-                if newPet then
-                    local petName = newPet.Name
-                    -- Gọi hàm xử lý nếu là Huge/Titanic
-                    handlePet(petName)
+print("✅ Đã tìm thấy Inventory. Bắt đầu quét...")
+
+-- Biến lưu danh sách tên pet trước đó
+local previousPetList = {}
+
+-- Vòng lặp quét mỗi 0.5 giây (Siêu nhanh để bắt kịp hatch combo)
+task.spawn(function()
+    while task.wait(0.5) do
+        local currentPetList = {}
+        local currentPets = inv:GetChildren()
+        
+        -- Tạo danh sách tên của các pet hiện tại
+        for _, pet in pairs(currentPets) do
+            local name = pet.Name or pet.ClassName
+            if name then table.insert(currentPetList, tostring(name)) end
+        end
+
+        -- So sánh danh sách cũ và mới để tìm ra con mới xuất hiện
+        for _, newName in ipairs(currentPetList) do
+            local isFoundInOld = false
+            for _, oldName in ipairs(previousPetList) do
+                if newName == oldName then
+                    isFoundInOld = true
+                    break
                 end
-                
-                -- Cập nhật lại số lượng mới nhất
-                lastPetCount = currentPetCount
+            end
+
+            -- Nếu tên pet có trong danh sách mới nhưng KHÔNG có trong danh sách cũ => Nó vừa mới nở
+            if not isFoundInOld then
+                if checkPetName(newName) then
+                    print("💎 Phát hiện pet mới: " .. newName)
+                    if newName:find("Titanic") then
+                        sendToDiscord(newName, "Titanic")
+                    else
+                        sendToDiscord(newName, "Huge")
+                    end
+                end
             end
         end
-    end)
-else
-    warn("❌ [Song Hub] KHÔNG TÌM THẤY INVENTORY. Hãy đảm bảo bạn đang ở trong game Pet Simulator 99!")
-end
+
+        -- Cập nhật danh sách cũ để dùng cho lần quét tiếp theo
+        previousPetList = currentPetList
+    end
+end)
