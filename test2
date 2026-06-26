@@ -2,24 +2,45 @@
 --  ⚙️  CẤU HÌNH CỦA BẠN
 -- =============================================
 local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-local DiscordUserID = "" -- Đã xóa Ping User để tránh spam quá mức
+local HubName = "SonNg" -- Tên hiển thị dưới chân thông báo
 
 -- =============================================
---  HÀM GỬI WEBHOOK
+--  HÀM GỬI WEBHOOK (Format theo mẫu Bảng)
 -- =============================================
 local HttpService = game:GetService("HttpService")
 local reqFunc = syn and syn.request or (http and http.request) or request
 
-local function sendToDiscord(title, description, color)
+local function sendToDiscord(petName, petType, totalCount, color, emoji)
+    local playerName = game.Players.LocalPlayer.Name
+    
     local data = {
-        ["content"] = "",
         ["embeds"] = {{
-            ["title"] = title,
-            ["description"] = description,
-            ["color"] = color,
-            ["footer"] = { text = "PS99 Scanner | " .. os.date("%H:%M:%S") }
+            ["title"] = emoji .. "  " .. petType:upper() .. " HATCHED!",
+            ["color"] = color, -- Màu sắc cho từng loại pet
+            ["fields"] = {
+                {
+                    ["name"] = "🐾 Pet",
+                    ["value"] = "```" .. petName .. "```", -- Dùng code block để thẳng hàng
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "👤 Player",
+                    ["value"] = "```" .. playerName .. "```",
+                    ["inline"] = true
+                },
+                {
+                    ["name"] = "🎮 Total",
+                    ["value"] = "```" .. tostring(totalCount) .. "```", -- Tổng số pet trong inv
+                    ["inline"] = true
+                }
+            },
+            ["footer"] = { 
+                ["text"] = HubName .. "  •  Pet Simulator 99"
+            },
+            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%SZ")
         }}
     }
+
     pcall(function()
         reqFunc({
             Url = WebhookURL,
@@ -31,7 +52,7 @@ local function sendToDiscord(title, description, color)
 end
 
 -- =============================================
---  CỐT LÕI: ĐỌC DỮ LIỆU PET TỪ MODULE GAME
+--  CỐT LÕI: ĐỌC DỮ LIỆU PET & LẤY TỔNG SỐ LƯỢNG
 -- =============================================
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SaveModule
@@ -51,7 +72,7 @@ local firstRun = true
 
 print("🟢 Đang tải dữ liệu Pet hiện tại...")
 
-local function checkForNewPet()
+local function checkForHugeTitanic()
     local currentPetCounts = {}
     
     local success, data = pcall(function() return SaveModule.Get() end)
@@ -72,41 +93,44 @@ local function checkForNewPet()
     if firstRun then
         previousPetCounts = currentPetCounts
         firstRun = false
-        print("✅ Đã lưu dữ liệu Pet. Bắt đầu theo dõi...")
+        print("✅ Đã lưu dữ liệu Pet. Bắt đầu theo dõi Huge/Titanic...")
         return
     end
 
     -- So sánh sự thay đổi số lượng
-    local playerName = game.Players.LocalPlayer.Name
     for petName, currentCount in pairs(currentPetCounts) do
+        local lowerName = petName:lower()
         
-        local prevCount = previousPetCounts[petName] or 0
-        
-        -- Nếu số lượng tăng lên => Vừa mới nở (Bỏ điều kiện lọc ở đây)
-        if currentCount > prevCount then
-            local gained = currentCount - prevCount
+        -- Chỉ lọc Huge / Titanic
+        if lowerName:find("huge") or lowerName:find("titanic") then
+            local prevCount = previousPetCounts[petName] or 0
             
-            -- Xác định màu dựa trên tên để nhìn cho vui (Nếu là Huge/Titanic sẽ có màu riêng)
-            local lowerName = petName:lower()
-            local color = 5763719 -- Màu xanh lá mặc định cho pet thường
-            local prefix = "🐣"
-            
-            if lowerName:find("titanic") then 
-                color = 16711680 -- Đỏ
-                prefix = "💎"
-            elseif lowerName:find("huge") then
-                color = 16766720 -- Vàng
-                prefix = "🔥"
-            end
-            
-            -- Gửi thông báo (Tất cả các loại pet đều gửi)
-            local description = string.format(
-                "👤 **%s** vừa nhận được **`%s`** (x%d)!\n📦 Tổng hiện có: **%d**",
-                playerName, petName, gained, currentCount
-            )
+            -- Nếu số lượng tăng lên => Vừa mới nở
+            if currentCount > prevCount then
+                
+                -- Xác định loại Pet (Golden, Rainbow, Titanic, Huge)
+                local petType = "Huge"
+                local color = 16753920 -- Màu cam mặc định cho Huge
+                local emoji = "🎉"
+                
+                if lowerName:find("titanic") then 
+                    petType = "Titanic"
+                    color = 9699539 -- Màu tím
+                    emoji = "💎"
+                elseif lowerName:find("golden") then
+                    petType = "Golden Huge"
+                    color = 16766720 -- Màu vàng
+                    emoji = "✨"
+                elseif lowerName:find("rainbow") then
+                    petType = "Rainbow Huge"
+                    color = 16711935 -- Màu hồng
+                    emoji = "🌈"
+                end
 
-            sendToDiscord(prefix .. " New Pet Hatched!", description, color)
-            print("✅ Đã gửi thông báo: " .. petName)
+                -- Gửi thông báo kèm theo TỔNG SỐ LƯỢNG hiện có (currentCount)
+                print("🎉 Phát hiện: " .. petName)
+                sendToDiscord(petName, petType, currentCount, color, emoji)
+            end
         end
     end
 
@@ -119,9 +143,9 @@ end
 -- =============================================
 task.spawn(function()
     while true do
-        pcall(checkForNewPet)
-        task.wait(3) 
+        pcall(checkForHugeTitanic)
+        task.wait(3) -- 3 giây check 1 lần
     end
 end)
 
-print("🟢 Script giám sát TẤT CẢ PET đang chạy nền.")
+print("🟢 Script đang chạy...")
