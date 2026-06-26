@@ -2,7 +2,7 @@
 --  ⚙️  CẤU HÌNH
 -- =============================================
 local WebhookURL = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os"
-local HubName = "RLWSCRIPTS" -- Bạn muốn tên gì ở dòng dưới cùng thì đổi chỗ này
+local HubName = "SonNg" -- Bạn muốn tên gì ở dòng dưới cùng thì đổi chỗ này
 
 -- =============================================
 --  HÀM GỬI WEBHOOK (FORMAT GIỐNG ẢNH)
@@ -37,7 +37,7 @@ local function sendToDiscord(petName)
                 }
             },
             ["footer"] = { 
-                ["text"] = "powered by " .. SonNg .. " - Hôm nay lúc " .. currentTime
+                ["text"] = "powered by " .. HubName .. " - Hôm nay lúc " .. currentTime
             }
         }}
     }
