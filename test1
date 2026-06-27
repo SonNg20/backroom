@@ -1,14 +1,28 @@
 -- ============================
--- AUTO COLLECT ORB - SOCCER EVENT (FIRETOUCHINTEREST TỪ HRP)
+-- AUTO COLLECT ORB - SOCCER EVENT (TP ĐẾN ORB)
 -- ============================
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
 
+-- Noclip
+RunService.Stepped:Connect(function()
+    pcall(function()
+        local char = player.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end
+    end)
+end)
+
+-- Auto collect orb bằng cách bay đến
 task.spawn(function()
-    while task.wait(0.01) do
+    while task.wait(0.05) do
         pcall(function()
             local char = player.Character
             if not char then return end
@@ -18,16 +32,21 @@ task.spawn(function()
             
             local yeetOrbs = workspace.__THINGS.__INSTANCE_CONTAINER.Active.SoccerEvent.ClientModule.YeetOrbs
             
+            local nearestOrb = nil
+            local nearestDist = math.huge
+            
             for _, orb in ipairs(yeetOrbs:GetChildren()) do
                 if orb:IsA("BasePart") then
-                    -- Touch từ HRP + tất cả part của character
-                    firetouchinterest(hrp, orb, 0)
-                    for _, part in ipairs(char:GetChildren()) do
-                        if part:IsA("BasePart") then
-                            firetouchinterest(part, orb, 0)
-                        end
+                    local dist = (orb.Position - hrp.Position).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearestOrb = orb
                     end
                 end
+            end
+            
+            if nearestOrb then
+                hrp.CFrame = CFrame.new(nearestOrb.Position)
             end
         end)
     end
