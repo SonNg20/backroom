@@ -1,31 +1,73 @@
--- ============================
--- AUTO COLLECT SOCCER ORB - DÙNG REMOTE TỪ SIMPLESPY
--- ============================
+-- =============================================
+--   SONG HUB - PS99 ORB AUTO COLLECTOR
+--   Dùng firetouchinterest để nhặt orb
+-- =============================================
 
-if not game:IsLoaded() then game.Loaded:Wait() end
+local CONFIG = {
+    Rarities = {
+        Basic     = true,
+        Rare      = true,
+        Epic      = true,
+        Legendary = true,
+        Mythical  = true,
+    },
+    LoopDelay = 0.1,
+}
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local lp      = Players.LocalPlayer
+local debris  = workspace:WaitForChild("__DEBRIS")
 
-task.spawn(function()
-    while task.wait(0.1) do
-        pcall(function()
-            local orbs = workspace.__THINGS:FindFirstChild("Orbs")
-            if not orbs then return end
-            
-            for _, orb in ipairs(orbs:GetChildren()) do
-                if orb:IsA("BasePart") then
-                    local orbNumber = tonumber(orb.Name)
-                    if orbNumber then
-                        local args = {
-                            [1] = "SoccerEvent",
-                            [2] = "ClaimOrb",
-                            [3] = orbNumber
-                        }
-                        
-                        ReplicatedStorage.Network.Instancing_FireCustomFromClient:FireServer(unpack(args))
+local function getChar()
+    local char = lp.Character
+    if not char then return nil end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    return hrp
+end
+
+local function collectOrb(orb)
+    local hrp = getChar()
+    if not hrp or not orb or not orb.Parent then return end
+
+    -- Touch vào orb để nhặt
+    firetouchinterest(hrp, orb, 0)
+    task.wait()
+    firetouchinterest(hrp, orb, 1)
+end
+
+local function getAllOrbs()
+    local orbs = {}
+    for rarity, on in pairs(CONFIG.Rarities) do
+        if on then
+            local folder = debris:FindFirstChild(rarity)
+            if folder then
+                for _, orb in ipairs(folder:GetChildren()) do
+                    if orb:IsA("BasePart") and orb.Name == "Orb" then
+                        table.insert(orbs, orb)
                     end
                 end
             end
-        end)
+        end
     end
+    return orbs
+end
+
+_G.StopOrb = false
+
+print("━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+print("  Song Hub — Orb Collector")
+print("  firetouchinterest mode")
+print("  _G.StopOrb = true để dừng")
+print("━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+task.spawn(function()
+    while not _G.StopOrb do
+        local orbs = getAllOrbs()
+        for _, orb in ipairs(orbs) do
+            if _G.StopOrb then break end
+            collectOrb(orb)
+        end
+        task.wait(CONFIG.LoopDelay)
+    end
+    print("[Song Hub] Orb Collector đã dừng.")
 end)
