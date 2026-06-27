@@ -1,5 +1,5 @@
 -- ============================
--- AUTO COLLECT ORB - SOCCER EVENT (TOUCH INTEREST)
+-- AUTO COLLECT ORB - SOCCER EVENT (FIRETOUCHINTEREST TỪ HRP)
 -- ============================
 
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -8,19 +8,25 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
 task.spawn(function()
-    while task.wait(0.05) do
+    while task.wait(0.01) do
         pcall(function()
-            local character = player.Character
-            if not character then return end
+            local char = player.Character
+            if not char then return end
             
-            local head = character:FindFirstChild("Head")
-            if not head then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
             
             local yeetOrbs = workspace.__THINGS.__INSTANCE_CONTAINER.Active.SoccerEvent.ClientModule.YeetOrbs
             
             for _, orb in ipairs(yeetOrbs:GetChildren()) do
                 if orb:IsA("BasePart") then
-                    firetouchinterest(head, orb, 0)
+                    -- Touch từ HRP + tất cả part của character
+                    firetouchinterest(hrp, orb, 0)
+                    for _, part in ipairs(char:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            firetouchinterest(part, orb, 0)
+                        end
+                    end
                 end
             end
         end)
