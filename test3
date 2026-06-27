@@ -1,0 +1,63 @@
+-- ============================
+-- DEBUG - TÌM REMOTE TRONG CLIENT MODULE
+-- ============================
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+print("=== DEBUG SOCCER EVENT ===")
+
+local soccerEvent = workspace.__THINGS.__INSTANCE_CONTAINER.Active:FindFirstChild("SoccerEvent")
+if soccerEvent then
+    print("✅ SoccerEvent found!")
+    print("Children:")
+    for _, child in ipairs(soccerEvent:GetChildren()) do
+        print("  - " .. child.Name .. " [" .. child.ClassName .. "]")
+    end
+    
+    local clientModule = soccerEvent:FindFirstChild("ClientModule")
+    if clientModule then
+        print("\n✅ ClientModule found!")
+        print("Children of ClientModule:")
+        for _, child in ipairs(clientModule:GetChildren()) do
+            print("  - " .. child.Name .. " [" .. child.ClassName .. "]")
+            
+            -- In sâu hơn nếu là Folder/Model
+            if child:IsA("Folder") or child:IsA("Model") or child:IsA("ModuleScript") then
+                -- Nếu là ModuleScript, thử require
+                if child:IsA("ModuleScript") then
+                    pcall(function()
+                        local mod = require(child)
+                        print("    Functions in " .. child.Name .. ":")
+                        for k, v in pairs(mod) do
+                            print("      - " .. k .. " [" .. type(v) .. "]")
+                        end
+                    end)
+                end
+            end
+        end
+        
+        -- Tìm YeetOrbs
+        local yeetOrbs = clientModule:FindFirstChild("YeetOrbs")
+        if yeetOrbs then
+            print("\n✅ YeetOrbs found!")
+            print("Orb count: " .. #yeetOrbs:GetChildren())
+            if #yeetOrbs:GetChildren() > 0 then
+                local firstOrb = yeetOrbs:GetChildren()[1]
+                print("First orb: " .. firstOrb.Name .. " [" .. firstOrb.ClassName .. "]")
+            end
+        end
+    end
+end
+
+-- Tìm Remote trong Network
+print("\n=== NETWORK ===")
+local network = ReplicatedStorage:FindFirstChild("Network")
+if network then
+    for _, child in ipairs(network:GetChildren()) do
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+            print("  - " .. child.Name .. " [" .. child.ClassName .. "]")
+        end
+    end
+end
