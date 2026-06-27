@@ -1,5 +1,5 @@
 -- ============================
--- DEBUG - TÌM REMOTE VÀ YEET ORB
+-- DEBUG - TÌM REMOTE TRONG CLIENT MODULE
 -- ============================
 
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -8,70 +8,56 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 print("=== DEBUG SOCCER EVENT ===")
 
--- 1. Tìm YeetOrbs folder
 local soccerEvent = workspace.__THINGS.__INSTANCE_CONTAINER.Active:FindFirstChild("SoccerEvent")
 if soccerEvent then
     print("✅ SoccerEvent found!")
+    print("Children:")
+    for _, child in ipairs(soccerEvent:GetChildren()) do
+        print("  - " .. child.Name .. " [" .. child.ClassName .. "]")
+    end
     
     local clientModule = soccerEvent:FindFirstChild("ClientModule")
     if clientModule then
-        print("✅ ClientModule found!")
+        print("\n✅ ClientModule found!")
         print("Children of ClientModule:")
         for _, child in ipairs(clientModule:GetChildren()) do
             print("  - " .. child.Name .. " [" .. child.ClassName .. "]")
+            
+            -- In sâu hơn nếu là Folder/Model
+            if child:IsA("Folder") or child:IsA("Model") or child:IsA("ModuleScript") then
+                -- Nếu là ModuleScript, thử require
+                if child:IsA("ModuleScript") then
+                    pcall(function()
+                        local mod = require(child)
+                        print("    Functions in " .. child.Name .. ":")
+                        for k, v in pairs(mod) do
+                            print("      - " .. k .. " [" .. type(v) .. "]")
+                        end
+                    end)
+                end
+            end
         end
         
+        -- Tìm YeetOrbs
         local yeetOrbs = clientModule:FindFirstChild("YeetOrbs")
         if yeetOrbs then
-            print("✅ YeetOrbs found!")
-            print("Number of orbs: " .. #yeetOrbs:GetChildren())
-            
-            -- In 3 orb đầu tiên
-            local count = 0
-            for _, orb in ipairs(yeetOrbs:GetChildren()) do
-                if count < 3 then
-                    print("  Orb: " .. orb.Name .. " [" .. orb.ClassName .. "]")
-                    count = count + 1
-                end
+            print("\n✅ YeetOrbs found!")
+            print("Orb count: " .. #yeetOrbs:GetChildren())
+            if #yeetOrbs:GetChildren() > 0 then
+                local firstOrb = yeetOrbs:GetChildren()[1]
+                print("First orb: " .. firstOrb.Name .. " [" .. firstOrb.ClassName .. "]")
             end
-        else
-            print("❌ YeetOrbs NOT found!")
         end
-    else
-        print("❌ ClientModule NOT found!")
     end
-else
-    print("❌ SoccerEvent NOT found!")
 end
 
--- 2. Tìm Remote
-print("\n=== TÌM REMOTE ===")
+-- Tìm Remote trong Network
+print("\n=== NETWORK ===")
 local network = ReplicatedStorage:FindFirstChild("Network")
 if network then
-    local instancingFire = network:FindFirstChild("Instancing_FireCustomFromClient")
-    if instancingFire then
-        print("✅ Instancing_FireCustomFromClient found!")
-    end
-end
-
--- 3. Thử lấy InstancingCmds
-print("\n=== INSTANCINGCMDS ===")
-local libraryFolder = ReplicatedStorage:FindFirstChild("Library")
-if libraryFolder then
-    local clientFolder = libraryFolder:FindFirstChild("Client")
-    if clientFolder then
-        local instancingCmds = clientFolder:FindFirstChild("InstancingCmds")
-        if instancingCmds then
-            print("✅ InstancingCmds module found!")
-            local cmds = require(instancingCmds)
-            if cmds then
-                print("✅ Require successful!")
-                -- In các function có sẵn
-                print("Functions:")
-                for k, v in pairs(cmds) do
-                    print("  - " .. k .. " [" .. type(v) .. "]")
-                end
-            end
+    for _, child in ipairs(network:GetChildren()) do
+        if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+            print("  - " .. child.Name .. " [" .. child.ClassName .. "]")
         end
     end
 end
