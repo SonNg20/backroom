@@ -1,5 +1,5 @@
 -- ============================
--- AUTO COLLECT ORB - SOCCER EVENT (FIRE SERVER)
+-- AUTO COLLECT ORB - SOCCER EVENT (FIX)
 -- ============================
 
 if not game:IsLoaded() then game.Loaded:Wait() end
@@ -12,11 +12,11 @@ task.spawn(function()
             local yeetOrbs = workspace.__THINGS.__INSTANCE_CONTAINER.Active.SoccerEvent.ClientModule.YeetOrbs
             
             for _, orb in ipairs(yeetOrbs:GetChildren()) do
-                if orb:IsA("BasePart") then
+                if orb:IsA("BasePart") and orb.Name ~= "" then
                     local args = {
                         [1] = "SoccerEvent",
                         [2] = "ClaimOrb",
-                        [3] = tonumber(orb.Name) or orb.Name
+                        [3] = orb
                     }
                     
                     ReplicatedStorage.Network.Instancing_FireCustomFromClient:FireServer(unpack(args))
