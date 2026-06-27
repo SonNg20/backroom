@@ -1,57 +1,30 @@
 -- ============================
--- AUTO COLLECT ORB - SOCCER EVENT (CÓ LỌC)
+-- AUTO COLLECT SOCCER ORB - DÙNG REMOTE TỪ SIMPLESPY
 -- ============================
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Noclip
-RunService.Stepped:Connect(function()
-    pcall(function()
-        local char = player.Character
-        if char then
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
-            end
-        end
-    end)
-end)
-
--- Auto collect orb
 task.spawn(function()
-    while task.wait(0.05) do
+    while task.wait(0.1) do
         pcall(function()
-            local char = player.Character
-            if not char then return end
+            local orbs = workspace.__THINGS:FindFirstChild("Orbs")
+            if not orbs then return end
             
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-            
-            local yeetOrbs = workspace.__THINGS.__INSTANCE_CONTAINER.Active.SoccerEvent.ClientModule.YeetOrbs
-            
-            local nearestOrb = nil
-            local nearestDist = math.huge
-            
-            for _, orb in ipairs(yeetOrbs:GetChildren()) do
-                -- Lọc: chỉ nhặt BasePart, không phải Model
+            for _, orb in ipairs(orbs:GetChildren()) do
                 if orb:IsA("BasePart") then
-                    -- Lọc: bỏ qua orb đã có người nhặt (nếu có)
-                    if orb.Transparency < 1 then
-                        -- Lọc: trong phạm vi 500 studs
-                        local dist = (orb.Position - hrp.Position).Magnitude
-                        if dist < 500 and dist < nearestDist then
-                            nearestDist = dist
-                            nearestOrb = orb
-                        end
+                    local orbNumber = tonumber(orb.Name)
+                    if orbNumber then
+                        local args = {
+                            [1] = "SoccerEvent",
+                            [2] = "ClaimOrb",
+                            [3] = orbNumber
+                        }
+                        
+                        ReplicatedStorage.Network.Instancing_FireCustomFromClient:FireServer(unpack(args))
                     end
                 end
-            end
-            
-            if nearestOrb then
-                hrp.CFrame = CFrame.new(nearestOrb.Position)
             end
         end)
     end
