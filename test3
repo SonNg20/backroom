@@ -1,6 +1,6 @@
 -- =============================================
 --   SONG HUB - PS99 ORB AUTO COLLECTOR
---   Dùng firetouchinterest để nhặt orb
+--   SoccerEvent - ClaimOrb via FireServer
 -- =============================================
 
 local CONFIG = {
@@ -11,30 +11,44 @@ local CONFIG = {
         Legendary = true,
         Mythical  = true,
     },
-    LoopDelay = 0.1,
+    LoopDelay = 0.1, -- giây giữa mỗi lần nhặt
 }
 
-local Players = game:GetService("Players")
-local lp      = Players.LocalPlayer
-local debris  = workspace:WaitForChild("__DEBRIS")
+-- =============================================
+local Players           = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local lp                = Players.LocalPlayer
+local debris            = workspace:WaitForChild("__DEBRIS")
+local Network           = ReplicatedStorage:WaitForChild("Network")
+local fireCustom        = Network:WaitForChild("Instancing_FireCustomFromClient")
 
-local function getChar()
-    local char = lp.Character
-    if not char then return nil end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    return hrp
+-- =============================================
+--  LẤY ID CỦA ORB
+-- =============================================
+local function getOrbID(orb)
+    -- Thử các attribute phổ biến PS99 dùng để lưu ID
+    local id = orb:GetAttribute("ID")
+              or orb:GetAttribute("Id")
+              or orb:GetAttribute("OrbID")
+              or orb:GetAttribute("UID")
+              or orb:GetAttribute("Index")
+    return id
 end
 
-local function collectOrb(orb)
-    local hrp = getChar()
-    if not hrp or not orb or not orb.Parent then return end
+-- =============================================
+--  NHẶT 1 ORB
+-- =============================================
+local function claimOrb(orb)
+    if not orb or not orb.Parent then return end
+    local id = getOrbID(orb)
+    if not id then return end
 
-    -- Touch vào orb để nhặt
-    firetouchinterest(hrp, orb, 0)
-    task.wait()
-    firetouchinterest(hrp, orb, 1)
+    fireCustom:FireServer("SoccerEvent", "ClaimOrb", id)
 end
 
+-- =============================================
+--  LẤY TẤT CẢ ORB HIỆN TẠI
+-- =============================================
 local function getAllOrbs()
     local orbs = {}
     for rarity, on in pairs(CONFIG.Rarities) do
@@ -52,20 +66,39 @@ local function getAllOrbs()
     return orbs
 end
 
+-- =============================================
+--  VÒNG LẶP CHÍNH
+-- =============================================
 _G.StopOrb = false
 
 print("━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 print("  Song Hub — Orb Collector")
-print("  firetouchinterest mode")
+print("  SoccerEvent / ClaimOrb")
 print("  _G.StopOrb = true để dừng")
 print("━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+-- Debug: in thử ID của orb đầu tiên tìm được
+task.delay(1, function()
+    local orbs = getAllOrbs()
+    if #orbs > 0 then
+        local testOrb = orbs[1]
+        print("[DEBUG] Test orb: " .. testOrb:GetFullName())
+        for _, attr in ipairs({"ID","Id","OrbID","UID","Index"}) do
+            local v = testOrb:GetAttribute(attr)
+            if v then print("[DEBUG] Attribute " .. attr .. " = " .. tostring(v)) end
+        end
+    else
+        print("[DEBUG] Không tìm thấy orb nào!")
+    end
+end)
 
 task.spawn(function()
     while not _G.StopOrb do
         local orbs = getAllOrbs()
         for _, orb in ipairs(orbs) do
             if _G.StopOrb then break end
-            collectOrb(orb)
+            claimOrb(orb)
+            task.wait(0.05)
         end
         task.wait(CONFIG.LoopDelay)
     end
