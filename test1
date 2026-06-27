@@ -1,107 +1,27 @@
--- =============================================
---  ⚙️  CẤU HÌNH (Giữ nguyên webhook của bạn)
--- =============================================
-local CONFIG = {
-    WebhookURL  = "https://discord.com/api/webhooks/1516774421787054262/kpEu6j9Iz_Zi01XN_mRvQRY-pvIkygxAiZypxCcdIRfWqpEV12BDG6vtgddMB_Nr1_os",
-    PingUserID  = "989895037406044200", -- Nếu muốn ping thì để số ID, ko ping thì để ""
-    Keywords = {"huge", "titanic"},
-    HubName = "Song Hub (Inventory Fix)"
-}
+-- ============================
+-- AUTO COLLECT ORB - SOCCER EVENT (FIRE SERVER)
+-- ============================
 
--- =============================================
---  HÀM GỬI WEBHOOK
--- =============================================
-local function sendToDiscord(petName, petType)
-    local HttpService = game:GetService("HttpService")
-    
-    local data = {
-        content = (CONFIG.PingUserID ~= "" and "<@" .. CONFIG.PingUserID .. ">") or "",
-        embeds = {{
-            title  = "🎉 " .. petType .. " HATCHED!",
-            color  = (petType == "Titanic" and 9699539) or (petType == "Huge" and 16753920) or 16766720,
-            fields = {
-                { name = "🐾 Pet", value = "```" .. petName .. "```", inline = true },
-                { name = "👤 Player", value = "```" .. game.Players.LocalPlayer.Name .. "```", inline = true },
-            },
-            footer = { text = CONFIG.HubName .. " | " .. os.date("%H:%M") }
-        }}
-    }
+if not game:IsLoaded() then game.Loaded:Wait() end
 
-    local success, err = pcall(function()
-        local reqFunc = syn and syn.request or (http and http.request) or request
-        reqFunc({
-            Url = CONFIG.WebhookURL,
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = HttpService:JSONEncode(data)
-        })
-    end)
-    if success then print("✅ Đã báo: " .. petName) else warn("❌ Lỗi gửi webhook: " .. err) end
-end
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- =============================================
---  HÀM KIỂM TRA Huge/Titanic
--- =============================================
-local function checkPetName(name)
-    if not name then return false end
-    local lower = tostring(name):lower()
-    return lower:find("huge") or lower:find("titanic")
-end
-
--- =============================================
---  CỐT LÕI: BẮT ĐẦU GIÁM SÁT INVENTORY BẰNG CÁCH SO SÁNH DANH SÁCH
--- =============================================
-print("🟢 Bắt đầu khởi tạo trình giám sát Inventory...")
-
-local Players = game:GetService("Players")
-local inv = Players.LocalPlayer:WaitForChild("PetInventory", 5)
-
-if not inv then
-    warn("❌ Không tìm thấy PetInventory. Bạn có đang ở game Pet Simulator 99 không?")
-    return
-end
-
-print("✅ Đã tìm thấy Inventory. Bắt đầu quét...")
-
--- Biến lưu danh sách tên pet trước đó
-local previousPetList = {}
-
--- Vòng lặp quét mỗi 0.5 giây (Siêu nhanh để bắt kịp hatch combo)
 task.spawn(function()
-    while task.wait(0.5) do
-        local currentPetList = {}
-        local currentPets = inv:GetChildren()
-        
-        -- Tạo danh sách tên của các pet hiện tại
-        for _, pet in pairs(currentPets) do
-            local name = pet.Name or pet.ClassName
-            if name then table.insert(currentPetList, tostring(name)) end
-        end
-
-        -- So sánh danh sách cũ và mới để tìm ra con mới xuất hiện
-        for _, newName in ipairs(currentPetList) do
-            local isFoundInOld = false
-            for _, oldName in ipairs(previousPetList) do
-                if newName == oldName then
-                    isFoundInOld = true
-                    break
+    while task.wait(0.1) do
+        pcall(function()
+            local yeetOrbs = workspace.__THINGS.__INSTANCE_CONTAINER.Active.SoccerEvent.ClientModule.YeetOrbs
+            
+            for _, orb in ipairs(yeetOrbs:GetChildren()) do
+                if orb:IsA("BasePart") then
+                    local args = {
+                        [1] = "SoccerEvent",
+                        [2] = "ClaimOrb",
+                        [3] = tonumber(orb.Name) or orb.Name
+                    }
+                    
+                    ReplicatedStorage.Network.Instancing_FireCustomFromClient:FireServer(unpack(args))
                 end
             end
-
-            -- Nếu tên pet có trong danh sách mới nhưng KHÔNG có trong danh sách cũ => Nó vừa mới nở
-            if not isFoundInOld then
-                if checkPetName(newName) then
-                    print("💎 Phát hiện pet mới: " .. newName)
-                    if newName:find("Titanic") then
-                        sendToDiscord(newName, "Titanic")
-                    else
-                        sendToDiscord(newName, "Huge")
-                    end
-                end
-            end
-        end
-
-        -- Cập nhật danh sách cũ để dùng cho lần quét tiếp theo
-        previousPetList = currentPetList
+        end)
     end
 end)
