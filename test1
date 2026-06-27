@@ -1,31 +1,25 @@
 -- ============================
--- AUTO COLLECT ORB - SOCCER EVENT (TOUCH INTEREST)
+-- AUTO COLLECT ORB - SOCCER EVENT (FIRE SERVER)
 -- ============================
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 task.spawn(function()
     while task.wait(0.1) do
         pcall(function()
-            local character = player.Character
-            if not character then return end
-            
-            local head = character:FindFirstChild("Head")
-            if not head then return end
-            
             local yeetOrbs = workspace.__THINGS.__INSTANCE_CONTAINER.Active.SoccerEvent.ClientModule.YeetOrbs
             
             for _, orb in ipairs(yeetOrbs:GetChildren()) do
                 if orb:IsA("BasePart") then
-                    firetouchinterest(head, orb, 0)
-                elseif orb:IsA("Model") then
-                    local orbPart = orb:FindFirstChildWhichIsA("BasePart")
-                    if orbPart then
-                        firetouchinterest(head, orbPart, 0)
-                    end
+                    local args = {
+                        [1] = "SoccerEvent",
+                        [2] = "ClaimOrb",
+                        [3] = tonumber(orb.Name) or orb.Name
+                    }
+                    
+                    ReplicatedStorage.Network.Instancing_FireCustomFromClient:FireServer(unpack(args))
                 end
             end
         end)
