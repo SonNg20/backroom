@@ -1,34 +1,77 @@
 -- ============================
--- AUTO COLLECT ORB - SOCCER EVENT (FIRETOUCHINTEREST TỪ HRP)
+-- DEBUG - TÌM REMOTE VÀ YEET ORB
 -- ============================
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-task.spawn(function()
-    while task.wait(0.01) do
-        pcall(function()
-            local char = player.Character
-            if not char then return end
+print("=== DEBUG SOCCER EVENT ===")
+
+-- 1. Tìm YeetOrbs folder
+local soccerEvent = workspace.__THINGS.__INSTANCE_CONTAINER.Active:FindFirstChild("SoccerEvent")
+if soccerEvent then
+    print("✅ SoccerEvent found!")
+    
+    local clientModule = soccerEvent:FindFirstChild("ClientModule")
+    if clientModule then
+        print("✅ ClientModule found!")
+        print("Children of ClientModule:")
+        for _, child in ipairs(clientModule:GetChildren()) do
+            print("  - " .. child.Name .. " [" .. child.ClassName .. "]")
+        end
+        
+        local yeetOrbs = clientModule:FindFirstChild("YeetOrbs")
+        if yeetOrbs then
+            print("✅ YeetOrbs found!")
+            print("Number of orbs: " .. #yeetOrbs:GetChildren())
             
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-            
-            local yeetOrbs = workspace.__THINGS.__INSTANCE_CONTAINER.Active.SoccerEvent.ClientModule.YeetOrbs
-            
+            -- In 3 orb đầu tiên
+            local count = 0
             for _, orb in ipairs(yeetOrbs:GetChildren()) do
-                if orb:IsA("BasePart") then
-                    -- Touch từ HRP + tất cả part của character
-                    firetouchinterest(hrp, orb, 0)
-                    for _, part in ipairs(char:GetChildren()) do
-                        if part:IsA("BasePart") then
-                            firetouchinterest(part, orb, 0)
-                        end
-                    end
+                if count < 3 then
+                    print("  Orb: " .. orb.Name .. " [" .. orb.ClassName .. "]")
+                    count = count + 1
                 end
             end
-        end)
+        else
+            print("❌ YeetOrbs NOT found!")
+        end
+    else
+        print("❌ ClientModule NOT found!")
     end
-end)
+else
+    print("❌ SoccerEvent NOT found!")
+end
+
+-- 2. Tìm Remote
+print("\n=== TÌM REMOTE ===")
+local network = ReplicatedStorage:FindFirstChild("Network")
+if network then
+    local instancingFire = network:FindFirstChild("Instancing_FireCustomFromClient")
+    if instancingFire then
+        print("✅ Instancing_FireCustomFromClient found!")
+    end
+end
+
+-- 3. Thử lấy InstancingCmds
+print("\n=== INSTANCINGCMDS ===")
+local libraryFolder = ReplicatedStorage:FindFirstChild("Library")
+if libraryFolder then
+    local clientFolder = libraryFolder:FindFirstChild("Client")
+    if clientFolder then
+        local instancingCmds = clientFolder:FindFirstChild("InstancingCmds")
+        if instancingCmds then
+            print("✅ InstancingCmds module found!")
+            local cmds = require(instancingCmds)
+            if cmds then
+                print("✅ Require successful!")
+                -- In các function có sẵn
+                print("Functions:")
+                for k, v in pairs(cmds) do
+                    print("  - " .. k .. " [" .. type(v) .. "]")
+                end
+            end
+        end
+    end
+end
