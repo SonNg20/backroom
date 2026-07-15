@@ -1,8 +1,6 @@
 local Library = require(game:GetService("ReplicatedStorage").Library)
--- Định vị hàm khởi tạo vật phẩm (chính là v_u_3 trong đoạn code của bạn, thường là Library.Item hoặc một module ItemCore)
-local ItemDirectory = Library.Item or Library.ItemCmds 
 
-print("--- SCANNING ALL PLAYER BOOTHS (SOURCE LOGIC INTEGRATED) ---")
+print("--- SCANNING ALL PLAYER BOOTHS ---")
 
 local BoothsFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("Booths")
 
@@ -11,67 +9,83 @@ if BoothsFolder then
         local petsFolder = booth:FindFirstChild("Pets")
         local boothTop = petsFolder and petsFolder:FindFirstChild("BoothTop")
         
-        if boothTop and #boothTop:GetChildren() > 0 then
-            local boothID = booth:GetAttribute("BoothID") or booth:GetAttribute("ID") or booth.Name
-            local boothDirID = booth:GetAttribute("BoothDirID") or "Noob"
-            local sitting = booth:GetAttribute("Sitting") or false
-            local playerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner") or "Unknown"
-            local lifetimeSales = booth:GetAttribute("LifetimeSales") or 0
+        -- Tìm mục PetScroll nằm bên trong BoothTop
+        local petScroll = boothTop and boothTop:FindFirstChild("PetScroll")
+        
+        -- Kiểm tra nếu trong PetScroll thực sự có chứa các item (bỏ qua UIListLayout và UIPadding)
+        if petScroll then
+            local listingsCount = 0
+            for _, child in ipairs(petScroll:GetChildren()) do
+                if child:IsA("Instance") and not child:IsA("UIComponent") then
+                    listingsCount = listingsCount + 1
+                end
+            end
             
-            print(string.format("BoothID = %s", tostring(boothID)))
-            print(string.format("BoothDirID = %s", tostring(boothDirID)))
-            print(string.format("Sitting = %s", tostring(sitting)))
-            print(string.format("PlayerID = %s", tostring(playerID)))
-            print(string.format("LifetimeSales = %s", tostring(lifetimeSales)))
-            print("Listings:")
-            
-            for _, itemObj in ipairs(boothTop:GetChildren()) do
-                -- Lấy dữ liệu thô tương ứng với cấu trúc dữ liệu của v246 trong vòng lặp game
-                local rawData = itemObj:GetAttribute("Data") or itemObj:GetAttribute("ItemData")
+            if listingsCount > 0 then
+                local boothID = booth:GetAttribute("BoothID") or booth:GetAttribute("ID") or booth.Name
+                local boothDirID = booth:GetAttribute("BoothDirID") or "Noob"
+                local sitting = booth:GetAttribute("Sitting") or false
+                local playerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner") or "Unknown"
+                local lifetimeSales = booth:GetAttribute("LifetimeSales") or 0
                 
-                local price = itemObj:GetAttribute("Price") or itemObj:GetAttribute("DiamondCost") or 0
-                local timestamp = itemObj:GetAttribute("Timestamp") or 0
-                local readyTimestamp = itemObj:GetAttribute("ReadyTimestamp") or (timestamp + 3.5)
+                print(string.format("BoothID = %s", tostring(boothID)))
+                print(string.format("BoothDirID = %s", tostring(boothDirID)))
+                print(string.format("Sitting = %s", tostring(sitting)))
+                print(string.format("PlayerID = %s", tostring(playerID)))
+                print(string.format("LifetimeSales = %s", tostring(lifetimeSales)))
+                print("Listings:")
                 
-                local itemClass = "Unknown"
-                local itemID = "Unknown"
-                local uid = "N/A"
-                
-                if rawData then
-                    local v246 = type(rawData) == "string" and Library.JSONDecode(rawData) or rawData
-                    
-                    if v246 and v246.ItemData then
-                        -- Lấy thông tin dựa theo đúng cấu trúc v246.ItemData.class và v246.ItemData.data
-                        itemClass = v246.ItemData.class or v246.ItemData.Class or itemClass
-                        uid = v246.ItemData.uid or uid
+                -- Duyệt qua các Object nằm bên trong PetScroll
+                for _, itemObj in ipairs(petScroll:GetChildren()) do
+                    -- Bỏ qua các thành phần UI bổ trợ như UIListLayout hay UIPadding
+                    if not itemObj:IsA("UIComponent") then
                         
-                        if v246.ItemData.data then
-                            itemID = v246.ItemData.data.id or itemID
+                        local rawData = itemObj:GetAttribute("Data") or itemObj:GetAttribute("ItemData")
+                        local price = itemObj:GetAttribute("Price") or itemObj:GetAttribute("DiamondCost") or 0
+                        local timestamp = itemObj:GetAttribute("Timestamp") or 0
+                        local readyTimestamp = itemObj:GetAttribute("ReadyTimestamp") or (timestamp + 3.5)
+                        
+                        local itemClass = "Unknown"
+                        local itemID = "Unknown"
+                        local uid = "N/A"
+                        
+                        if rawData then
+                            local v246 = type(rawData) == "string" and Library.JSONDecode(rawData) or rawData
+                            
+                            if v246 then
+                                -- Đọc theo cấu trúc giải mã chuẩn từ decompiled code
+                                local itemData = v246.ItemData or v246
+                                itemClass = itemData.class or itemData.Class or itemClass
+                                uid = itemData.uid or uid
+                                
+                                if itemData.data then
+                                    itemID = itemData.data.id or itemID
+                                end
+                                
+                                price = v246.DiamondCost or v246.Price or price
+                                timestamp = v246.Timestamp or timestamp
+                                readyTimestamp = v246.ReadyTimestamp or readyTimestamp
+                            end
                         end
                         
-                        -- Cập nhật lại giá trị DiamondCost chuẩn từ bảng dữ liệu gốc nếu có
-                        price = v246.DiamondCost or price
-                        timestamp = v246.Timestamp or timestamp
-                        readyTimestamp = v246.ReadyTimestamp or readyTimestamp
+                        -- Nếu không bóc tách được từ data, lấy giá trị hiển thị tạm thời
+                        if itemID == "Unknown" then itemID = itemObj.Name end
+                        if itemClass == "Unknown" then itemClass = itemObj:GetAttribute("Class") or "Unknown" end
+                        
+                        -- In hoa chuẩn cấu trúc hash dài làm tên Listing
+                        print(string.format("    %s:", tostring(itemObj.Name)))
+                        print(string.format("        DiamondCost = %s", tostring(price)))
+                        print(string.format("        Timestamp = %s", tostring(timestamp)))
+                        print(string.format("        ReadyTimestamp = %s", tostring(readyTimestamp)))
+                        print("        ItemData:")
+                        print(string.format("            class = %s", tostring(itemClass)))
+                        print("            data:")
+                        print(string.format("                id = %s", tostring(itemID)))
+                        print(string.format("                uid = %s", tostring(uid)))
                     end
                 end
-                
-                -- Dự phòng nếu Attribute rỗng
-                if itemID == "Unknown" then itemID = itemObj.Name end
-                if itemClass == "Unknown" then itemClass = itemObj:GetAttribute("Class") or "Unknown" end
-                
-                -- In ra Console chuẩn định dạng phân cấp tiếng Anh
-                print(string.format("    %s:", tostring(itemObj.Name)))
-                print(string.format("        DiamondCost = %s", tostring(price)))
-                print(string.format("        Timestamp = %s", tostring(timestamp)))
-                print(string.format("        ReadyTimestamp = %s", tostring(readyTimestamp)))
-                print("        ItemData:")
-                print(string.format("            class = %s", tostring(itemClass)))
-                print("            data:")
-                print(string.format("                id = %s", tostring(itemID)))
-                print(string.format("                uid = %s", tostring(uid)))
+                print("----------------------------------------")
             end
-            print("----------------------------------------")
         end
     end
 else
