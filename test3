@@ -1,56 +1,98 @@
-local Players = game:GetService("Players")
+local Library = require(game:GetService("ReplicatedStorage").Library)
+local BoothCmds = Library.BoothCmds
+local Save = Library.Save
 
-print("--- SCANNING ALL PLAYER BOOTHS ---")
+print("--- SCANNING ALL PLAYER BOOTHS (HYBRID METHOD) ---")
 
 local BoothsFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("Booths")
 
 if BoothsFolder then
     for _, booth in ipairs(BoothsFolder:GetChildren()) do
-        -- Lấy dữ liệu cơ bản của Booth từ Attributes
-        local boothID = booth:GetAttribute("BoothID") or booth.Name
-        local boothDirID = booth:GetAttribute("BoothDirID") or "Unknown"
-        local playerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner") or "Unknown"
-        local sitting = booth:GetAttribute("Sitting") or "false"
-        local lifetimeSales = booth:GetAttribute("LifetimeSales") or 0
+        local ownerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner")
         
-        -- Chỉ in những booth thực sự có người đang bán hàng
-        local petsFolder = booth:FindFirstChild("Pets")
-        local boothTop = petsFolder and petsFolder:FindFirstChild("BoothTop")
-        
-        if boothTop and #boothTop:GetChildren() > 0 then
-            -- In thông tin đầu của Booth
-            print(string.format("BoothID = %s", tostring(boothID)))
-            print(string.format("BoothDirID = %s", tostring(boothDirID)))
-            print(string.format("Sitting = %s", tostring(sitting)))
-            print(string.format("PlayerID = %s", tostring(playerID)))
-            print(string.format("LifetimeSales = %s", tostring(lifetimeSales)))
-            print("Listings:")
+        -- Chỉ quét nếu Booth này có người sở hữu
+        if ownerID then
+            local player = game:GetService("Players"):GetPlayerByUserId(tonumber(ownerID))
             
-            -- Lặp qua từng item trong BoothTop
-            for _, itemObj in ipairs(boothTop:GetChildren()) do
-                -- Lấy các dữ liệu mã hóa từ Attributes của Object vật phẩm
-                local listingID = itemObj.Name -- Tên của instance thường là ID Listing (chuỗi hash dài)
-                local price = itemObj:GetAttribute("Price") or itemObj:GetAttribute("DiamondCost") or 0
-                local timestamp = itemObj:GetAttribute("Timestamp") or 0
-                local readyTimestamp = itemObj:GetAttribute("ReadyTimestamp") or (timestamp + 3.5)
+            -- Tìm dữ liệu gốc đã được giải mã từ BoothCmds hoặc Save
+            local boothData = nil
+            if player then
+                pcall(function()
+                    if BoothCmds.Get then
+                        boothData = BoothCmds.Get(player)
+                    elseif BoothCmds.GetBooth then
+                        boothData = BoothCmds.GetBooth(player)
+                    end
+                end)
                 
-                -- Đọc dữ liệu phân loại vật phẩm (Class & ID gốc)
-                local itemClass = itemObj:GetAttribute("Class") or "Unknown"
-                local itemID = itemObj:GetAttribute("ID") or itemObj:GetAttribute("ItemId") or "Unknown"
-                local uid = itemObj:GetAttribute("UID") or itemObj:GetAttribute("uid") or "N/A"
-                
-                -- In ra cấu trúc phân cấp chuẩn như hình ảnh của bạn
-                print(string.format("    %s:", tostring(listingID)))
-                print(string.format("        DiamondCost = %s", tostring(price)))
-                print(string.format("        Timestamp = %s", tostring(timestamp)))
-                print(string.format("        ReadyTimestamp = %s", tostring(readyTimestamp)))
-                print("        ItemData:")
-                print(string.format("            class = %s", tostring(itemClass)))
-                print("            data:")
-                print(string.format("                id = %s", tostring(itemID)))
-                print(string.format("                uid = %s", tostring(uid)))
+                -- Phương án dự phòng 2: Lấy trực tiếp từ Save dữ liệu của Client
+                if not boothData and Save and Save.Get then
+                    pcall(function()
+                        local playerSave = Save.Get(player)
+                        if playerSave and playerSave.Booth then
+                            boothData = playerSave.Booth.List
+                        end
+                    end)
+                end
             end
-            print("----------------------------------------")
+            
+            -- Nếu tìm thấy dữ liệu giải mã chuẩn từ Module game
+            if boothData then
+                -- Lấy dữ liệu cơ bản hiển thị
+                local boothID = booth:GetAttribute("BoothID") or booth:GetAttribute("ID") or booth.Name
+                local boothDirID = booth:GetAttribute("BoothDirID") or "Noob"
+                local sitting = booth:GetAttribute("Sitting") or false
+                local playerID = tostring(ownerID)
+                local lifetimeSales = booth:GetAttribute("LifetimeSales") or 0
+                
+                -- Đôi khi cấu trúc trả về nằm trong trường .List
+                local listings = boothData.List or boothData
+                
+                if type(listings) == "table" and next(listings) then
+                    print(string.format("BoothID = %s", tostring(boothID)))
+                    print(string.format("BoothDirID = %s", tostring(boothDirID)))
+                    print(string.format("Sitting = %s", tostring(sitting)))
+                    print(string.format("PlayerID = %s", tostring(playerID)))
+                    print(string.format("LifetimeSales = %s", tostring(lifetimeSales)))
+                    print("Listings:")
+                    
+                    -- Duyệt qua danh sách Listing đã được BoothCmds giải mã sẵn
+                    for listingID, details in pairs(listings) do
+                        if details and type(details) == "table" then
+                            local price = details.Price or details.DiamondCost or 0
+                            -- Đọc Timestamp thực từ dữ liệu Game Save
+                            local timestamp = details.Timestamp or 0
+                            local readyTimestamp = details.ReadyTimestamp or (timestamp + 3.5)
+                            
+                            -- Trích xuất chính xác Class, ID và UID từ bảng "Item" giải mã chuẩn
+                            local itemData = details.Item
+                            local itemClass = "Unknown"
+                            local itemID = "Unknown"
+                            local uid = "N/A"
+                            
+                            if itemData and type(itemData) == "table" then
+                                itemClass = itemData.class or itemData.Class or itemClass
+                                if itemData.data then
+                                    itemID = itemData.data.id or itemData.data.Id or itemID
+                                    uid = itemData.data.uid or itemData.data.Uid or uid
+                                end
+                            end
+                            
+                            -- In ra Console chuẩn định dạng phân cấp
+                            print(string.format("    %s:", tostring(listingID)))
+                            print(string.format("        DiamondCost = %s", tostring(price)))
+                            print(string.format("        Timestamp = %s", tostring(timestamp)))
+                            print(string.format("        ReadyTimestamp = %s", tostring(readyTimestamp)))
+                            print("        ItemData:")
+                            print(string.format("            class = %s", tostring(itemClass)))
+                            print("            data:")
+                            print(string.format("                id = %s", tostring(itemID)))
+                            print(string.format("                uid = %s", tostring(uid)))
+                        end
+                    end
+                    print("----------------------------------------")
+                end
+            end
         end
     end
 else
