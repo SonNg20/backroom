@@ -1,56 +1,64 @@
-local Library = require(game:GetService("ReplicatedStorage").Library)
-local ItemCmds = Library.ItemCmds
-local BoothCmds = Library.BoothCmds
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 
 print("--- SCANNING ALL PLAYER BOOTHS ---")
 
-for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-    -- Sử dụng BoothCmds để lấy dữ liệu danh sách vật phẩm đang bán của người chơi
-    local boothData = nil
-    
-    pcall(function()
-        -- Gọi hàm lấy dữ liệu quầy từ Module (tùy phiên bản có thể là Get hoặc GetBooth)
-        if BoothCmds.Get then
-            boothData = BoothCmds.Get(player)
-        elseif BoothCmds.GetBooth then
-            boothData = BoothCmds.GetBooth(player)
-        end
-    end)
-    
-    -- Nếu không gọi được qua BoothCmds, thử quét gián tiếp qua Library.Save nếu nó tồn tại
-    if not boothData and Library.Save and Library.Save.Get then
-        pcall(function()
-            local s = Library.Save.Get(player)
-            if s and s.Booth then boothData = s.Booth.List end
-        end)
-    end
+-- Tìm thư mục chứa các Booth
+local BoothsFolder = Workspace:FindFirstChild("Map") 
+    and Workspace.Map:FindFirstChild("Booths") 
+    or Workspace:FindFirstChild("Booths")
 
-    -- Nếu tìm thấy dữ liệu vật phẩm trong Booth
-    if boothData then
-        -- Đôi khi dữ liệu bọc trong một table con (.List)
-        local itemsList = boothData.List or boothData
+if not BoothsFolder then
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj.Name == "Booths" and obj:IsA("Folder") then
+            BoothsFolder = obj
+            break
+        end
+    end
+end
+
+if BoothsFolder then
+    for _, booth in ipairs(BoothsFolder:GetChildren()) do
+        -- Lấy tên chủ Booth
+        local ownerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner")
+        local ownerName = "Unknown"
         
-        if type(itemsList) == "table" and next(itemsList) then
-            print("\n[BOOTH] Owner: " .. player.Name)
-            
-            for slotId, details in pairs(itemsList) do
-                if details and type(details) == "table" then
-                    local itemData = details.Item
-                    local price = details.Price or 0
-                    local amount = details.Amount or 1
+        if ownerID then
+            local p = Players:GetPlayerByUserId(tonumber(ownerID))
+            if p then
+                ownerName = p.Name
+            else
+                ownerName = "ID: " .. tostring(ownerID)
+            end
+        end
+        
+        -- Quét tất cả UI quảng cáo/bán hàng đính kèm trên mô hình Booth
+        local boothPrinted = false
+        
+        for _, desc in ipairs(booth:GetDescendants()) do
+            -- Tìm các BillboardGui hoặc SurfaceGui hiển thị thông tin giá/vật phẩm
+            if desc:IsA("TextLabel") or desc:IsA("TextBox") then
+                local text = desc.Text
+                
+                -- Lọc các TextLabel chứa thông tin giá bán hoặc tên vật phẩm
+                -- Thường text sẽ có dạng số kèm biểu tượng hoặc text chứa giá trị cụ thể
+                if text and text ~= "" and not desc.Parent:IsA("TextBox") then
+                    -- Kiểm tra xem text có phải là thông tin bán hàng (chứa giá trị, chữ số, gems, hoặc x1, x5...)
+                    local isItemOrPrice = text:find("%d") or text:find("x%d") or text:find("💎") or text:find("Gems")
                     
-                    local itemName = "Unknown Item"
-                    if itemData then
-                        pcall(function()
-                            itemName = ItemCmds.GetName(itemData)
-                        end)
+                    if isItemOrPrice and not text:find("Booth") and not text:find("'s") then
+                        if not boothPrinted then
+                            print("\n[BOOTH] Owner: " .. ownerName)
+                            boothPrinted = true
+                        end
+                        print("   -> Detail: " .. text)
                     end
-                    
-                    print(string.format("   -> %s (x%d) | Price: %s Gems", itemName, amount, tostring(price)))
                 end
             end
         end
     end
+else
+    warn("Booths folder not found!")
 end
 
 print("\n--- SCAN COMPLETE ---")
