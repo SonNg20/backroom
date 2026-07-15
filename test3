@@ -1,106 +1,69 @@
--- =============================================
---   SONG HUB - PS99 ORB AUTO COLLECTOR
---   SoccerEvent - ClaimOrb via FireServer
--- =============================================
+-- Tải các thư viện cần thiết để dịch tên vật phẩm
+local Library = require(game:GetService("ReplicatedStorage").Library)
+local ItemCmds = Library.ItemCmds
 
-local CONFIG = {
-    Rarities = {
-        Basic     = true,
-        Rare      = true,
-        Epic      = true,
-        Legendary = true,
-        Mythical  = true,
-    },
-    LoopDelay = 0.1, -- giây giữa mỗi lần nhặt
-}
+print("--- ĐANG QUÉT DANH SÁCH VẬT PHẨM TRÊN CÁC BOOTH ---")
 
--- =============================================
-local Players           = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local lp                = Players.LocalPlayer
-local debris            = workspace:WaitForChild("__DEBRIS")
-local Network           = ReplicatedStorage:WaitForChild("Network")
-local fireCustom        = Network:WaitForChild("Instancing_FireCustomFromClient")
+-- Đường dẫn đến thư mục chứa tất cả các Booth trong map Trading Plaza
+local BoothsFolder = workspace:FindFirstChild("Map") 
+    and workspace.Map:FindFirstChild("Booths") 
+    or workspace:FindFirstChild("Booths")
 
--- =============================================
---  LẤY ID CỦA ORB
--- =============================================
-local function getOrbID(orb)
-    -- Thử các attribute phổ biến PS99 dùng để lưu ID
-    local id = orb:GetAttribute("ID")
-              or orb:GetAttribute("Id")
-              or orb:GetAttribute("OrbID")
-              or orb:GetAttribute("UID")
-              or orb:GetAttribute("Index")
-    return id
+if not BoothsFolder then
+    -- Thử tìm kiếm sâu hơn trong Workspace nếu cấu trúc map thay đổi
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == "Booths" and obj:IsA("Folder") then
+            BoothsFolder = obj
+            break
+        end
+    end
 end
 
--- =============================================
---  NHẶT 1 ORB
--- =============================================
-local function claimOrb(orb)
-    if not orb or not orb.Parent then return end
-    local id = getOrbID(orb)
-    if not id then return end
-
-    fireCustom:FireServer("SoccerEvent", "ClaimOrb", id)
-end
-
--- =============================================
---  LẤY TẤT CẢ ORB HIỆN TẠI
--- =============================================
-local function getAllOrbs()
-    local orbs = {}
-    for rarity, on in pairs(CONFIG.Rarities) do
-        if on then
-            local folder = debris:FindFirstChild(rarity)
-            if folder then
-                for _, orb in ipairs(folder:GetChildren()) do
-                    if orb:IsA("BasePart") and orb.Name == "Orb" then
-                        table.insert(orbs, orb)
-                    end
+if BoothsFolder then
+    -- Duyệt qua từng Booth của người chơi
+    for _, booth in ipairs(BoothsFolder:GetChildren()) do
+        -- Kiểm tra xem Booth này đã có người sở hữu chưa
+        local ownerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner")
+        local ownerName = "Không xác định"
+        
+        if ownerID then
+            -- Tìm tên người chơi dựa vào ID
+            local player = game:GetService("Players"):GetPlayerByUserId(tonumber(ownerID))
+            if player then
+                ownerName = player.Name
+            else
+                ownerName = "UserID: " .. tostring(ownerID)
+            end
+        end
+        
+        -- Thư mục chứa các vật phẩm đang bán trên Booth này
+        -- (Thông thường là một Folder chứa các dữ liệu hoặc Value)
+        local petsFolder = booth:FindFirstChild("Pets") or booth:FindFirstChild("Items")
+        
+        if petsFolder then
+            print("\n[BOOTH] Của người chơi: " .. ownerName)
+            
+            for _, itemObj in ipairs(petsFolder:GetChildren()) do
+                -- Đọc các thuộc tính giá, số lượng, dữ liệu vật phẩm được đính kèm trên mẫu hiển thị
+                local price = itemObj:GetAttribute("Price") or 0
+                local amount = itemObj:GetAttribute("Amount") or 1
+                local itemData = itemObj:GetAttribute("ItemData") -- Thường là một chuỗi string đã mã hóa hoặc table
+                
+                local itemName = itemObj.Name -- Tạm thời lấy tên của Object hiển thị
+                
+                -- Nếu có dữ liệu ItemData chuẩn, cố gắng dịch nó ra tên chuẩn của game
+                if itemData and type(itemData) == "table" then
+                    pcall(function()
+                        itemName = ItemCmds.GetName(itemData)
+                    end)
                 end
+                
+                print(string.format("   -> %s (x%d) | Giá: %s Gems", itemName, amount, tostring(price)))
             end
         end
     end
-    return orbs
+else
+    warn("Không tìm thấy thư mục chứa Booths trên map!")
 end
 
--- =============================================
---  VÒNG LẶP CHÍNH
--- =============================================
-_G.StopOrb = false
-
-print("━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-print("  Song Hub — Orb Collector")
-print("  SoccerEvent / ClaimOrb")
-print("  _G.StopOrb = true để dừng")
-print("━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
--- Debug: in thử ID của orb đầu tiên tìm được
-task.delay(1, function()
-    local orbs = getAllOrbs()
-    if #orbs > 0 then
-        local testOrb = orbs[1]
-        print("[DEBUG] Test orb: " .. testOrb:GetFullName())
-        for _, attr in ipairs({"ID","Id","OrbID","UID","Index"}) do
-            local v = testOrb:GetAttribute(attr)
-            if v then print("[DEBUG] Attribute " .. attr .. " = " .. tostring(v)) end
-        end
-    else
-        print("[DEBUG] Không tìm thấy orb nào!")
-    end
-end)
-
-task.spawn(function()
-    while not _G.StopOrb do
-        local orbs = getAllOrbs()
-        for _, orb in ipairs(orbs) do
-            if _G.StopOrb then break end
-            claimOrb(orb)
-            task.wait(0.05)
-        end
-        task.wait(CONFIG.LoopDelay)
-    end
-    print("[Song Hub] Orb Collector đã dừng.")
-end)
+print("\n--- HOÀN THÀNH QUÉT ---")
