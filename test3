@@ -1,98 +1,89 @@
 local Library = require(game:GetService("ReplicatedStorage").Library)
-local BoothCmds = Library.BoothCmds
-local Save = Library.Save
+local BoothItemMod = require(game:GetService("ReplicatedStorage").Library.Items.BoothItem)
+local PetItemMod = require(game:GetService("ReplicatedStorage").Library.Items.PetItem)
 
-print("--- SCANNING ALL PLAYER BOOTHS (HYBRID METHOD) ---")
+print("--- SCANNING ALL PLAYER BOOTHS (MODULE INTEGRATED) ---")
 
 local BoothsFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("Booths")
 
 if BoothsFolder then
     for _, booth in ipairs(BoothsFolder:GetChildren()) do
-        local ownerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner")
+        local petsFolder = booth:FindFirstChild("Pets")
+        local boothTop = petsFolder and petsFolder:FindFirstChild("BoothTop")
         
-        -- Chỉ quét nếu Booth này có người sở hữu
-        if ownerID then
-            local player = game:GetService("Players"):GetPlayerByUserId(tonumber(ownerID))
+        if boothTop and #boothTop:GetChildren() > 0 then
+            local boothID = booth:GetAttribute("BoothID") or booth:GetAttribute("ID") or booth.Name
+            local boothDirID = booth:GetAttribute("BoothDirID") or "Noob"
+            local sitting = booth:GetAttribute("Sitting") or false
+            local playerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner") or "Unknown"
+            local lifetimeSales = booth:GetAttribute("LifetimeSales") or 0
             
-            -- Tìm dữ liệu gốc đã được giải mã từ BoothCmds hoặc Save
-            local boothData = nil
-            if player then
-                pcall(function()
-                    if BoothCmds.Get then
-                        boothData = BoothCmds.Get(player)
-                    elseif BoothCmds.GetBooth then
-                        boothData = BoothCmds.GetBooth(player)
-                    end
-                end)
-                
-                -- Phương án dự phòng 2: Lấy trực tiếp từ Save dữ liệu của Client
-                if not boothData and Save and Save.Get then
-                    pcall(function()
-                        local playerSave = Save.Get(player)
-                        if playerSave and playerSave.Booth then
-                            boothData = playerSave.Booth.List
-                        end
-                    end)
-                end
-            end
+            print(string.format("BoothID = %s", tostring(boothID)))
+            print(string.format("BoothDirID = %s", tostring(boothDirID)))
+            print(string.format("Sitting = %s", tostring(sitting)))
+            print(string.format("PlayerID = %s", tostring(playerID)))
+            print(string.format("LifetimeSales = %s", tostring(lifetimeSales)))
+            print("Listings:")
             
-            -- Nếu tìm thấy dữ liệu giải mã chuẩn từ Module game
-            if boothData then
-                -- Lấy dữ liệu cơ bản hiển thị
-                local boothID = booth:GetAttribute("BoothID") or booth:GetAttribute("ID") or booth.Name
-                local boothDirID = booth:GetAttribute("BoothDirID") or "Noob"
-                local sitting = booth:GetAttribute("Sitting") or false
-                local playerID = tostring(ownerID)
-                local lifetimeSales = booth:GetAttribute("LifetimeSales") or 0
+            for _, itemObj in ipairs(boothTop:GetChildren()) do
+                local price = itemObj:GetAttribute("Price") or itemObj:GetAttribute("DiamondCost") or 0
+                local timestamp = itemObj:GetAttribute("Timestamp") or 0
+                local readyTimestamp = itemObj:GetAttribute("ReadyTimestamp") or (timestamp + 3.5)
                 
-                -- Đôi khi cấu trúc trả về nằm trong trường .List
-                local listings = boothData.List or boothData
+                -- Đọc dữ liệu thô từ Attribute
+                local rawData = itemObj:GetAttribute("Data") or itemObj:GetAttribute("ItemData")
                 
-                if type(listings) == "table" and next(listings) then
-                    print(string.format("BoothID = %s", tostring(boothID)))
-                    print(string.format("BoothDirID = %s", tostring(boothDirID)))
-                    print(string.format("Sitting = %s", tostring(sitting)))
-                    print(string.format("PlayerID = %s", tostring(playerID)))
-                    print(string.format("LifetimeSales = %s", tostring(lifetimeSales)))
-                    print("Listings:")
+                local itemClass = "Unknown"
+                local itemID = "Unknown"
+                local uid = "N/A"
+                
+                if rawData then
+                    local decoded = type(rawData) == "string" and Library.JSONDecode(rawData) or rawData
                     
-                    -- Duyệt qua danh sách Listing đã được BoothCmds giải mã sẵn
-                    for listingID, details in pairs(listings) do
-                        if details and type(details) == "table" then
-                            local price = details.Price or details.DiamondCost or 0
-                            -- Đọc Timestamp thực từ dữ liệu Game Save
-                            local timestamp = details.Timestamp or 0
-                            local readyTimestamp = details.ReadyTimestamp or (timestamp + 3.5)
-                            
-                            -- Trích xuất chính xác Class, ID và UID từ bảng "Item" giải mã chuẩn
-                            local itemData = details.Item
-                            local itemClass = "Unknown"
-                            local itemID = "Unknown"
-                            local uid = "N/A"
-                            
-                            if itemData and type(itemData) == "table" then
-                                itemClass = itemData.class or itemData.Class or itemClass
-                                if itemData.data then
-                                    itemID = itemData.data.id or itemData.data.Id or itemID
-                                    uid = itemData.data.uid or itemData.data.Uid or uid
+                    if decoded then
+                        itemClass = decoded.class or decoded.Class or "Unknown"
+                        
+                        -- Sử dụng đúng Module để phân tích dữ liệu dựa trên loại class
+                        pcall(function()
+                            if itemClass == "Pet" and PetItemMod.Get then
+                                local petInfo = PetItemMod.Get(decoded.data)
+                                if petInfo then
+                                    itemID = petInfo.id or petInfo.Id or itemID
+                                    uid = petInfo.uid or petInfo.Uid or uid
+                                end
+                            elseif itemClass == "Booth" and BoothItemMod.Get then
+                                local boothInfo = BoothItemMod.Get(decoded.data)
+                                if boothInfo then
+                                    itemID = boothInfo.id or boothInfo.Id or itemID
+                                    uid = boothInfo.uid or boothInfo.Uid or uid
+                                end
+                            else
+                                -- Phương án dự phòng nếu class khác (Hoverboard, Enchants...)
+                                if decoded.data then
+                                    itemID = decoded.data.id or itemID
+                                    uid = decoded.data.uid or uid
                                 end
                             end
-                            
-                            -- In ra Console chuẩn định dạng phân cấp
-                            print(string.format("    %s:", tostring(listingID)))
-                            print(string.format("        DiamondCost = %s", tostring(price)))
-                            print(string.format("        Timestamp = %s", tostring(timestamp)))
-                            print(string.format("        ReadyTimestamp = %s", tostring(readyTimestamp)))
-                            print("        ItemData:")
-                            print(string.format("            class = %s", tostring(itemClass)))
-                            print("            data:")
-                            print(string.format("                id = %s", tostring(itemID)))
-                            print(string.format("                uid = %s", tostring(uid)))
-                        end
+                        end)
                     end
-                    print("----------------------------------------")
                 end
+                
+                -- Nếu module chưa đọc được, lấy thông tin dự phòng từ Instance
+                if itemID == "Unknown" then itemID = itemObj.Name end
+                if itemClass == "Unknown" then itemClass = itemObj:GetAttribute("Class") or "Unknown" end
+                
+                -- In ra bảng Console theo cấu trúc phân cấp chuẩn
+                print(string.format("    %s:", tostring(itemObj.Name)))
+                print(string.format("        DiamondCost = %s", tostring(price)))
+                print(string.format("        Timestamp = %s", tostring(timestamp)))
+                print(string.format("        ReadyTimestamp = %s", tostring(readyTimestamp)))
+                print("        ItemData:")
+                print(string.format("            class = %s", tostring(itemClass)))
+                print("            data:")
+                print(string.format("                id = %s", tostring(itemID)))
+                print(string.format("                uid = %s", tostring(uid)))
             end
+            print("----------------------------------------")
         end
     end
 else
