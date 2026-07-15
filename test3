@@ -1,69 +1,56 @@
--- Tải các thư viện cần thiết để dịch tên vật phẩm
 local Library = require(game:GetService("ReplicatedStorage").Library)
 local ItemCmds = Library.ItemCmds
+local BoothCmds = Library.BoothCmds
 
-print("--- ĐANG QUÉT DANH SÁCH VẬT PHẨM TRÊN CÁC BOOTH ---")
+print("--- SCANNING ALL PLAYER BOOTHS ---")
 
--- Đường dẫn đến thư mục chứa tất cả các Booth trong map Trading Plaza
-local BoothsFolder = workspace:FindFirstChild("Map") 
-    and workspace.Map:FindFirstChild("Booths") 
-    or workspace:FindFirstChild("Booths")
-
-if not BoothsFolder then
-    -- Thử tìm kiếm sâu hơn trong Workspace nếu cấu trúc map thay đổi
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == "Booths" and obj:IsA("Folder") then
-            BoothsFolder = obj
-            break
+for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+    -- Sử dụng BoothCmds để lấy dữ liệu danh sách vật phẩm đang bán của người chơi
+    local boothData = nil
+    
+    pcall(function()
+        -- Gọi hàm lấy dữ liệu quầy từ Module (tùy phiên bản có thể là Get hoặc GetBooth)
+        if BoothCmds.Get then
+            boothData = BoothCmds.Get(player)
+        elseif BoothCmds.GetBooth then
+            boothData = BoothCmds.GetBooth(player)
         end
+    end)
+    
+    -- Nếu không gọi được qua BoothCmds, thử quét gián tiếp qua Library.Save nếu nó tồn tại
+    if not boothData and Library.Save and Library.Save.Get then
+        pcall(function()
+            local s = Library.Save.Get(player)
+            if s and s.Booth then boothData = s.Booth.List end
+        end)
     end
-end
 
-if BoothsFolder then
-    -- Duyệt qua từng Booth của người chơi
-    for _, booth in ipairs(BoothsFolder:GetChildren()) do
-        -- Kiểm tra xem Booth này đã có người sở hữu chưa
-        local ownerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner")
-        local ownerName = "Không xác định"
+    -- Nếu tìm thấy dữ liệu vật phẩm trong Booth
+    if boothData then
+        -- Đôi khi dữ liệu bọc trong một table con (.List)
+        local itemsList = boothData.List or boothData
         
-        if ownerID then
-            -- Tìm tên người chơi dựa vào ID
-            local player = game:GetService("Players"):GetPlayerByUserId(tonumber(ownerID))
-            if player then
-                ownerName = player.Name
-            else
-                ownerName = "UserID: " .. tostring(ownerID)
-            end
-        end
-        
-        -- Thư mục chứa các vật phẩm đang bán trên Booth này
-        -- (Thông thường là một Folder chứa các dữ liệu hoặc Value)
-        local petsFolder = booth:FindFirstChild("Pets") or booth:FindFirstChild("Items")
-        
-        if petsFolder then
-            print("\n[BOOTH] Của người chơi: " .. ownerName)
+        if type(itemsList) == "table" and next(itemsList) then
+            print("\n[BOOTH] Owner: " .. player.Name)
             
-            for _, itemObj in ipairs(petsFolder:GetChildren()) do
-                -- Đọc các thuộc tính giá, số lượng, dữ liệu vật phẩm được đính kèm trên mẫu hiển thị
-                local price = itemObj:GetAttribute("Price") or 0
-                local amount = itemObj:GetAttribute("Amount") or 1
-                local itemData = itemObj:GetAttribute("ItemData") -- Thường là một chuỗi string đã mã hóa hoặc table
-                
-                local itemName = itemObj.Name -- Tạm thời lấy tên của Object hiển thị
-                
-                -- Nếu có dữ liệu ItemData chuẩn, cố gắng dịch nó ra tên chuẩn của game
-                if itemData and type(itemData) == "table" then
-                    pcall(function()
-                        itemName = ItemCmds.GetName(itemData)
-                    end)
+            for slotId, details in pairs(itemsList) do
+                if details and type(details) == "table" then
+                    local itemData = details.Item
+                    local price = details.Price or 0
+                    local amount = details.Amount or 1
+                    
+                    local itemName = "Unknown Item"
+                    if itemData then
+                        pcall(function()
+                            itemName = ItemCmds.GetName(itemData)
+                        end)
+                    end
+                    
+                    print(string.format("   -> %s (x%d) | Price: %s Gems", itemName, amount, tostring(price)))
                 end
-                
-                print(string.format("   -> %s (x%d) | Giá: %s Gems", itemName, amount, tostring(price)))
             end
         end
     end
-else
-    warn("Không tìm thấy thư mục chứa Booths trên map!")
 end
 
-print("\n--- HOÀN THÀNH QUÉT ---")
+print("\n--- SCAN COMPLETE ---")
