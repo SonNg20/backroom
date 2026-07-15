@@ -1,8 +1,8 @@
 local Library = require(game:GetService("ReplicatedStorage").Library)
-local BoothItemMod = require(game:GetService("ReplicatedStorage").Library.Items.BoothItem)
-local PetItemMod = require(game:GetService("ReplicatedStorage").Library.Items.PetItem)
+-- Định vị hàm khởi tạo vật phẩm (chính là v_u_3 trong đoạn code của bạn, thường là Library.Item hoặc một module ItemCore)
+local ItemDirectory = Library.Item or Library.ItemCmds 
 
-print("--- SCANNING ALL PLAYER BOOTHS (MODULE INTEGRATED) ---")
+print("--- SCANNING ALL PLAYER BOOTHS (SOURCE LOGIC INTEGRATED) ---")
 
 local BoothsFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("Booths")
 
@@ -26,53 +26,41 @@ if BoothsFolder then
             print("Listings:")
             
             for _, itemObj in ipairs(boothTop:GetChildren()) do
+                -- Lấy dữ liệu thô tương ứng với cấu trúc dữ liệu của v246 trong vòng lặp game
+                local rawData = itemObj:GetAttribute("Data") or itemObj:GetAttribute("ItemData")
+                
                 local price = itemObj:GetAttribute("Price") or itemObj:GetAttribute("DiamondCost") or 0
                 local timestamp = itemObj:GetAttribute("Timestamp") or 0
                 local readyTimestamp = itemObj:GetAttribute("ReadyTimestamp") or (timestamp + 3.5)
-                
-                -- Đọc dữ liệu thô từ Attribute
-                local rawData = itemObj:GetAttribute("Data") or itemObj:GetAttribute("ItemData")
                 
                 local itemClass = "Unknown"
                 local itemID = "Unknown"
                 local uid = "N/A"
                 
                 if rawData then
-                    local decoded = type(rawData) == "string" and Library.JSONDecode(rawData) or rawData
+                    local v246 = type(rawData) == "string" and Library.JSONDecode(rawData) or rawData
                     
-                    if decoded then
-                        itemClass = decoded.class or decoded.Class or "Unknown"
+                    if v246 and v246.ItemData then
+                        -- Lấy thông tin dựa theo đúng cấu trúc v246.ItemData.class và v246.ItemData.data
+                        itemClass = v246.ItemData.class or v246.ItemData.Class or itemClass
+                        uid = v246.ItemData.uid or uid
                         
-                        -- Sử dụng đúng Module để phân tích dữ liệu dựa trên loại class
-                        pcall(function()
-                            if itemClass == "Pet" and PetItemMod.Get then
-                                local petInfo = PetItemMod.Get(decoded.data)
-                                if petInfo then
-                                    itemID = petInfo.id or petInfo.Id or itemID
-                                    uid = petInfo.uid or petInfo.Uid or uid
-                                end
-                            elseif itemClass == "Booth" and BoothItemMod.Get then
-                                local boothInfo = BoothItemMod.Get(decoded.data)
-                                if boothInfo then
-                                    itemID = boothInfo.id or boothInfo.Id or itemID
-                                    uid = boothInfo.uid or boothInfo.Uid or uid
-                                end
-                            else
-                                -- Phương án dự phòng nếu class khác (Hoverboard, Enchants...)
-                                if decoded.data then
-                                    itemID = decoded.data.id or itemID
-                                    uid = decoded.data.uid or uid
-                                end
-                            end
-                        end)
+                        if v246.ItemData.data then
+                            itemID = v246.ItemData.data.id or itemID
+                        end
+                        
+                        -- Cập nhật lại giá trị DiamondCost chuẩn từ bảng dữ liệu gốc nếu có
+                        price = v246.DiamondCost or price
+                        timestamp = v246.Timestamp or timestamp
+                        readyTimestamp = v246.ReadyTimestamp or readyTimestamp
                     end
                 end
                 
-                -- Nếu module chưa đọc được, lấy thông tin dự phòng từ Instance
+                -- Dự phòng nếu Attribute rỗng
                 if itemID == "Unknown" then itemID = itemObj.Name end
                 if itemClass == "Unknown" then itemClass = itemObj:GetAttribute("Class") or "Unknown" end
                 
-                -- In ra bảng Console theo cấu trúc phân cấp chuẩn
+                -- In ra Console chuẩn định dạng phân cấp tiếng Anh
                 print(string.format("    %s:", tostring(itemObj.Name)))
                 print(string.format("        DiamondCost = %s", tostring(price)))
                 print(string.format("        Timestamp = %s", tostring(timestamp)))
