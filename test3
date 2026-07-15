@@ -1,64 +1,60 @@
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
 
 print("--- SCANNING ALL PLAYER BOOTHS ---")
 
--- Tìm thư mục chứa các Booth
-local BoothsFolder = Workspace:FindFirstChild("Map") 
-    and Workspace.Map:FindFirstChild("Booths") 
-    or Workspace:FindFirstChild("Booths")
-
-if not BoothsFolder then
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj.Name == "Booths" and obj:IsA("Folder") then
-            BoothsFolder = obj
-            break
-        end
-    end
-end
+local BoothsFolder = workspace:FindFirstChild("__THINGS") and workspace.__THINGS:FindFirstChild("Booths")
 
 if BoothsFolder then
     for _, booth in ipairs(BoothsFolder:GetChildren()) do
-        -- Lấy tên chủ Booth
-        local ownerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner")
-        local ownerName = "Unknown"
+        -- Lấy dữ liệu cơ bản của Booth từ Attributes
+        local boothID = booth:GetAttribute("BoothID") or booth.Name
+        local boothDirID = booth:GetAttribute("BoothDirID") or "Unknown"
+        local playerID = booth:GetAttribute("OwnerID") or booth:GetAttribute("Owner") or "Unknown"
+        local sitting = booth:GetAttribute("Sitting") or "false"
+        local lifetimeSales = booth:GetAttribute("LifetimeSales") or 0
         
-        if ownerID then
-            local p = Players:GetPlayerByUserId(tonumber(ownerID))
-            if p then
-                ownerName = p.Name
-            else
-                ownerName = "ID: " .. tostring(ownerID)
-            end
-        end
+        -- Chỉ in những booth thực sự có người đang bán hàng
+        local petsFolder = booth:FindFirstChild("Pets")
+        local boothTop = petsFolder and petsFolder:FindFirstChild("BoothTop")
         
-        -- Quét tất cả UI quảng cáo/bán hàng đính kèm trên mô hình Booth
-        local boothPrinted = false
-        
-        for _, desc in ipairs(booth:GetDescendants()) do
-            -- Tìm các BillboardGui hoặc SurfaceGui hiển thị thông tin giá/vật phẩm
-            if desc:IsA("TextLabel") or desc:IsA("TextBox") then
-                local text = desc.Text
+        if boothTop and #boothTop:GetChildren() > 0 then
+            -- In thông tin đầu của Booth
+            print(string.format("BoothID = %s", tostring(boothID)))
+            print(string.format("BoothDirID = %s", tostring(boothDirID)))
+            print(string.format("Sitting = %s", tostring(sitting)))
+            print(string.format("PlayerID = %s", tostring(playerID)))
+            print(string.format("LifetimeSales = %s", tostring(lifetimeSales)))
+            print("Listings:")
+            
+            -- Lặp qua từng item trong BoothTop
+            for _, itemObj in ipairs(boothTop:GetChildren()) do
+                -- Lấy các dữ liệu mã hóa từ Attributes của Object vật phẩm
+                local listingID = itemObj.Name -- Tên của instance thường là ID Listing (chuỗi hash dài)
+                local price = itemObj:GetAttribute("Price") or itemObj:GetAttribute("DiamondCost") or 0
+                local timestamp = itemObj:GetAttribute("Timestamp") or 0
+                local readyTimestamp = itemObj:GetAttribute("ReadyTimestamp") or (timestamp + 3.5)
                 
-                -- Lọc các TextLabel chứa thông tin giá bán hoặc tên vật phẩm
-                -- Thường text sẽ có dạng số kèm biểu tượng hoặc text chứa giá trị cụ thể
-                if text and text ~= "" and not desc.Parent:IsA("TextBox") then
-                    -- Kiểm tra xem text có phải là thông tin bán hàng (chứa giá trị, chữ số, gems, hoặc x1, x5...)
-                    local isItemOrPrice = text:find("%d") or text:find("x%d") or text:find("💎") or text:find("Gems")
-                    
-                    if isItemOrPrice and not text:find("Booth") and not text:find("'s") then
-                        if not boothPrinted then
-                            print("\n[BOOTH] Owner: " .. ownerName)
-                            boothPrinted = true
-                        end
-                        print("   -> Detail: " .. text)
-                    end
-                end
+                -- Đọc dữ liệu phân loại vật phẩm (Class & ID gốc)
+                local itemClass = itemObj:GetAttribute("Class") or "Unknown"
+                local itemID = itemObj:GetAttribute("ID") or itemObj:GetAttribute("ItemId") or "Unknown"
+                local uid = itemObj:GetAttribute("UID") or itemObj:GetAttribute("uid") or "N/A"
+                
+                -- In ra cấu trúc phân cấp chuẩn như hình ảnh của bạn
+                print(string.format("    %s:", tostring(listingID)))
+                print(string.format("        DiamondCost = %s", tostring(price)))
+                print(string.format("        Timestamp = %s", tostring(timestamp)))
+                print(string.format("        ReadyTimestamp = %s", tostring(readyTimestamp)))
+                print("        ItemData:")
+                print(string.format("            class = %s", tostring(itemClass)))
+                print("            data:")
+                print(string.format("                id = %s", tostring(itemID)))
+                print(string.format("                uid = %s", tostring(uid)))
             end
+            print("----------------------------------------")
         end
     end
 else
-    warn("Booths folder not found!")
+    warn("Could not find workspace.__THINGS.Booths folder!")
 end
 
 print("\n--- SCAN COMPLETE ---")
